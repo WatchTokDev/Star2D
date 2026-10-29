@@ -87,6 +87,9 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     private TextView titleView, indexingChip;
     private String tool = "grid", axis = "none";
     private boolean playing = false, projectOpen = false;
+    /** A full-screen LibGDX tool (the font editor) is open: the whole shell is hidden meanwhile, closer = what the Back key calls. */
+    private boolean toolOpen = false;
+    private Runnable toolCloser;
     private AlertDialog playDialog;
     private boolean indexing = false;
     /** The editor shell of the open editor activity (for tutorials). */
@@ -1137,6 +1140,8 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         prefabTemp = null;
         prefabReturn = null;
         prefabBusy = false;
+        toolOpen = false;
+        toolCloser = null;
         panels.hide();
         updateVisibility();
     }
@@ -1153,7 +1158,23 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
     }
 
     private void updateVisibility() {
-        setVisibility(projectOpen && !playing ? VISIBLE : GONE);
+        setVisibility(projectOpen && !playing && !toolOpen ? VISIBLE : GONE);
+    }
+
+    /** A full-screen LibGDX tool opened / closed (see TestApp.NativeHooks): hide the editor chrome while it is open, restore it on close. */
+    @Override
+    public void onFullscreenTool(boolean open, Runnable closer) {
+        Ui.ui(() -> {
+            toolOpen = open;
+            toolCloser = open ? closer : null;
+            updateVisibility();
+            if (!open) {
+                try {
+                    files.refreshList(); // the tool may have created / changed files
+                } catch (Throwable ignored) {
+                }
+            }
+        });
     }
 
     public boolean isPlaying() { return playing; }
@@ -1163,6 +1184,11 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
 
     /** Back key: close the panel first. Returns true when consumed. */
     public boolean onBack() {
+        if (toolOpen && toolCloser != null) {
+            Runnable closer = toolCloser;
+            Bridge.gl(closer);
+            return true;
+        }
         if (getVisibility() != VISIBLE) return false;
         if (com.star4droid.star2d.ui.tutorial.Tutorial.onBack(activity)) return true;
         if (panels.current() != null) {
