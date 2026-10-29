@@ -12,6 +12,11 @@ public final class ElementTypes {
 	/** editor TYPE -> short title for the picker. */
 	public static final HashMap<String, String> TITLES = new HashMap<String, String>();
 
+	/** Editor TYPE values that can be a physical element (they own a Box2D body when their "type" is DYNAMIC / KINEMATIC / STATIC). */
+	public static final String[] PHYSICAL_TYPES = {"BOX", "CIRCLE", "CUSTOM", "MAP"};
+	/** Editor TYPE values that can be a screen-space element (their "type" property is UI). */
+	public static final String[] UI_TYPES = {"BOX", "CIRCLE", "CUSTOM", "MAP", "TEXT", "PROGRESS", "JOYSTICK", "PARTICLE", "UIHOLDER", "GROUP"};
+
 	static {
 		CLASSES.put("PlayerItem", null);
 		CLASSES.put("BoxBody", new String[] {"BOX"});
