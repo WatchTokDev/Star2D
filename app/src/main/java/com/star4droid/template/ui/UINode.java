@@ -41,7 +41,7 @@ public class UINode {
         public String toString() {
             switch (kind) {
                 case PX: return trim(v);
-                case PCT: return trim(v) + "%";
+                case PCT: return trim(Math.round(v * 10000f) / 100f) + "%";
                 case WRAP: return "wrap";
                 case FILL: return "fill";
                 default: return "auto";

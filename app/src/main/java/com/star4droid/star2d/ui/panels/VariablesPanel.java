@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Typeface;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
@@ -157,7 +158,28 @@ public class VariablesPanel implements PanelHost.Panel {
         col.addView(Ui.text(c, Tr.t("ui_initial_value", "Initial value"), 12.5f, Ui.TEXT_2));
         EditText value = Ui.input(c, m.getValue(), "0");
         com.star4droid.star2d.ui.tutorial.Tut.tag(value, "vardlg:value");
-        col.addView(value, Ui.matchWrap());
+        // String values: a button opens a big text editor; the text is written as a proper Java string literal (quotes, \n, \\ escaped)
+        LinearLayout valueRow = Ui.row(c);
+        valueRow.setGravity(Gravity.CENTER_VERTICAL);
+        valueRow.addView(value, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        final android.widget.ImageView editText = Ui.iconButton(c, R.drawable.ic_s2_edit, Tr.t("text_edit", "Edit text"), v -> {
+            String raw = value.getText().toString().trim();
+            String plain = com.star4droid.star2d.ui.TextDialog.fromJavaLiteral(raw);
+            if (plain == null && !raw.isEmpty()) {
+                Ui.toast(c, Tr.t("ui_var_expr", "This value is a Java expression: edit it in the field."));
+                return;
+            }
+            com.star4droid.star2d.ui.TextDialog.show(c, Tr.t("ui_initial_value", "Initial value"), "", plain == null ? "" : plain,
+                    nv -> value.setText(nv.isEmpty() ? "" : com.star4droid.star2d.ui.TextDialog.javaLiteral(nv)));
+        });
+        valueRow.addView(editText);
+        editText.setVisibility("String".equals(type[0]) ? View.VISIBLE : View.GONE);
+        customType.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int d) {}
+            @Override public void onTextChanged(CharSequence s, int a, int b, int d) {}
+            @Override public void afterTextChanged(android.text.Editable s) { editText.setVisibility("String".equals(s.toString().trim()) ? View.VISIBLE : View.GONE); }
+        });
+        col.addView(valueRow, Ui.matchWrap());
         TextView tip = Ui.text(c, Tr.t("ui_var_tip", "Text values need quotes, e.g. \"Hello\". true/false for boolean."), 11.5f, Ui.TEXT_3);
         tip.setPadding(0, Ui.dp(c, 4), 0, 0);
         col.addView(tip);

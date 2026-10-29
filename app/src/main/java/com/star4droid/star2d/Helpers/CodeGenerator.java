@@ -219,6 +219,8 @@ public class CodeGenerator {
                                final ArrayList<PropertySet<String, Object>> properties,
                                final boolean format) {
         final SourceTrace trace = new SourceTrace(project.getCodesPath(scene));
+        // an element whose default properties could not be created has no property set: it is left out instead of failing the whole build
+        properties.removeIf(java.util.Objects::isNull);
         {
             {
                 // Initialize code building variables - preserved from original implementation
@@ -397,7 +399,7 @@ public class CodeGenerator {
                             // replace (") from string by (\")
                             initCode = (initCode.equals("") ? "" : (initCode + "\n")) + 
                                       "\t\t\t" + name + "_def." + propertyKey.replace(" ", "_") + 
-                                      "=" + (fieldType.equals("String") ? new Gson().toJson(entry.getValue().toString()) : entry.getValue().toString()) + qu2 + ";";
+                                      "=" + (fieldType.equals("String") ? com.star4droid.star2d.behaviors.ValueEmit.javaLiteral(entry.getValue().toString()) : entry.getValue().toString()) + qu2 + ";";
                         }
                         
                         // UIHolder: events of the inner UI elements (Events/<scene>/private/<holder>/ui/<node>/<event>)

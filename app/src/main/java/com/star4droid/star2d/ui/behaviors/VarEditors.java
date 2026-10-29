@@ -267,25 +267,7 @@ public final class VarEditors {
 	private static View text(Host h, Object value, Setter set) {
 		Context c = h.ctx();
 		String start = value == null ? "" : String.valueOf(value);
-		EditText e = Ui.input(c, start, "");
-		e.setImeOptions(EditorInfo.IME_ACTION_DONE);
-		e.setInputType(InputType.TYPE_CLASS_TEXT);
-		final String[] last = {start};
-		Runnable apply = () -> {
-			String nv = e.getText().toString();
-			if (nv.equals(last[0])) return;
-			last[0] = nv;
-			set.set(nv);
-		};
-		e.setOnEditorActionListener((tv, id, ev) -> {
-			apply.run();
-			e.clearFocus();
-			return false;
-		});
-		e.setOnFocusChangeListener((v, has) -> {
-			if (!has) apply.run();
-		});
-		return e;
+		return com.star4droid.star2d.ui.TextDialog.row(c, Tr.t("text_edit", "Edit text"), start, "[" + Tr.t("text_empty", "empty") + "]", nv -> set.set(nv));
 	}
 
 	private static View color(Host h, VarSpec s, Object value, Setter set) {

@@ -369,6 +369,18 @@ public class PropertiesPanel implements PanelHost.Panel {
                         apply.run();
                     }, null));
                 }
+                if (ft.equals("string") && !f.equals("name")) {
+                    // text: a roomy dialog (any length, many lines) instead of a one line field
+                    e.setFocusable(false);
+                    e.setMaxLines(3);
+                    e.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                    e.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, R.drawable.ic_s2_edit, 0);
+                    e.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(Ui.TEXT_3));
+                    e.setOnClickListener(v -> com.star4droid.star2d.ui.TextDialog.show(c, Tr.t(f), "", values.get(f) == null ? "" : values.get(f), nv -> {
+                        e.setText(nv);
+                        apply.run();
+                    }));
+                }
                 box.addView(e, Ui.matchWrap());
                 editors.put(f, e);
                 return box;

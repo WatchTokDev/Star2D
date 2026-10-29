@@ -244,7 +244,10 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         loadEventContext(this::refreshTab);
         // back from the event editor: the ● marks may have changed
         host.getViewTreeObserver().addOnWindowFocusChangeListener(focus -> {
-            if (focus && tab == 2) main.postDelayed(this::refreshTab, 150);
+            if (focus && awaitingEvent) {
+                awaitingEvent = false;
+                if (tab == 2) main.postDelayed(this::refreshTab, 150);
+            }
         });
         showTab(0);
         applyDevice();
@@ -709,7 +712,30 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
 
     // ------------------------------------------------------------------ tabs
 
+    private int shownTab = -1;
+    private UINode shownNode;
+
+    private static ScrollView findScroll(View v) {
+        if (v instanceof ScrollView) return (ScrollView) v;
+        if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int k = 0; k < g.getChildCount(); k++) {
+                ScrollView s = findScroll(g.getChildAt(k));
+                if (s != null) return s;
+            }
+        }
+        return null;
+    }
+
     private void showTab(int i) {
+        // a refresh of the same tab (a value was edited, the tree changed) keeps the scroll position; another tab or another element starts at the top
+        int keepY = -1;
+        if (i == shownTab && (i != 2 || selected == shownNode) && body.getChildCount() > 0) {
+            ScrollView old = findScroll(body.getChildAt(0));
+            if (old != null) keepY = old.getScrollY();
+        }
+        shownTab = i;
+        shownNode = selected;
         tab = i;
         for (int k = 0; k < tabs.length; k++) {
             boolean on = k == i;
@@ -733,6 +759,19 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
             sv.addView(v);
             body.addView(sv, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         }
+        if (keepY > 0) restoreScroll(findScroll(body.getChildAt(0)), keepY);
+    }
+
+    private static void restoreScroll(final ScrollView sv, final int y) {
+        if (sv == null) return;
+        sv.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
+            @Override
+            public boolean onPreDraw() {
+                sv.getViewTreeObserver().removeOnPreDrawListener(this);
+                sv.scrollTo(0, y);
+                return true;
+            }
+        });
     }
 
     private void refreshTab() {
@@ -1556,6 +1595,7 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
     // ---- events of the elements (the code lives per UI holder of the open scene: Events/<scene>/private/<holder>/ui/<node>/<event>)
 
     private String evScene = "", evPreferred = "", evChosen = "";
+    private boolean awaitingEvent;
     private final ArrayList<String> evHolders = new ArrayList<>();
 
     /** Looks for the UI holders of the open scene that show this UI (GL thread), then calls {@code then} on the UI thread. */
@@ -1618,6 +1658,7 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
             final java.util.function.Consumer<String> go = holder -> {
                 evChosen = holder;
                 if (hist.dirty() && !save()) return; // the node must exist in the saved file for its code to be generated
+                awaitingEvent = true;
                 com.star4droid.star2d.Adapters.VisualScriptingDialog.showForUi(holder, n.id, ev);
             };
             if (evHolders.size() == 1) go.accept(evHolders.get(0));

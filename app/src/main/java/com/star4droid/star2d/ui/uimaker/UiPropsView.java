@@ -837,38 +837,12 @@ final class UiPropsView {
     // ------------------------------------------------------------------ text
 
     private View textControl(final UINode n, final Prop pr, boolean multi) {
-        final EditText e = Ui.input(c, UIWidgetRegistry.get(n, pr.key), pr.def.isEmpty() ? "" : pr.def);
-        e.setContentDescription(lab(n, pr));
-        if (multi) {
-            e.setSingleLine(false);
-            e.setMinLines(2);
-            e.setMaxLines(6);
-            e.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        }
-        e.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG);
-        final Runnable[] pending = new Runnable[1];
-        e.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int a, int b, int d) {
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int a, int b, int d) {
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                final String v = s.toString();
-                if (pending[0] != null) e.removeCallbacks(pending[0]);
-                pending[0] = () -> {
-                    if (!v.equals(UIWidgetRegistry.get(n, pr.key))) {
-                        String err = UIWidgetRegistry.set(n, pr.key, v);
-                        if (err == null) host.edited();
-                    }
-                };
-                e.postDelayed(pending[0], 350);
+        return com.star4droid.star2d.ui.TextDialog.row(c, lab(n, pr), UIWidgetRegistry.get(n, pr.key), pr.def.isEmpty() ? "[" + Tr.t("text_empty", "empty") + "]" : pr.def, v -> {
+            if (!v.equals(UIWidgetRegistry.get(n, pr.key))) {
+                String err = UIWidgetRegistry.set(n, pr.key, v);
+                if (err == null) host.edited();
+                else Ui.toast(c, UiTr.err(err));
             }
         });
-        return e;
     }
 }

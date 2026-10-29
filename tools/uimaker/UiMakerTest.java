@@ -188,6 +188,11 @@ public class UiMakerTest {
                 && Arrays.asList(UIWidgetRegistry.find("Button", "theme").options).contains("candy"));
         check("set per node theme", UIWidgetRegistry.set(th, "theme", "candy") == null && "candy".equals(UIWidgetRegistry.get(th, "theme")));
         check("clear per node theme", UIWidgetRegistry.set(th, "theme", "") == null && !th.has("theme"));
+        for (String lit : new String[]{"a \"q\"\nline2 \\ \\u0041 \u0645\u0631\u062d\u0628\u0627 x=y<z>&'", "", "end\\", "C:\\users\\new\t"})
+            check("java literal round trip", lit.equals(com.star4droid.star2d.behaviors.ValueEmit.fromJavaLiteral(com.star4droid.star2d.behaviors.ValueEmit.javaLiteral(lit))), lit);
+        check("java literal keeps = < > readable", com.star4droid.star2d.behaviors.ValueEmit.javaLiteral("a=b<c").equals("\"a=b<c\""));
+        check("percent size keeps its value", UIWidgetRegistry.set(th, "w", "52%") == null && "52%".equals(UIWidgetRegistry.get(th, "w")) && Math.abs(UINode.parseSize(UIWidgetRegistry.get(th, "w")).v - 0.52f) < 1e-6, UIWidgetRegistry.get(th, "w"));
+        check("percent size 12.5", UIWidgetRegistry.set(th, "h", "12.5%") == null && "12.5%".equals(UIWidgetRegistry.get(th, "h")), UIWidgetRegistry.get(th, "h"));
         // ---------- lint translator
         UIDocument tl = UiOps.newDocument("tl", 720, 1280);
         UINode tb = UINode.create("Button", "tinyb");

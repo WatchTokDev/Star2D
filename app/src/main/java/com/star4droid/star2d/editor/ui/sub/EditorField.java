@@ -270,7 +270,7 @@ public class EditorField {
 					app.getControlLayer().getCustomColliderEditor().show(app.getUiStage());
 				}
 			});
-		} else if(type.equals("string")){
+		} else if(type.equals("string") || type.equals("ui")){
 			inputField = new StringInput();
 			inputField.setOnChange(()->{
 				LibgdxEditor editor = app.getEditor();

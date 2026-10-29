@@ -109,4 +109,27 @@ public final class ValueEmit {
 		}
 		return o.append('"').toString();
 	}
+
+	private static final com.google.gson.Gson LITERAL = new com.google.gson.GsonBuilder().disableHtmlEscaping().create();
+
+	/**
+	 * A Java string literal for any text (properties, variables): quotes, backslashes and line breaks are escaped; letters of any language
+	 * and symbols such as = < > & stay readable in the generated code (unlike {@link #quote}, which writes every non ASCII letter as \\uXXXX).
+	 */
+	public static String javaLiteral(String text) {
+		return LITERAL.toJson(text == null ? "" : text);
+	}
+
+	/** The text of a plain Java string literal, or null when the code is something else (an expression like "a" + b). */
+	public static String fromJavaLiteral(String code) {
+		if (code == null) return null;
+		String t = code.trim();
+		if (t.length() < 2 || t.charAt(0) != '"' || t.charAt(t.length() - 1) != '"') return null;
+		try {
+			com.google.gson.JsonElement e = new com.google.gson.JsonParser().parse(t);
+			return e.isJsonPrimitive() && e.getAsJsonPrimitive().isString() ? e.getAsString() : null;
+		} catch (Exception ex) {
+			return null;
+		}
+	}
 }
