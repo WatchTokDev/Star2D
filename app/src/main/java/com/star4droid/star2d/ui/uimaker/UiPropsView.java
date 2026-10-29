@@ -66,6 +66,15 @@ final class UiPropsView {
 
         /** Current rectangle of a node in logical px, or null. */
         UiRects.R rectOf(String id);
+
+        /** True when the event of this node already has code for the holder this UI is shown by. */
+        boolean eventHasCode(UINode n, String event);
+
+        /** Name of the UI holder the events belong to, "" when the scene has none that shows this UI. */
+        String eventHolder();
+
+        /** Opens the block / code editor of the event of this node (asks which holder when several show this UI). */
+        void openEvent(UINode n, String event);
     }
 
     private static final HashSet<String> COLLAPSED = new HashSet<>();
@@ -135,6 +144,8 @@ final class UiPropsView {
             root.addView(d);
         }
         if (n.parent != null) root.addView(parentRow(n), Ui.matchWrap());
+        String[] evs = UIWidgetRegistry.eventsOf(n);
+        if (evs.length > 0) addEvents(root, n, evs);
 
         // group the properties
         LinkedHashMap<String, ArrayList<Prop>> groups = new LinkedHashMap<>();
@@ -283,6 +294,53 @@ final class UiPropsView {
             else COLLAPSED.remove(group);
             arrow.setImageResource(hide ? R.drawable.ic_s2_expand_more : R.drawable.ic_s2_expand_less);
         });
+    }
+
+    // ------------------------------------------------------------------ events
+
+    private static final String[][] EVENT_DEFAULTS = {{"onChange", "When the value changes"}, {"onSubmit", "When submitted"}, {"onScroll", "When scrolled"}};
+
+    static String eventName(String ev) {
+        for (String[] d : EVENT_DEFAULTS) if (d[0].equals(ev)) return Tr.t("uim_ev_" + ev, d[1]);
+        return Tr.t(ev);
+    }
+
+    /** The events of the element (click, touch, change...): tap one to write its code without leaving the UI Maker. */
+    private void addEvents(final LinearLayout root, final UINode n, String[] evs) {
+        LinearLayout head = Ui.row(c);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.setPadding(0, Ui.dp(c, 14), 0, Ui.dp(c, 4));
+        TextView title = Ui.text(c, Tr.t("uim_events", "Events").toUpperCase(Locale.ROOT), 12, Ui.TEXT_2);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setLetterSpacing(0.08f);
+        head.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        root.addView(head, Ui.matchWrap());
+        String holder = host.eventHolder();
+        TextView hint = Ui.text(c, holder.isEmpty() ? Tr.t("uim_ev_no_holder_hint", "Events are written per UI holder: add a UI holder that shows this UI to the scene.")
+                : String.format(Tr.t("uim_ev_holder", "Code runs for the UI holder: %s"), holder), 11, Ui.TEXT_3);
+        hint.setPadding(0, 0, 0, Ui.dp(c, 4));
+        root.addView(hint);
+        for (final String ev : evs) {
+            boolean has = host.eventHasCode(n, ev);
+            LinearLayout r = Ui.row(c);
+            r.setGravity(Gravity.CENTER_VERTICAL);
+            r.setMinimumHeight(Ui.dp(c, 46));
+            r.setPadding(Ui.dp(c, 10), 0, Ui.dp(c, 8), 0);
+            r.setBackground(Ui.rounded(has ? Ui.ACCENT_SOFT : Ui.SURFACE_2, Ui.dp(c, 10), has ? Ui.ACCENT : Ui.BORDER, 1));
+            r.addView(Ui.smallIcon(c, R.drawable.ic_s2_events, has ? Ui.ACCENT : Ui.TEXT_2, 20));
+            LinearLayout tx = Ui.column(c);
+            tx.setPadding(Ui.dp(c, 10), 0, 0, 0);
+            tx.addView(Ui.text(c, eventName(ev), 14, Ui.TEXT));
+            tx.addView(Ui.text(c, ev + (has ? "  ●" : ""), 11, has ? Ui.ACCENT : Ui.TEXT_3));
+            r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+            ImageView chev = Ui.smallIcon(c, R.drawable.ic_s2_chevron_right, Ui.TEXT_3, 20);
+            if (Ui.isRtl(c)) chev.setScaleX(-1f);
+            r.addView(chev);
+            r.setOnClickListener(v -> host.openEvent(n, ev));
+            LinearLayout.LayoutParams lp = Ui.matchWrap();
+            lp.bottomMargin = Ui.dp(c, 6);
+            root.addView(r, lp);
+        }
     }
 
     // ------------------------------------------------------------------ one row

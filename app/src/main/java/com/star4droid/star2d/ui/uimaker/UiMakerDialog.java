@@ -36,6 +36,7 @@ import androidx.appcompat.app.AlertDialog;
 import com.badlogic.gdx.Gdx;
 import com.star4droid.star2d.evo.R;
 import com.star4droid.star2d.ui.ColorPickerDialog;
+import com.star4droid.star2d.ui.Bridge;
 import com.star4droid.star2d.ui.Dialogs;
 import com.star4droid.star2d.ui.NumberPad;
 import com.star4droid.star2d.ui.Snack;
@@ -205,13 +206,23 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         // the content sits in a FrameLayout that also hosts the snackbars (activity level ones would be hidden behind this window)
         host = new FrameLayout(act);
         host.setLayoutDirection(Ui.isRtl(act) ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
-        host.addView(buildRoot(), new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        final View content = buildRoot();
+        host.addView(content, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // edge-to-edge window (targetSdk 36): keep the toolbar under the status bar and the panel above the navigation bar / keyboard
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(host, (v, insets) -> {
+            androidx.core.graphics.Insets bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() | androidx.core.view.WindowInsetsCompat.Type.displayCutout());
+            androidx.core.graphics.Insets ime = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime());
+            content.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, ime.bottom));
+            return androidx.core.view.WindowInsetsCompat.CONSUMED;
+        });
         dialog.setContentView(host);
         Window w = dialog.getWindow();
         if (w != null) {
             w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
             w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE | WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
             w.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Ui.BG));
+            w.setStatusBarColor(Ui.BG);
+            w.setNavigationBarColor(Ui.BG);
         }
         dialog.setOnKeyListener((d, code, ev) -> {
             if (code == KeyEvent.KEYCODE_BACK && ev.getAction() == KeyEvent.ACTION_UP) {
@@ -230,6 +241,11 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         });
         Snack.pushHost(host);
         dialog.show();
+        loadEventContext(this::refreshTab);
+        // back from the event editor: the ● marks may have changed
+        host.getViewTreeObserver().addOnWindowFocusChangeListener(focus -> {
+            if (focus && tab == 2) main.postDelayed(this::refreshTab, 150);
+        });
         showTab(0);
         applyDevice();
         updateBars();
@@ -849,19 +865,50 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         ScrollView sv = new ScrollView(act);
         LinearLayout list = Ui.column(act);
         list.setPadding(0, 0, 0, Ui.dp(act, 24));
-        addTreeRows(list, doc.root, 0);
+        // the tree starts collapsed (the root shows its children, they show theirs when opened); selecting an element, in the preview
+        // or by adding it, opens the parents it sits in
+        if (selected != null && selected != revealed) {
+            for (UINode p = selected.parent; p != null; p = p.parent) expandedNodes.add(p);
+        }
+        revealed = selected;
+        expandedNodes.add(doc.root);
+        addTreeRows(list, list, doc.root, 0);
         sv.addView(list);
         root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         return root;
     }
 
-    private void addTreeRows(LinearLayout list, final UINode n, int depth) {
+    /** Nodes whose children are shown in the tree (identity based; the root is always in). */
+    private final java.util.Set<UINode> expandedNodes = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<UINode, Boolean>());
+    private UINode revealed;
+
+    private void addTreeRows(final LinearLayout list, LinearLayout into, final UINode n, int depth) {
         LinearLayout row = Ui.row(act);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(Ui.dp(act, 42));
-        row.setPadding(Ui.dp(act, 8 + depth * 16), 0, Ui.dp(act, 6), 0);
+        row.setPadding(Ui.dp(act, 4 + depth * 16), 0, Ui.dp(act, 6), 0);
         boolean sel = n == selected;
         row.setBackgroundColor(sel ? Ui.ACCENT_SOFT : Color.TRANSPARENT);
+        // expand / collapse arrow (a spacer of the same width for leaves keeps the icons aligned)
+        final boolean hasKids = !n.children.isEmpty();
+        final LinearLayout kids = hasKids ? Ui.column(act) : null;
+        final boolean open = hasKids && expandedNodes.contains(n);
+        final boolean rtl = Ui.isRtl(act);
+        ImageView arrow = Ui.smallIcon(act, R.drawable.ic_s2_expand_more, hasKids ? Ui.TEXT_2 : Color.TRANSPARENT, 22);
+        arrow.setPadding(Ui.dp(act, 4), Ui.dp(act, 4), Ui.dp(act, 4), Ui.dp(act, 4));
+        arrow.setRotation(open ? 0f : (rtl ? 90f : -90f));
+        if (hasKids) {
+            arrow.setContentDescription(Tr.t("uim_expand", "Expand / collapse"));
+            arrow.setOnClickListener(v -> {
+                boolean now = !expandedNodes.contains(n);
+                if (now) expandedNodes.add(n);
+                else expandedNodes.remove(n);
+                arrow.animate().rotation(now ? 0f : (rtl ? 90f : -90f)).setDuration(200).start();
+                if (now) com.star4droid.star2d.ui.behaviors.Collapse.show(kids, list.getWidth());
+                else com.star4droid.star2d.ui.behaviors.Collapse.hide(kids);
+            });
+        }
+        row.addView(arrow, new LinearLayout.LayoutParams(Ui.dp(act, 30), Ui.dp(act, 30)));
         row.addView(Ui.smallIcon(act, UiIcons.forType(n.type), sel ? Ui.ACCENT : Ui.TEXT_2, 20));
         LinearLayout col = Ui.column(act);
         col.setPadding(Ui.dp(act, 10), 0, 0, 0);
@@ -909,8 +956,13 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
             preview.invalidate();
             refreshTab();
         });
-        list.addView(row, Ui.matchWrap());
-        for (UINode c : n.children) addTreeRows(list, c, depth + 1);
+        into.addView(row, Ui.matchWrap());
+        if (hasKids) {
+            for (UINode c : n.children) addTreeRows(list, kids, c, depth + 1);
+            kids.setVisibility(open ? View.VISIBLE : View.GONE);
+            kids.setClipChildren(true);
+            into.addView(kids, Ui.matchWrap());
+        }
     }
 
     private void treeAction(int k) {
@@ -1499,6 +1551,82 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
     @Override
     public String projectPath() {
         return project;
+    }
+
+    // ---- events of the elements (the code lives per UI holder of the open scene: Events/<scene>/private/<holder>/ui/<node>/<event>)
+
+    private String evScene = "", evPreferred = "", evChosen = "";
+    private final ArrayList<String> evHolders = new ArrayList<>();
+
+    /** Looks for the UI holders of the open scene that show this UI (GL thread), then calls {@code then} on the UI thread. */
+    private void loadEventContext(final Runnable then) {
+        final String want = name;
+        Bridge.query(() -> {
+            Object[] out = new Object[]{"", new ArrayList<String>(), ""};
+            com.star4droid.star2d.editor.LibgdxEditor ed = Bridge.editor();
+            if (ed == null) return out;
+            out[0] = ed.getScene();
+            Object sel = ed.getSelectedActor();
+            for (com.badlogic.gdx.scenes.scene2d.Actor a : ed.getActors()) {
+                try {
+                    com.star4droid.star2d.Helpers.PropertySet<String, Object> ps = com.star4droid.star2d.Helpers.PropertySet.getPropertySet(a);
+                    if (ps == null || !"UIHOLDER".equals(ps.getString("TYPE"))) continue;
+                    if (!cleanName(ps.getString("ui")).equals(want)) continue;
+                    ((ArrayList<String>) out[1]).add(ps.getString("name"));
+                    if (a == sel) out[2] = ps.getString("name");
+                } catch (RuntimeException ignored) {
+                }
+            }
+            return out;
+        }, out -> {
+            evScene = String.valueOf(out[0]);
+            evHolders.clear();
+            evHolders.addAll((ArrayList<String>) out[1]);
+            evPreferred = String.valueOf(out[2]);
+            if (then != null) then.run();
+        });
+    }
+
+    private String currentHolder() {
+        if (evHolders.contains(evChosen)) return evChosen;
+        if (evHolders.contains(evPreferred)) return evPreferred;
+        return evHolders.isEmpty() ? "" : evHolders.get(0);
+    }
+
+    @Override
+    public String eventHolder() {
+        return currentHolder();
+    }
+
+    @Override
+    public boolean eventHasCode(UINode n, String ev) {
+        String holder = currentHolder();
+        if (holder.isEmpty() || evScene.isEmpty()) return false;
+        File dir = new File(project, "Events/" + evScene + "/private/" + holder + "/ui/" + n.id);
+        File j = new File(dir, ev + ".java"), v = new File(dir, ev + ".visual");
+        return (j.isFile() && j.length() > 0) || (v.isFile() && v.length() > 2);
+    }
+
+    @Override
+    public void openEvent(final UINode n, final String ev) {
+        loadEventContext(() -> {
+            if (evHolders.isEmpty()) {
+                Ui.toast(act, Tr.t("uim_ev_no_holder", "Add a UI holder that shows this UI to the open scene first: the code of an event belongs to a holder."));
+                refreshTab();
+                return;
+            }
+            final java.util.function.Consumer<String> go = holder -> {
+                evChosen = holder;
+                if (hist.dirty() && !save()) return; // the node must exist in the saved file for its code to be generated
+                com.star4droid.star2d.Adapters.VisualScriptingDialog.showForUi(holder, n.id, ev);
+            };
+            if (evHolders.size() == 1) go.accept(evHolders.get(0));
+            else if (evHolders.contains(evPreferred)) go.accept(evPreferred);
+            else {
+                final String[] names = evHolders.toArray(new String[0]);
+                Dialogs.choose(act, Tr.t("uim_ev_which", "Which UI holder?"), names, i -> go.accept(names[i]));
+            }
+        });
     }
 
     @Override

@@ -12,7 +12,7 @@ import android.view.animation.PathInterpolator;
  * ScrollView and never leaves the view with a fixed height). Calling show / hide in the middle of an animation reverses it from
  * where it is.
  */
-final class Collapse {
+public final class Collapse {
 	private Collapse() {}
 
 	static final long DURATION = 230;
@@ -24,7 +24,7 @@ final class Collapse {
 	}
 
 	/** Opens {@code v} (currently GONE or closing) to its natural height. {@code widthPx} = the width it will have. */
-	static void show(final View v, int widthPx) {
+	public static void show(final View v, int widthPx) {
 		cancel(v);
 		final ViewGroup.LayoutParams lp = v.getLayoutParams();
 		int start = v.getVisibility() == View.VISIBLE ? v.getHeight() : 0;
@@ -44,7 +44,7 @@ final class Collapse {
 	}
 
 	/** Closes {@code v}: its height goes to 0, then it is GONE. */
-	static void hide(final View v) {
+	public static void hide(final View v) {
 		cancel(v);
 		if (v.getVisibility() != View.VISIBLE) return;
 		int start = v.getHeight();
