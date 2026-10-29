@@ -61,7 +61,8 @@ public final class BehaviorSection implements VarEditors.Host {
 		content.addView(container, Ui.matchWrap());
 		Bridge.query(() -> BehaviorEnv.collect(element), e -> {
 			env = e;
-			rebuild();
+			// the built-in library is read on a background thread the first time (never on the UI thread)
+			BehaviorText.whenReady(ctx, this::rebuild);
 		});
 	}
 
@@ -74,7 +75,7 @@ public final class BehaviorSection implements VarEditors.Host {
 		if (value == null) value = "";
 		if (key.equals("behaviors") && !value.equals(bjson)) {
 			bjson = value;
-			rebuild();
+			refreshBehaviors();
 		} else if (key.equals("scriptVars") && !value.equals(vjson)) {
 			vjson = value;
 			rebuild();
@@ -89,11 +90,19 @@ public final class BehaviorSection implements VarEditors.Host {
 		});
 	}
 
+	/** Saves the list and redraws only the behaviors card (the script variables card is left alone). */
 	private void saveBehaviors(List<BehaviorData.Entry> entries) {
 		bjson = BehaviorData.toJson(entries);
 		commit("behaviors", bjson);
-		rebuild();
+		refreshBehaviors();
 		shell.events.onSelectionChanged();
+	}
+
+	/** A parameter or the on / off switch changed: the list of events is the same, so the Events panel is not touched. */
+	private void saveBehaviorValues(List<BehaviorData.Entry> entries, boolean redraw) {
+		bjson = BehaviorData.toJson(entries);
+		commit("behaviors", bjson);
+		if (redraw) refreshBehaviors();
 	}
 
 	private void saveVars(Map<String, Object> vars) {
@@ -161,14 +170,44 @@ public final class BehaviorSection implements VarEditors.Host {
 
 	// ------------------------------------------------------------------------------------------------ behaviors
 
+	/** Body of the "Additional behaviors" card: its rows are redrawn on their own, without touching the rest of the panel. */
+	private LinearLayout behaviorsBody;
+
 	private void buildBehaviors() {
-		List<BehaviorData.Entry> entries = BehaviorData.parse(bjson);
 		ImageView add = Ui.iconButton(ctx, R.drawable.ic_s2_add, Tr.t("bhv_add_title", "Add behavior"), v -> {
 			HashSet<String> has = new HashSet<>();
-			for (BehaviorData.Entry e : entries) has.add(e.type);
+			for (BehaviorData.Entry e : BehaviorData.parse(bjson)) has.add(e.type);
 			BehaviorPickerDialog.show(ctx, env, has, this::add);
 		});
-		LinearLayout body = card(Tr.t("bhv_title", "Additional behaviors"), "behaviors", add);
+		behaviorsBody = card(Tr.t("bhv_title", "Additional behaviors"), "behaviors", add);
+		fillBehaviors();
+	}
+
+	/** Redraws the behavior rows from {@code bjson}; collapsed rows are cheap (their parameters are built when first opened). */
+	private void refreshBehaviors() {
+		if (env == null) return;
+		if (behaviorsBody == null || behaviorsBody.getParent() == null) {
+			rebuild();
+			return;
+		}
+		fillBehaviors();
+	}
+
+	/** Metadata of the behaviors of the card being drawn: looked up once per redraw (a lookup can touch the project's files). */
+	private final Map<String, BehaviorMeta> metaMemo = new HashMap<>();
+
+	private BehaviorMeta metaOf(String type) {
+		if (metaMemo.containsKey(type)) return metaMemo.get(type);
+		BehaviorMeta m = BehaviorCatalog.find(type, env.projectPath);
+		metaMemo.put(type, m);
+		return m;
+	}
+
+	private void fillBehaviors() {
+		LinearLayout body = behaviorsBody;
+		metaMemo.clear();
+		body.removeAllViews();
+		List<BehaviorData.Entry> entries = BehaviorData.parse(bjson);
 		if (entries.isEmpty()) {
 			TextView t = Ui.text(ctx, Tr.t("bhv_empty", "None yet. Tap + to add ready-made behaviors (movement, shooting, effects...)."), 12.5f, Ui.TEXT_3);
 			t.setPadding(Ui.dp(ctx, 2), Ui.dp(ctx, 6), 0, Ui.dp(ctx, 6));
@@ -184,38 +223,41 @@ public final class BehaviorSection implements VarEditors.Host {
 		for (int j = 0; j < idx; j++) {
 			BehaviorData.Entry o = entries.get(j);
 			if (!o.enabled) continue;
-			BehaviorMeta om = BehaviorCatalog.find(o.type, env.projectPath);
+			BehaviorMeta om = metaOf(o.type);
 			if (om == null) continue;
 			for (Map.Entry<String, String> e : m.sets.entrySet()) {
 				String ov = om.sets.get(e.getKey());
 				if (ov != null && !ov.equals(e.getValue()))
-					return om.title() + " " + Tr.t("bhv_sets_also", "also sets") + " " + e.getKey() + "=" + ov + " → " + Tr.t("bhv_sets_wins", "this one wins") + " (" + e.getKey() + "=" + e.getValue() + ")";
+					return BehaviorText.name(om) + " " + Tr.t("bhv_sets_also", "also sets") + " " + BehaviorText.setKey(e.getKey()) + " = " + BehaviorText.setValue(e.getKey(), ov)
+							+ " → " + Tr.t("bhv_sets_wins", "this one wins") + " (" + BehaviorText.setKey(e.getKey()) + " = " + BehaviorText.setValue(e.getKey(), e.getValue()) + ")";
 			}
 		}
 		return null;
 	}
 
 	private View row(List<BehaviorData.Entry> entries, int idx) {
-		BehaviorData.Entry e = entries.get(idx);
-		BehaviorMeta m = BehaviorCatalog.find(e.type, env.projectPath);
-		LinearLayout box = Ui.column(ctx);
+		final BehaviorData.Entry e = entries.get(idx);
+		final BehaviorMeta m = metaOf(e.type);
+		final LinearLayout box = Ui.column(ctx);
 		box.setBackground(Ui.rounded(Ui.SURFACE_3, Ui.dp(ctx, 8)));
 		box.setLayoutParams(Ui.margins(Ui.matchWrap(), ctx, 0, 3, 0, 3));
-		String key = element + "|" + e.type;
+		final String key = element + "|" + e.type;
+		final boolean canOpen = m != null;
 
 		LinearLayout head = Ui.row(ctx);
 		head.setGravity(Gravity.CENTER_VERTICAL);
-		head.setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 2), Ui.dp(ctx, 2), Ui.dp(ctx, 2));
+		head.setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 2), Ui.dp(ctx, 4), Ui.dp(ctx, 2));
+		head.setMinimumHeight(Ui.dp(ctx, 44));
 		head.setBackground(Ui.ripple(0, Ui.dp(ctx, 8)));
 		head.addView(m == null ? Ui.smallIcon(ctx, R.drawable.ic_s2_bug, Ui.DANGER, 26) : BehaviorIcons.view(ctx, m.icon, 26, e.enabled ? Ui.ACCENT : Ui.TEXT_3));
-		TextView name = Ui.text(ctx, m == null ? e.type : m.title(), 14, e.enabled ? Ui.TEXT : Ui.TEXT_3);
+		TextView name = Ui.text(ctx, BehaviorText.name(m, e.type), 14, e.enabled ? Ui.TEXT : Ui.TEXT_3);
 		name.setPadding(Ui.dp(ctx, 10), 0, Ui.dp(ctx, 6), 0);
 		head.addView(name, Ui.weight(1));
 
 		List<String> warns = new ArrayList<>();
 		if (m == null) warns.add(Tr.t("bhv_missing", "This behavior no longer exists (its file was deleted). Remove it."));
 		else {
-			String misfit = m.misfit(env.bodyType);
+			String misfit = BehaviorText.misfit(m, env.bodyType);
 			if (misfit != null) warns.add(misfit);
 			String sw = setsWarning(entries, idx, m);
 			if (sw != null) warns.add(sw);
@@ -226,14 +268,46 @@ public final class BehaviorSection implements VarEditors.Host {
 			sw.setChecked(e.enabled);
 			sw.setOnCheckedChangeListener((b, on) -> {
 				e.enabled = on;
-				saveBehaviors(entries);
+				// redraw after the switch finished its own animation (other rows may warn about the order of @Sets)
+				box.post(() -> saveBehaviorValues(entries, true));
 			});
 			head.addView(sw);
-			head.addView(Ui.iconButton(ctx, R.drawable.ic_s2_info, Tr.t("bhv_info", "Info"), v -> info(m)));
+			head.addView(BehaviorInfoDialog.button(ctx, 36, v -> BehaviorInfoDialog.show(ctx, env, m, m.builtin ? null : new BehaviorInfoDialog.Actions() {
+				@Override public void exportS2b() { BehaviorShare.export(ctx, env.projectPath, m); }
+
+				@Override public void editCode() {
+					shell.panels.hide();
+					shell.host().openJava(m.file);
+				}
+			})));
 		}
+		// chevron: turns when the parameters open / close
+		final ImageView chevron = Ui.smallIcon(ctx, R.drawable.ic_s2_expand_more, Ui.TEXT_2, 20);
+		chevron.setLayoutParams(Ui.margins(new LinearLayout.LayoutParams(Ui.dp(ctx, 20), Ui.dp(ctx, 20)), ctx, 4, 0, 6, 0));
+		chevron.setRotation(canOpen && EXPANDED.contains(key) ? 180f : 0f);
+		if (canOpen) head.addView(chevron);
+
+		// the parameters: not even built until the row is opened (the common case is a list of closed rows)
+		final LinearLayout inner = Ui.column(ctx);
+		inner.setPadding(Ui.dp(ctx, 10), 0, Ui.dp(ctx, 10), Ui.dp(ctx, 8));
+		final boolean[] built = {false};
+		final Runnable build = () -> {
+			if (built[0] || m == null) return;
+			built[0] = true;
+			buildInner(inner, entries, idx, e, m, key);
+		};
 		head.setOnClickListener(v -> {
-			if (EXPANDED.contains(key)) EXPANDED.remove(key); else EXPANDED.add(key);
-			rebuild();
+			if (!canOpen) return;
+			if (EXPANDED.contains(key)) {
+				EXPANDED.remove(key);
+				chevron.animate().rotation(0f).setDuration(Collapse.DURATION).setInterpolator(Collapse.INTERPOLATOR).start();
+				Collapse.hide(inner);
+			} else {
+				EXPANDED.add(key);
+				build.run();
+				chevron.animate().rotation(180f).setDuration(Collapse.DURATION).setInterpolator(Collapse.INTERPOLATOR).start();
+				Collapse.show(inner, box.getWidth() > 0 ? box.getWidth() : container.getWidth());
+			}
 		});
 		box.addView(head);
 
@@ -248,52 +322,69 @@ public final class BehaviorSection implements VarEditors.Host {
 			box.addView(t);
 		}
 
-		if (EXPANDED.contains(key)) {
-			LinearLayout inner = Ui.column(ctx);
-			inner.setPadding(Ui.dp(ctx, 10), 0, Ui.dp(ctx, 10), Ui.dp(ctx, 8));
-			box.addView(inner);
-			if (m != null) {
-				if (!m.requirementsText().isEmpty()) {
-					TextView t = Ui.text(ctx, m.requirementsText(), 11.5f, Ui.TEXT_3);
-					t.setPadding(0, 0, 0, Ui.dp(ctx, 4));
-					inner.addView(t);
-				}
-				for (VarSpec v : m.vars) {
-					inner.addView(VarEditors.field(this, v, e.params.get(v.name), val -> {
-						if (val == null) e.params.remove(v.name); else e.params.put(v.name, val);
-						saveBehaviors(entries);
-					}));
-				}
-				if (m.vars.isEmpty()) inner.addView(Ui.text(ctx, Tr.t("bhv_no_params", "No parameters."), 12, Ui.TEXT_3));
-			}
-			LinearLayout tools = Ui.row(ctx);
-			tools.setGravity(Gravity.CENTER_VERTICAL);
-			if (idx > 0) tools.addView(Ui.iconButton(ctx, R.drawable.ic_s2_arrow_up, Tr.t("bhv_up", "Move up (runs earlier)"), v -> {
-				entries.add(idx - 1, entries.remove(idx));
-				saveBehaviors(entries);
-			}));
-			if (idx < entries.size() - 1) tools.addView(Ui.iconButton(ctx, R.drawable.ic_s2_arrow_down, Tr.t("bhv_down", "Move down (runs later)"), v -> {
-				entries.add(idx + 1, entries.remove(idx));
-				saveBehaviors(entries);
-			}));
-			if (m != null && !m.events.isEmpty())
-				tools.addView(Ui.button(ctx, R.drawable.ic_s2_events, Tr.t("bhv_events", "Events"), false, v -> eventsDialog(m)));
-			if (m != null && !m.sets.isEmpty() && !env.isUi())
-				tools.addView(Ui.button(ctx, R.drawable.ic_s2_check, Tr.t("bhv_apply", "Apply to element"), false, v -> applySets(m)));
-			if (m != null && !e.params.isEmpty())
-				tools.addView(Ui.iconButton(ctx, R.drawable.ic_s2_refresh, Tr.t("bhv_reset_all", "Reset all parameters"), v -> {
-					e.params.clear();
-					saveBehaviors(entries);
-				}));
-			tools.addView(Ui.iconButton(ctx, R.drawable.ic_s2_delete, Tr.t("delete", "Delete"), v ->
-					Dialogs.confirm(ctx, Tr.t("delete", "Delete"), (m == null ? e.type : m.title()) + "\n" + Tr.t("areYouSure", "Are you sure?"), Tr.t("delete", "Delete"), () -> {
-						entries.remove(idx);
-						EXPANDED.remove(key);
-						saveBehaviors(entries);
-					})));
-			inner.addView(tools, Ui.matchWrap());
-		}
+		box.addView(inner, Ui.matchWrap());
+		if (canOpen && EXPANDED.contains(key)) build.run();
+		else inner.setVisibility(View.GONE);
 		return box;
+	}
+
+	/** The parameters and tools of one behavior row (built the first time the row is opened). */
+	private void buildInner(LinearLayout inner, List<BehaviorData.Entry> entries, int idx, BehaviorData.Entry e, BehaviorMeta m, String key) {
+		String req = BehaviorText.requirements(m);
+		if (!req.isEmpty()) {
+			TextView t = Ui.text(ctx, req, 11.5f, Ui.TEXT_3);
+			t.setPadding(0, 0, 0, Ui.dp(ctx, 4));
+			inner.addView(t);
+		}
+		final View[] resetAll = {null};
+		for (VarSpec v : BehaviorText.vars(m)) addField(inner, inner.getChildCount(), v, entries, e, resetAll);
+		if (m.vars.isEmpty()) inner.addView(Ui.text(ctx, Tr.t("bhv_no_params", "No parameters."), 12, Ui.TEXT_3));
+
+		LinearLayout tools = Ui.row(ctx);
+		tools.setGravity(Gravity.CENTER_VERTICAL);
+		if (idx > 0) tools.addView(Ui.iconButton(ctx, R.drawable.ic_s2_arrow_up, Tr.t("bhv_up", "Move up (runs earlier)"), v -> {
+			entries.add(idx - 1, entries.remove(idx));
+			saveBehaviors(entries);
+		}));
+		if (idx < entries.size() - 1) tools.addView(Ui.iconButton(ctx, R.drawable.ic_s2_arrow_down, Tr.t("bhv_down", "Move down (runs later)"), v -> {
+			entries.add(idx + 1, entries.remove(idx));
+			saveBehaviors(entries);
+		}));
+		if (!m.events.isEmpty())
+			tools.addView(Ui.button(ctx, R.drawable.ic_s2_events, Tr.t("bhv_events", "Events"), false, v -> eventsDialog(m)));
+		if (!m.sets.isEmpty() && !env.isUi())
+			tools.addView(Ui.button(ctx, R.drawable.ic_s2_check, Tr.t("bhv_apply", "Apply to element"), false, v -> applySets(m)));
+		ImageView reset = Ui.iconButton(ctx, R.drawable.ic_s2_refresh, Tr.t("bhv_reset_all", "Reset all parameters"), v -> {
+			e.params.clear();
+			saveBehaviorValues(entries, true);
+		});
+		reset.setVisibility(e.params.isEmpty() ? View.GONE : View.VISIBLE);
+		resetAll[0] = reset;
+		tools.addView(reset);
+		tools.addView(Ui.iconButton(ctx, R.drawable.ic_s2_delete, Tr.t("delete", "Delete"), v ->
+				Dialogs.confirm(ctx, Tr.t("delete", "Delete"), BehaviorText.name(m) + "\n" + Tr.t("areYouSure", "Are you sure?"), Tr.t("delete", "Delete"), () -> {
+					entries.remove(idx);
+					EXPANDED.remove(key);
+					saveBehaviors(entries);
+				})));
+		inner.addView(tools, Ui.matchWrap());
+	}
+
+	/** One parameter editor. A change is saved at once and only this field is drawn again (no redraw of the card, the open row stays open). */
+	private void addField(LinearLayout parent, int at, VarSpec v, List<BehaviorData.Entry> entries, BehaviorData.Entry e, View[] resetAll) {
+		final View[] self = {null};
+		self[0] = VarEditors.field(this, v, e.params.get(v.name), val -> {
+			if (val == null) e.params.remove(v.name); else e.params.put(v.name, val);
+			saveBehaviorValues(entries, false);
+			if (resetAll[0] != null) resetAll[0].setVisibility(e.params.isEmpty() ? View.GONE : View.VISIBLE);
+			parent.post(() -> {
+				int i = parent.indexOfChild(self[0]);
+				if (i < 0) return;
+				parent.removeViewAt(i);
+				addField(parent, i, v, entries, e, resetAll);
+			});
+		});
+		parent.addView(self[0], at);
 	}
 
 	// ------------------------------------------------------------------------------------------------ adding
@@ -313,16 +404,14 @@ public final class BehaviorSection implements VarEditors.Host {
 		if (clash.isEmpty()) {
 			entries.add(new BehaviorData.Entry(m.id));
 			saveBehaviors(entries);
-			EXPANDED.add(element + "|" + m.id);
-			rebuild();
 			return;
 		}
 		StringBuilder names = new StringBuilder();
 		for (BehaviorData.Entry e : clash) {
 			BehaviorMeta o = BehaviorCatalog.find(e.type, env.projectPath);
-			names.append(names.length() > 0 ? ", " : "").append(o == null ? e.type : o.title());
+			names.append(names.length() > 0 ? ", " : "").append(BehaviorText.name(o, e.type));
 		}
-		String msg = names + " " + Tr.t("bhv_and", "and") + " " + m.title() + " " + Tr.t("bhv_both_control", "both control") + " \"" + m.exclusive + "\".\n\n"
+		String msg = names + " " + Tr.t("bhv_and", "and") + " " + BehaviorText.name(m) + " " + Tr.t("bhv_both_control", "both control") + " \"" + Tr.t("bhv_xg_" + m.exclusive, m.exclusive) + "\".\n\n"
 				+ Tr.t("bhv_conflict_help", "Replace: the old one is removed. Keep both: the new one is added switched OFF; switch with item.setBehaviorEnabled(\"Name\", true) (it turns the others of the group off).");
 		AlertDialog d = new AlertDialog.Builder(ctx)
 				.setTitle(Tr.t("bhv_conflict", "Conflict"))
@@ -332,8 +421,6 @@ public final class BehaviorSection implements VarEditors.Host {
 					entries.removeAll(clash);
 					entries.add(Math.min(at, entries.size()), new BehaviorData.Entry(m.id));
 					saveBehaviors(entries);
-					EXPANDED.add(element + "|" + m.id);
-					rebuild();
 				})
 				.setNeutralButton(Tr.t("bhv_keep_both", "Keep both (only one enabled)"), (x, w) -> {
 					BehaviorData.Entry n = new BehaviorData.Entry(m.id);
@@ -367,8 +454,10 @@ public final class BehaviorSection implements VarEditors.Host {
 
 	// ------------------------------------------------------------------------------------------------ dialogs
 
+	/** The events of a behavior (translated names, the code's signature under each): tap one to open its blocks. */
 	private void eventsDialog(BehaviorMeta m) {
 		LinearLayout col = Ui.column(ctx);
+		col.setLayoutDirection(Ui.isRtl(ctx) ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
 		col.setPadding(Ui.dp(ctx, 12), Ui.dp(ctx, 4), Ui.dp(ctx, 12), 0);
 		Bridge.query(() -> {
 			List<String[]> l = BehaviorEvents.listFor(element, bjson);
@@ -380,11 +469,16 @@ public final class BehaviorSection implements VarEditors.Host {
 			for (String[] r : rows) {
 				LinearLayout line = Ui.row(ctx);
 				line.setGravity(Gravity.CENTER_VERTICAL);
-				line.setPadding(Ui.dp(ctx, 4), Ui.dp(ctx, 8), Ui.dp(ctx, 4), Ui.dp(ctx, 8));
+				line.setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8));
 				line.setBackground(Ui.ripple(0, Ui.dp(ctx, 8)));
-				TextView t = Ui.text(ctx, r[3], 14, Ui.TEXT);
-				t.setTypeface(Typeface.MONOSPACE);
-				line.addView(t, Ui.weight(1));
+				LinearLayout txt = Ui.column(ctx);
+				TextView t = Ui.text(ctx, r[3], 14.5f, Ui.TEXT);
+				t.setTypeface(Typeface.DEFAULT_BOLD);
+				txt.addView(t);
+				TextView sig = Ui.text(ctx, r[5], 11, Ui.TEXT_3);
+				sig.setTypeface(Typeface.MONOSPACE);
+				txt.addView(sig);
+				line.addView(txt, Ui.weight(1));
 				if (!r[4].isEmpty()) line.addView(Ui.text(ctx, "●", 12, Ui.SUCCESS));
 				line.setOnClickListener(v -> {
 					if (dlg[0] != null) dlg[0].dismiss();
@@ -393,32 +487,8 @@ public final class BehaviorSection implements VarEditors.Host {
 				});
 				col.addView(line, Ui.matchWrap());
 			}
-			dlg[0] = new AlertDialog.Builder(ctx).setTitle(m.title() + " · " + Tr.t("bhv_events", "Events")).setView(col)
+			dlg[0] = new AlertDialog.Builder(ctx).setTitle(BehaviorText.name(m) + " · " + Tr.t("bhv_events", "Events")).setView(col)
 					.setNegativeButton(Tr.t("close", "Close"), null).show();
 		});
-	}
-
-	private void info(BehaviorMeta m) {
-		StringBuilder sb = new StringBuilder();
-		sb.append(m.desc).append("\n\n");
-		sb.append(Tr.t("bhv_works_on", "Works on")).append(": ").append(m.targets.equals(BehaviorMeta.UI) ? "UI" : (m.targets.equals(BehaviorMeta.PHYSICS) ? Tr.t("bhv_f_physics", "Physical") : "UI + " + Tr.t("bhv_f_physics", "Physical"))).append('\n');
-		if (!m.exclusive.isEmpty()) sb.append(Tr.t("bhv_group", "Exclusive group")).append(": ").append(m.exclusive).append('\n');
-		if (!m.requirementsText().isEmpty()) sb.append(m.requirementsText()).append('\n');
-		if (!m.events.isEmpty()) {
-			sb.append('\n').append(Tr.t("bhv_events", "Events")).append(":\n");
-			for (BehaviorMeta.EventSpec ev : m.events) sb.append("  ").append(ev.signature()).append('\n');
-		}
-		sb.append("\nv").append(m.version);
-		if (!m.author.isEmpty()) sb.append("  ·  ").append(m.author);
-		sb.append("\n").append(m.builtin ? Tr.t("bhv_builtin", "Built-in") : Tr.t("bhv_project", "Project") + ": " + m.fqn);
-		AlertDialog.Builder b = new AlertDialog.Builder(ctx).setTitle(m.title()).setMessage(sb.toString()).setPositiveButton(Tr.t("close", "Close"), null);
-		if (!m.builtin) {
-			b.setNeutralButton(Tr.t("bhv_export", "Export .s2b"), (x, w) -> BehaviorShare.export(ctx, env.projectPath, m));
-			b.setNegativeButton(Tr.t("bhv_edit_code", "Edit code"), (x, w) -> {
-				shell.panels.hide();
-				shell.host().openJava(m.file);
-			});
-		}
-		b.show();
 	}
 }

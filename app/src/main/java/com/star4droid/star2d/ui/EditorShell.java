@@ -110,6 +110,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         this.activity = activity;
         this.host = host;
         Tr.init(activity);
+        com.star4droid.star2d.ui.behaviors.BehaviorText.prewarm(activity); // behavior catalog + icons, off the UI thread
         setLayoutDirection(Ui.isRtl(activity) ? LAYOUT_DIRECTION_RTL : LAYOUT_DIRECTION_LTR);
 
         chrome = new FrameLayout(activity);

@@ -18,22 +18,51 @@ public final class BehaviorCatalog {
 	public static final String PROJECT_PACKAGE = "com.star4droid.Game.Behaviors";
 	public static final String PROJECT_DIR = "java/com/star4droid/Game/Behaviors";
 
-	private static List<BehaviorMeta> builtIns;
+	private static volatile List<BehaviorMeta> builtIns;
+	private static volatile Map<String, BehaviorMeta> builtInIndex;
+	private static final Object BUILD_LOCK = new Object();
 	private static final Map<String, Object[]> projectCache = new HashMap<String, Object[]>(); // path -> {lastModified, meta}
 
-	public static synchronized List<BehaviorMeta> builtIns() {
-		if (builtIns == null) {
-			builtIns = new ArrayList<BehaviorMeta>();
-			for (Class<?> c : ReflectScanner.builtInClasses()) {
-				try {
-					BehaviorMeta m = ReflectScanner.behavior(c);
-					if (m != null) builtIns.add(m);
-				} catch (Throwable ignored) {
-				}
+	/** True once the built-in library has been read (reflection over every class takes a while the first time: do it off the UI thread). */
+	public static boolean isWarm() {
+		return builtIns != null;
+	}
+
+	/** Starts reading the built-in library on a low priority background thread (no-op when done or already running). */
+	public static void prewarm() {
+		if (builtIns != null) return;
+		Thread t = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				builtIns();
 			}
-			sort(builtIns);
+		}, "behavior-catalog");
+		t.setDaemon(true);
+		t.setPriority(Thread.MIN_PRIORITY + 1);
+		t.start();
+	}
+
+	public static List<BehaviorMeta> builtIns() {
+		List<BehaviorMeta> r = builtIns;
+		if (r != null) return r;
+		synchronized (BUILD_LOCK) {
+			if (builtIns == null) {
+				List<BehaviorMeta> l = new ArrayList<BehaviorMeta>();
+				for (Class<?> c : ReflectScanner.builtInClasses()) {
+					try {
+						BehaviorMeta m = ReflectScanner.behavior(c);
+						if (m != null) l.add(m);
+					} catch (Throwable ignored) {
+					}
+				}
+				sort(l);
+				Map<String, BehaviorMeta> idx = new HashMap<String, BehaviorMeta>();
+				for (BehaviorMeta m : l) if (!idx.containsKey(m.id)) idx.put(m.id, m);
+				builtInIndex = idx;
+				builtIns = Collections.unmodifiableList(l);
+			}
+			return builtIns;
 		}
-		return builtIns;
 	}
 
 	private static void sort(List<BehaviorMeta> l) {
@@ -50,7 +79,13 @@ public final class BehaviorCatalog {
 		return new File(projectPath, PROJECT_DIR);
 	}
 
-	public static synchronized List<BehaviorMeta> project(String projectPath) {
+	public static List<BehaviorMeta> project(String projectPath) {
+		synchronized (projectCache) {
+			return projectLocked(projectPath);
+		}
+	}
+
+	private static List<BehaviorMeta> projectLocked(String projectPath) {
 		List<BehaviorMeta> out = new ArrayList<BehaviorMeta>();
 		if (projectPath == null) return out;
 		File[] files = projectDir(projectPath).listFiles();
@@ -78,9 +113,16 @@ public final class BehaviorCatalog {
 
 	/** Project behaviors win over built-ins with the same id (a copy the user edited). */
 	public static BehaviorMeta find(String id, String projectPath) {
+		if (id == null) return null;
 		for (BehaviorMeta m : project(projectPath)) if (m.id.equals(id)) return m;
-		for (BehaviorMeta m : builtIns()) if (m.id.equals(id)) return m;
-		return null;
+		builtIns();
+		return builtInIndex.get(id);
+	}
+
+	/** The built-in behavior with this id (no project lookup, no file access), null if there is none. */
+	public static BehaviorMeta builtIn(String id) {
+		builtIns();
+		return id == null ? null : builtInIndex.get(id);
 	}
 
 	public static String readFile(File f) {

@@ -133,3 +133,18 @@ Keys are language codes (lower case, any code); a plain string `"desc":"text"` i
 
 ## Tests
 `python3 tools/test_blocks_behaviors.py` (needs `:template:compileDebugJavaWithJavac` once): reflection == source scanner for every built-in `@Block`, the sample `tools/blocks_test/samples/Health.java` (comments, string concatenation, Arabic, overloads, unsupported types), the scene filter, descriptions (multi-language / old files), and it compiles the generated Java of every block (including the fixed Behaviors blocks read out of `BlockCatalog.java`).
+
+## Translating behavior text (editor UI)
+Every place that shows a behavior's text goes through `ui/behaviors/BehaviorText` (name, desc, group, param label / description, event). The English text of the annotation is the default; built-in behaviors look up `Tr.t(key, default)`, project and imported (`.s2b`) behaviors show their own text.
+
+| What | Key |
+|---|---|
+| display name / description | `bhv_n_<Id>` / `bhv_d_<Id>` |
+| parameter label / description | `bhv_p_<Id>_<param>` / `bhv_pd_<Id>_<param>` |
+| event name (falls back to the engine's event translation, then to "On death" from `onDeath`) | `bhv_e_<Id>_<event>` |
+| category and `@Header` group (non alphanumerics become `_`) | `bhv_g_<Group>` (e.g. `bhv_g_Who_can_pick_it_up`) |
+| note of `@Requires` / exclusive group name | `bhv_note_<Id>` / `bhv_xg_<group>` |
+| `@Sets` key names | `bhv_set_<key>` (gravityScale, fixedRotation, type, bullet, sensor, linearDamping, angularDamping) |
+| UI chrome of the info dialog, the Add dialog and the rows | `bhv_*` (grep `Tr.t("bhv_` in `ui/behaviors`) |
+
+The first block of a behavior event in the block editor ("▶ When hit") and its title bar use the same event name (`BehaviorEvents.displayName`); the event's arguments (`onShoot(PlayerItem bullet)`) are offered as draggable values next to `current`.

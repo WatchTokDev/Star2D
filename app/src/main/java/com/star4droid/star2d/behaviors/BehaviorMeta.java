@@ -102,6 +102,23 @@ public final class BehaviorMeta {
 		return sb.toString();
 	}
 
+	/** What the behavior really needs: {@code @Requires} (body / ui) wins over {@code targets}. One of UI, PHYSICS, BOTH. */
+	public String effectiveTargets() {
+		if (reqUi && !reqBody) return UI;
+		if (reqBody && !reqUi) return PHYSICS;
+		return targets == null || targets.length() == 0 ? BOTH : targets;
+	}
+
+	/** Editor TYPE names of the elements this behavior can sit on when the element is physical (has a body). */
+	public String[] physicalTypes() {
+		return effectiveTargets().equals(UI) ? new String[0] : ElementTypes.PHYSICAL_TYPES;
+	}
+
+	/** Editor TYPE names of the elements this behavior can sit on when the element is a UI (screen-space) one. */
+	public String[] uiTypes() {
+		return effectiveTargets().equals(PHYSICS) ? new String[0] : ElementTypes.UI_TYPES;
+	}
+
 	public boolean fits(boolean isUi) {
 		return BOTH.equals(targets) || (isUi ? UI.equals(targets) : PHYSICS.equals(targets));
 	}

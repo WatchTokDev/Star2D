@@ -345,7 +345,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         top.addView(back);
         LinearLayout titles = Ui.column(c);
         titles.setPadding(Ui.dp(c, 6), 0, Ui.dp(c, 6), 0);
-        TextView t = Ui.text(c, Tr.t(eventName), 15, Ui.TEXT);
+        TextView t = Ui.text(c, eventTitle(), 15, Ui.TEXT);
         t.setTypeface(Typeface.DEFAULT_BOLD);
         t.setMaxLines(1);
         t.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -1307,13 +1307,25 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
 
     /** Title of the first block: the translated event name ("When tapped"…). */
     private String rootLabel() {
-        String ev = Tr.t(eventName);
+        return "▶ " + eventTitle();
+    }
+
+    /** The event's name in the app language: engine events through their translation, behavior events through the behavior's own names. */
+    private String eventTitle() {
+        String ev = null;
+        try {
+            ev = com.star4droid.star2d.ui.behaviors.BehaviorEvents.displayName(file);
+        } catch (Throwable ignored) {
+        }
+        if (ev == null) ev = Tr.t(eventName);
         if (ev == null || ev.isEmpty()) ev = eventName;
-        return "▶ " + ev;
+        return ev;
     }
 
     /** Parameters of an event, from its file name (element events live in /private/). */
     static String[] eventParams(File f) {
+        String[] bp = com.star4droid.star2d.ui.behaviors.BehaviorEvents.params(f);
+        if (bp != null) return bp;
         String e = f.getName().replace(".visual", "");
         boolean element = f.getAbsolutePath().contains("/private/");
         if (element) {

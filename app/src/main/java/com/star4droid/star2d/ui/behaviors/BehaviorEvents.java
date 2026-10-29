@@ -7,7 +7,9 @@ import com.badlogic.gdx.Gdx;
 import com.star4droid.star2d.Adapters.VisualScriptingDialog;
 import com.star4droid.star2d.Helpers.editor.Project;
 import com.star4droid.star2d.Items.Editor;
+import com.star4droid.star2d.behaviors.BehaviorCatalog;
 import com.star4droid.star2d.behaviors.BehaviorCodeGen;
+import com.star4droid.star2d.behaviors.BehaviorData;
 import com.star4droid.star2d.behaviors.BehaviorMeta;
 import com.star4droid.star2d.ui.Bridge;
 
@@ -41,17 +43,69 @@ public final class BehaviorEvents {
 		});
 	}
 
-	/** One row of the Events panel: [behaviorId, behaviorTitle, event name, signature, hasCode]. GL thread. */
+	/**
+	 * One row of the Events panel and of the Events dialog of a behavior:
+	 * [behaviorId, behavior name (translated), event name (as in the code), event title (translated, with the argument names),
+	 * hasCode ("1" or ""), signature]. GL thread.
+	 */
 	public static List<String[]> listFor(String element, String behaviorsJson) {
 		List<String[]> out = new ArrayList<>();
 		Project p = Bridge.editor().getProject();
 		String scene = Bridge.editor().getScene();
-		for (com.star4droid.star2d.behaviors.BehaviorData.Entry e : com.star4droid.star2d.behaviors.BehaviorData.parse(behaviorsJson)) {
-			BehaviorMeta m = com.star4droid.star2d.behaviors.BehaviorCatalog.find(e.type, p.getPath());
+		for (BehaviorData.Entry e : BehaviorData.parse(behaviorsJson)) {
+			BehaviorMeta m = BehaviorCatalog.find(e.type, p.getPath());
 			if (m == null) continue;
 			for (BehaviorMeta.EventSpec ev : m.events)
-				out.add(new String[] {m.id, m.title(), ev.name, ev.signature(), hasCode(path(p, scene, element, m.id, ev.name)) ? "1" : ""});
+				out.add(new String[] {m.id, BehaviorText.name(m), ev.name, BehaviorText.eventWithArgs(m, ev),
+						hasCode(path(p, scene, element, m.id, ev.name)) ? "1" : "", ev.signature()});
 		}
 		return out;
+	}
+
+	/** Parts of a behavior event file: {behaviorId, event} for {@code .../private/<element>/behaviors/<Id>/<event>.visual|.java}, else null. */
+	public static String[] parse(File file) {
+		if (file == null) return null;
+		String p = file.getAbsolutePath().replace('\\', '/');
+		int i = p.lastIndexOf("/behaviors/");
+		int pr = p.indexOf("/private/");
+		if (i < 0 || pr < 0 || pr > i) return null;
+		String[] rest = p.substring(i + "/behaviors/".length()).split("/");
+		if (rest.length != 2) return null;
+		String ev = rest[1];
+		int dot = ev.lastIndexOf('.');
+		if (dot > 0) ev = ev.substring(0, dot);
+		return new String[] {rest[0], ev};
+	}
+
+	/** Project folder of an event file (everything before /Events/), "" if it is not under one. */
+	private static String projectOf(File file) {
+		String p = file.getAbsolutePath().replace('\\', '/');
+		int i = p.indexOf("/Events/");
+		return i > 0 ? p.substring(0, i) : "";
+	}
+
+	/**
+	 * The title of the event in the language of the app ("When hit"), used for the first block of the block editor and for its
+	 * title bar; null when the file is not an event of a behavior (those keep using the engine's event names).
+	 */
+	public static String displayName(File file) {
+		String[] be = parse(file);
+		if (be == null) return null;
+		return BehaviorText.event(be[0], projectOf(file), be[1]);
+	}
+
+	/** Parameters of a behavior event as the block editor offers them ("current", then the event's arguments); null if it is not a behavior event. */
+	public static String[] params(File file) {
+		String[] be = parse(file);
+		if (be == null) return null;
+		List<String> out = new ArrayList<>();
+		out.add("current");
+		try {
+			BehaviorMeta m = BehaviorCatalog.find(be[0], projectOf(file));
+			BehaviorMeta.EventSpec spec = m == null ? null : BehaviorText.spec(m, be[1]);
+			if (spec != null) for (String[] a : spec.args) out.add(a[1]);
+		} catch (Throwable ignored) {
+		}
+		return out.toArray(new String[0]);
 	}
 }
