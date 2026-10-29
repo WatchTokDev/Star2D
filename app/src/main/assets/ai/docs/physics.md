@@ -1,5 +1,14 @@
 # Physics (Box2D): bodies, units, collisions, typical numbers
 
+## Signs and formulas (verified in the engine code; the `physics_info` tool does the arithmetic for you)
+
+- **Y is UP.** `setVelocityY` and `jump` with a POSITIVE number move the element UP, negative moves it DOWN. `setVelocityX`: positive = right, negative = left. `setWorldGravity` strength: a positive number pulls DOWN (never pass a negative one).
+- The velocity blocks take px/s and multiply by `WORLD_SCALE` (0.25) for Box2D; `setWorldGravity` also sets 1 physics step per frame. So with that block: **gravity g = strength px/s2, jump height = v^2 / (2g), time to the top = v / g, flat air time = 2v / g, horizontal reach of a jump = move_speed * air time.** Real numbers are within a few percent.
+- Example, gravity 800, jump power 450: height 126 px, air time 1.1 s, with walk speed 250 the reach is 280 px. Wanted a 200 px jump? power = sqrt(2 * 800 * 200) = 566 is over the 450 limit, so LOWER the gravity to 500 (450^2 / (2*500) = 202 px).
+- Without `setWorldGravity` the engine runs 6 steps per frame: everything is 6x too fast and these numbers are wrong. Check with `physics_info`: it warns when the scene has no `setWorldGravity`.
+- Design platforms with margin: vertical step <= 70% of the jump height, gap <= 70% of the reach. Ask `physics_info` with `jumps:[{"gap":220,"rise":90}]` to see if each jump works BEFORE building the level.
+- The frame decides the layout: a PORTRAIT 720 x 1280 scene is narrow (about 3 s to walk across at 250 px/s) and tall (many platforms stacked vertically); a landscape 1280 x 720 scene is the opposite. Read `status.frame` and place things inside it; `elements` warns when something is outside.
+
 ## The one unit rule
 
 - **Everything you type in `elements`, and every "px" block field, is in editor pixels** of the scene's logic screen.
@@ -83,3 +92,21 @@ Option B (accurate): count ground contacts with a variable `ground` (int): in `o
 - Enemy walker: `type DYNAMIC, Fixed Rotation true, restitution 0`, velocity set each time it turns.
 - Bullet: `type DYNAMIC, Gravity Scale 0, Bullet true, isSensor true` (or normal) and `destroyLater` 2 seconds.
 - Ball (breakout/pong): `CIRCLE, DYNAMIC, restitution 1, friction 0, Gravity Scale 0`, paddle `KINAMATIC` or `STATIC` moved by `goTo` / velocity, walls `STATIC`.
+
+## Platformer checklist (any orientation: use the numbers of `status.frame`, W wide x H tall)
+
+1. `scenes create` with `orientation` (or read `status.frame` of an existing scene). `physics_info` once to confirm jump height.
+2. Ground: BOX `STATIC`, x 0, y 0, width W, height 60, restitution 0, friction 0.4, z 10. Its top edge is y 60. Platforms: width 150 to 250, height 30, y at most 70% of the jump height above the one before, z 10.
+3. Player: BOX `DYNAMIC`, Fixed Rotation true, restitution 0, friction 0, about 50 x 70, `x` about 15% of W, `y` = the top of the ground (60) so it starts standing, z 20. Do not start it inside a platform or the ground (it gets pushed out sideways).
+4. Background: BOX at x 0, y 0, width W, height H, z 0 (it must be the lowest). The `elements` tool sets these z values for you when you do not pass z; UI boxes 100, TEXT 110, JOYSTICK 120.
+5. OnCreate: `setWorldGravity` 800 FIRST. Move: `walkWithJoystick` (body, joystick, speed 250 to 300) in `OnStep`, or on touch buttons `setVelocityX` with +250 (right) / -250 (left) and 0 on release. Jump: `jump` power 400 to 450 (positive = up) only when standing (see "Grounded check").
+6. Camera: for a level wider/taller than the frame add a CAMERA element and follow the player in `OnStep` (`cameraFollow`); for a one-screen level nothing is needed.
+7. Verify: `layout_check`, `run_game`, `game_input` (tap the jump button), `game_state` (vy must be POSITIVE right after the jump, vx about 0 when idle), `screenshot`.
+
+## When it goes wrong (symptoms the user actually reported)
+
+- **The whole scene is landscape but the game is vertical** (or the reverse): the frame in `status.frame` is the truth. Fix with `scenes configure {"or":"portrait"}` (and `{"swap_size":true}` if the stored sizes look reversed). Then re-check every x/y against the real frame; `elements` and `layout_check` report what is outside.
+- **The background covers the elements**: higher z is drawn on top and equal z is drawn in creation order, so a background created last covers everything. Background z 0, everything else 10 or more. `layout_check` reports `background_covers` / `background_ties`.
+- **The player slides sideways at the start and disappears**: usual causes, check them in this order with `game_state` (vx, vy) and `scene_dump`: (1) the player spawns overlapping another body or outside the frame (the physics pushes it out sideways); (2) no ground under it, or the ground is not as wide as the frame, so it falls out of view; (3) a velocity block with the wrong sign or a wrong body/joystick name keeps setting vx every frame; (4) no `setWorldGravity` (6x speed); (5) Fixed Rotation is off and friction/restitution are the defaults (restitution 0.5 bounces, friction 0 never stops), so the box tips and rolls. Set Fixed Rotation true, restitution 0 on player and ground.
+- **The player jumps DOWN or barely**: you used a negative power, or the jump is far above the speed limit (cut to about 450). The jump must be a POSITIVE number; use `physics_info` {"jump_height":N} for the number.
+- **Touch buttons do nothing**: put the event on the BOX, not on the TEXT over it (see `ui-input`).

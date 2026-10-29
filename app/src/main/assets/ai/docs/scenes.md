@@ -14,7 +14,8 @@ A scene is one screen/level: its own elements, events, joints and variables. Fil
 
 ```json
 {"action":"list"}
-{"action":"create","name":"level2","config":{"or":"landscape","logicWidth":1280,"logicHeight":720,"sceneColor":"#263238"}}
+{"action":"create","name":"level2","orientation":"portrait"}
+{"action":"create","name":"level3","config":{"sceneColor":"#263238"}}
 {"action":"open","name":"level2"}
 {"action":"configure","name":"scene1","config":{"sceneColor":"#87CEEB","logicWidth":1280,"logicHeight":720,"or":"landscape"}}
 {"action":"copy","name":"level1","new_name":"level2"}
@@ -23,6 +24,8 @@ A scene is one screen/level: its own elements, events, joints and variables. Fil
 ```
 
 `create`, `copy`, `rename`, `open` leave the new scene OPEN; `elements`, `events`, `variables`, `joints` act on the open scene unless you pass `scene`. Unknown config keys are ignored (reported in the answer).
+
+`create` copies the orientation and logic size of the PROJECT (read from its config files, scene1 first) unless you pass `orientation` ("landscape" or "portrait"). The answer of `create`, `open`, `configure`, `status`, `project_info` and `scene_dump` states the frame in plain words, for example `scene 'level2': PORTRAIT, 720 wide x 1280 tall (x 0..720, y 0..1280, origin bottom-left, y up)`. Trust that sentence, not an assumption. An exported game has ONE screen orientation: keep all scenes the same unless you really mean it (the answer warns when they differ).
 
 ## Config keys (`configs/<scene>.json`)
 

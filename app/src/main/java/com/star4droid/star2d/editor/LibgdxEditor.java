@@ -746,7 +746,16 @@ public class LibgdxEditor extends Stage {
 	
 	// set editor to landscape mode (Invert logic width/height)
 	public void setLandscape(boolean b){
-		if(b == this.LANDSCAPE) return;
+		try {
+			// the flag alone can be stale (a scene editor starts with LANDSCAPE=false before its config is read):
+			// skip only when BOTH the flag and the stored config already say so
+			PropertySet<String,Object> cur = getConfig();
+			String stored = cur == null ? null : cur.getString("or");
+			boolean storedLandscape = stored == null || stored.equals("") || stored.equals("landscape");
+			if(b == this.LANDSCAPE && b == storedLandscape) return;
+		} catch(Exception ignored){
+			if(b == this.LANDSCAPE) return;
+		}
 		try {
     		getConfig().put("or",b ? "":"portrait");
     		for(Actor actor:getActors()){

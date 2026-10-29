@@ -223,7 +223,12 @@ final class LogicTools {
                                 }
                             }
                             // the plain event file marks "this event exists" for older code paths
-                            results.add(ok(op, label, how + " saved" + (m.formatFailures.isEmpty() ? "" : "; WARNING a block template failed to format")));
+                            String speedWarn = "";
+                            if (o.has("blocks")) {
+                                java.util.List<String> sw = Warnings.blocks(o.get("blocks"));
+                                if (!sw.isEmpty()) speedWarn = "; WARNING " + String.join(" | ", sw);
+                            }
+                            results.add(ok(op, label, how + " saved" + (m.formatFailures.isEmpty() ? "" : "; WARNING a block template failed to format") + speedWarn));
                             break;
                         }
                         default:

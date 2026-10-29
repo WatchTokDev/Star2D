@@ -81,6 +81,8 @@ final class EditTools {
                     for (String s : Proj.scenes(Proj.project())) l.add(s);
                     out.add("scenes", l);
                     out.addProperty("open", Proj.editor().getScene());
+                    out.addProperty("frame", SceneInfo.describe(Proj.editor(), Proj.project(), Proj.editor().getScene()));
+                    out.addProperty("project_orientation", Proj.projectOrientation(null));
                     JsonArray tabs = new JsonArray();
                     for (LibgdxEditor e : app.editors) tabs.add(e.getScene());
                     out.add("open_tabs", tabs);
@@ -90,7 +92,7 @@ final class EditTools {
             case "open":
                 if (name.isEmpty()) return ToolResult.error("name is required");
                 Proj.openScene(name);
-                return ToolResult.text("Scene '" + name + "' is open.");
+                return ToolResult.text("Scene '" + name + "' is open. " + Gl.run(() -> SceneInfo.describe(Proj.editor(), Proj.project(), Proj.editor().getScene())));
             case "create":
             case "copy":
             case "rename": {
@@ -99,17 +101,49 @@ final class EditTools {
                 if (target.isEmpty()) return ToolResult.error("new_name is required");
                 final String source = action.equals("create") ? null : name;
                 if (source != null) Proj.openScene(source); // the engine copies/renames the OPEN scene
+                // orientation of a NEW scene: explicit param, else config.or / config.orientation, else the PROJECT's (read from the config files)
+                String asked = CoreTools.s(a, "orientation");
+                if (asked.isEmpty() && config != null) asked = config.has("orientation") ? CoreTools.s(config, "orientation") : CoreTools.s(config, "or");
+                asked = asked.trim().toLowerCase(Locale.ROOT);
+                if (asked.equals("horizontal") || asked.equals("wide")) asked = "landscape";
+                if (asked.equals("vertical") || asked.equals("tall")) asked = "portrait";
+                if (!asked.isEmpty() && !asked.equals("landscape") && !asked.equals("portrait"))
+                    return ToolResult.error("orientation must be 'landscape' or 'portrait' (got '" + asked + "')");
+                final String wantOr = asked;
+                final String projectOr = action.equals("create") ? Gl.run(() -> Proj.projectOrientation(target)) : null;
                 String err = Gl.run(() -> {
                     ControlLayer cl = Bridge.controls();
                     ControlLayer.SceneAction sa = action.equals("create") ? ControlLayer.SceneAction.CREATE
                             : action.equals("copy") ? ControlLayer.SceneAction.COPY : ControlLayer.SceneAction.RENAME;
                     Proj.editor().getProject().save(Proj.editor());
-                    return cl.applySceneAction(target, sa);
+                    return cl.applySceneAction(target, sa, action.equals("create") && !wantOr.isEmpty() ? wantOr : null);
                 });
                 if (err != null) return ToolResult.error(err);
                 Proj.waitLoaded(20_000);
                 if (config != null) configure(config);
-                return ToolResult.text("Scene '" + target + "' " + (action.equals("create") ? "created" : action.equals("copy") ? "copied from " + name : "renamed from " + name) + " and open.");
+                String extra = "";
+                if (action.equals("create")) {
+                    // verify: the config FILE and the live flag must say what was asked (or what the project is)
+                    final String expect = wantOr.isEmpty() ? projectOr : wantOr;
+                    extra = Gl.run(() -> {
+                        LibgdxEditor ed = Proj.editor();
+                        String fixed = "";
+                        String stored = com.star4droid.star2d.editor.ProjectOrientation.stored(ed.getProject(), target);
+                        ed.getConfig();
+                        boolean wantLand = !expect.equals("portrait");
+                        if (stored == null || !stored.equals(expect) || ed.isLandscape() != wantLand) {
+                            ed.setLandscape(wantLand);
+                            ed.saveConfig();
+                            fixed = " (orientation corrected to " + expect.toUpperCase(Locale.ROOT) + ")";
+                        }
+                        String note = "";
+                        if (!wantOr.isEmpty() && !wantOr.equals(projectOr))
+                            note = " NOTE: the other scenes are " + projectOr.toUpperCase(Locale.ROOT) + "; an exported game has ONE screen orientation, keep all scenes the same unless you really mean it.";
+                        return fixed + note;
+                    });
+                }
+                return ToolResult.text("Scene '" + target + "' " + (action.equals("create") ? "created" : action.equals("copy") ? "copied from " + name : "renamed from " + name) + " and open. "
+                        + Gl.run(() -> SceneInfo.describe(Proj.editor(), Proj.project(), Proj.editor().getScene())) + extra);
             }
             case "delete": {
                 if (name.isEmpty()) return ToolResult.error("name is required");
@@ -122,7 +156,7 @@ final class EditTools {
             case "configure": {
                 if (!name.isEmpty()) Proj.openScene(name);
                 if (config == null) return ToolResult.error("config is required");
-                return ToolResult.text(configure(config));
+                return ToolResult.text(configure(config) + " " + Gl.run(() -> SceneInfo.describe(Proj.editor(), Proj.project(), Proj.editor().getScene())));
             }
             default:
                 return ToolResult.error("Unknown action '" + action + "'. Use list|open|create|rename|copy|delete|configure.");
@@ -224,6 +258,15 @@ final class EditTools {
                 continue;
             }
             String v = str(props.get(raw));
+            if (key.equals("z")) {
+                try {
+                    if (Float.parseFloat(v) < 0) {
+                        v = "0";
+                        problems.add("z cannot be negative (it would crash the draw order); used 0. Convention: background 0, ground 10, actors 20, UI 100+");
+                    }
+                } catch (NumberFormatException ignored) {
+                }
+            }
             app.getEditor().selectActor(actor);
             String err = AiActions.applyProperty(app, key, v);
             if (err != null) problems.add(key + ": " + err);
@@ -279,11 +322,12 @@ final class EditTools {
             ArrayList<String> w = new ArrayList<>();
             LibgdxEditor ed = Proj.editor();
             w.addAll(Warnings.text(ed, touched));
+            w.addAll(Warnings.bounds(ed, touched));
             return w;
         });
         if (!warns.isEmpty()) {
             JsonArray wa = new JsonArray();
-            for (int k = 0; k < Math.min(8, warns.size()); k++) wa.add(warns.get(k));
+            for (int k = 0; k < Math.min(10, warns.size()); k++) wa.add(warns.get(k));
             o.add("warnings", wa);
         }
         return bad == 0 ? ToolResult.text(o.toString()) : errorWith(o.toString());
@@ -335,7 +379,9 @@ final class EditTools {
                     if (o.has("parent")) all.addProperty("parent", CoreTools.s(o, "parent"));
                     all.remove("Light Type"); // chosen at creation
                     List<String> problems = applyProps(app, actor, all);
-                    return problems.isEmpty() ? res(op, created, true, "created") : res(op, created, true, "created, but: " + String.join("; ", problems));
+                    String zNote = ZPolicy.applyOnAdd(app, ed, actor, props);
+                    String made = "created" + (zNote.isEmpty() ? "" : " (" + zNote + ")");
+                    return problems.isEmpty() ? res(op, created, true, made) : res(op, created, true, made + ", but: " + String.join("; ", problems));
                 }
                 case "set": {
                     Actor actor = Bridge.actor(name);
@@ -378,8 +424,9 @@ final class EditTools {
                     Actor actor = Bridge.actor(name);
                     if (actor == null) return res(op, name, false, "no element named '" + name + "'");
                     ed.selectActor(actor);
-                    PropertyEditing.applyFloat(app, "z", CoreTools.i(o, "z", 0));
-                    return res(op, name, true, null);
+                    int oz = CoreTools.i(o, "z", 0);
+                    PropertyEditing.applyFloat(app, "z", Math.max(0, oz));
+                    return res(op, name, true, oz < 0 ? "z cannot be negative: used 0" : null);
                 }
                 default:
                     return res(op, name, false, "unknown op '" + op + "' (add|set|delete|duplicate|rename|select|order)");

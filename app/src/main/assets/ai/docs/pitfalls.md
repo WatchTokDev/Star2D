@@ -45,7 +45,7 @@ Read once before the first build. Each item says what happens and what to do.
 30. **Joystick** default size is 50: set 300. Do not use `angle (deg) ___` (inverted). `CAMERA` element does nothing: use camera blocks (`cameraFollow` sets once: call it every frame in `OnStep`, or `cameraFollowX/Y(player)` once in Java).
 31. **Animations**: `setAnimation` restarts at frame 0 on every call (call it only on state change); frame names have no leading slash.
 32. **Joints**: `RopeJoint`, `MouseJoint`, `GearJoint` fail to compile. Distance joint `length` is computed from the anchors.
-33. **`z` ordering**: higher in front; equal z has no guaranteed order; a MAP is always at z 0.
+33. **`z` ordering**: higher z is drawn on top; UI and world elements are sorted TOGETHER, so UI is not automatically above the game; equal z is drawn in creation order (the later one covers the earlier one, so a background created last hides everything). Convention: background 0, scenery 5, ground/platforms 10, actors 20, effects 40, UI box 100, TEXT/PROGRESS 110, JOYSTICK 120; never negative (it crashes the editor). When you give no z, the `elements` tool sets the role z for you (and raises elements still at z 0 when a background is added). `layout_check` reports `background_covers`, `background_ties`, `hidden_behind`, `ui_under_world`. A MAP is always at z 0.
 34. **Persistent data** (`saveData`) survives runs: tests that depend on a clean state must write the value first.
 
 ## Text and touch

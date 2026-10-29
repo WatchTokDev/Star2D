@@ -884,6 +884,15 @@ public class ControlLayer extends Table {
 
 	/** Create / copy / rename a scene. Returns an error message or null on success. */
 	public String applySceneAction(String name,SceneAction sceneAction){
+		return applySceneAction(name,sceneAction,null);
+	}
+
+	/**
+	 * Same, with an explicit orientation for CREATE ("landscape" / "portrait", null = the orientation of the project).
+	 * The new scene's config file is written BEFORE its editor opens (orientation + the project's logic size), so the result
+	 * never depends on a flag of another editor or on the phone screen size.
+	 */
+	public String applySceneAction(String name,SceneAction sceneAction,String orientation){
 		String path = app.getEditor().getProject().getScenesPath()+name;
 		if (name.equals(""))
 			return getTrans("emptyError");
@@ -910,10 +919,11 @@ public class ControlLayer extends Table {
 			if(sceneAction == SceneAction.RENAME){
 				app.getEditor().setScene(name);
 			} else if(sceneAction == SceneAction.COPY || sceneAction == SceneAction.CREATE){
-			    com.star4droid.star2d.editor.LibgdxEditor prev = app.getEditor();
+				if(sceneAction == SceneAction.CREATE){
+				    Boolean land = orientation == null || orientation.isEmpty() ? null : Boolean.valueOf(!orientation.equalsIgnoreCase("portrait"));
+				    com.star4droid.star2d.editor.ProjectOrientation.seed(app.getEditor().getProject(),name,land);
+				}
 				app.openSceneInNewEditor(name);
-				if(sceneAction == SceneAction.CREATE)
-				    app.getEditor().setLandscape(prev.isLandscape());
 			} else if(sceneAction == SceneAction.DELETE){
 				app.openSceneInNewEditor("scene1");
 			}

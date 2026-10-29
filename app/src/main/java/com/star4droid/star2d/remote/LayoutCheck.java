@@ -67,21 +67,8 @@ final class LayoutCheck {
             if (!Proj.scenes(p).contains(scene)) throw new Gl.ToolError("No scene named '" + scene + "'. Scenes: " + Proj.scenes(p));
             boolean live = scene.equals(ed.getScene());
             if (live && ed.isLoading()) throw new Gl.ToolError("The scene is still loading, try again in a moment.");
-            float sw = 1280, sh = 720;
-            if (live) {
-                sw = ed.getLogicWidth();
-                sh = ed.getLogicHeight();
-            } else {
-                try {
-                    FileHandle cf = Gdx.files.absolute(p.getConfig(scene));
-                    if (cf.exists()) {
-                        JsonObject c = JsonParser.parseString(cf.readString()).getAsJsonObject();
-                        if (c.has("logicWidth")) sw = c.get("logicWidth").getAsFloat();
-                        if (c.has("logicHeight")) sh = c.get("logicHeight").getAsFloat();
-                    }
-                } catch (Exception ignored) {
-                }
-            }
+            SceneInfo.Frame frame = SceneInfo.of(ed, p, scene); // orientation-aware (portrait swaps the stored sizes)
+            float sw = frame.width, sh = frame.height;
             List<LinkedHashMap<String, String>> all = live ? CoreTools.liveElements(ed) : CoreTools.fileElements(p, scene);
             ArrayList<LinkedHashMap<String, String>> ui = new ArrayList<>();
             for (LinkedHashMap<String, String> m : all) {
@@ -130,7 +117,10 @@ final class LayoutCheck {
                 if ((r[2] < MIN_TOUCH || r[3] < MIN_TOUCH) && touchy(ed, p, scene, m))
                     add(problems, "small_touch", m.get("name"), null, "touch target is " + Math.round(r[2]) + "x" + Math.round(r[3]) + " px; fingers need >= " + Math.round(MIN_TOUCH) + " px. Enlarge it.");
             }
+            // 5. draw order (z): background covering things, hidden elements, UI under the world
+            ZPolicy.check(all, sw, sh, problems);
             out.addProperty("scene", scene);
+            out.addProperty("frame", SceneInfo.describe(frame));
             out.addProperty("screen", Math.round(sw) + "x" + Math.round(sh));
             out.addProperty("ui_elements", ui.size());
             out.addProperty("ok", problems.size() == 0);
@@ -141,7 +131,7 @@ final class LayoutCheck {
         return ToolResult.text(out.toString());
     }
 
-    private static void add(JsonArray arr, String kind, String a, String b, String msg) {
+    static void add(JsonArray arr, String kind, String a, String b, String msg) {
         if (arr.size() >= 40) return;
         JsonObject o = new JsonObject();
         o.addProperty("kind", kind);

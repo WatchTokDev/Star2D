@@ -89,7 +89,11 @@ final class CoreTools {
                 // changes whenever anything in the open scene changes: compare with the value from your last call to skip re-reading
                 o.addProperty("scene_rev", Integer.toHexString(live.toString().hashCode()));
             }
+            ed.getConfig(); // the orientation flag follows the config file: reload before reading it
             o.addProperty("orientation", ed.isLandscape() ? "landscape" : "portrait");
+            // plain words first: this is the frame every x/y/width/height you type lives in
+            o.addProperty("frame", SceneInfo.describe(ed, p, ed.getScene()));
+            o.addProperty("project_orientation", Proj.projectOrientation(null));
             JsonObject logic = new JsonObject();
             logic.addProperty("width", ed.getLogicWidth());
             logic.addProperty("height", ed.getLogicHeight());
@@ -166,7 +170,10 @@ final class CoreTools {
             Project p = ed.getProject();
             o.addProperty("project", new File(p.getPath()).getName());
             o.addProperty("open_scene", ed.getScene());
+            ed.getConfig();
             o.addProperty("orientation", ed.isLandscape() ? "landscape" : "portrait");
+            o.addProperty("frame", SceneInfo.describe(ed, p, ed.getScene()));
+            o.addProperty("project_orientation", Proj.projectOrientation(null));
             JsonObject logic = new JsonObject();
             logic.addProperty("width", ed.getLogicWidth());
             logic.addProperty("height", ed.getLogicHeight());
@@ -190,9 +197,11 @@ final class CoreTools {
                     try {
                         JsonObject c = JsonParser.parseString(cf.readString()).getAsJsonObject();
                         if (c.has("or")) so.addProperty("orientation", c.get("or").getAsString().isEmpty() ? "landscape" : c.get("or").getAsString());
+                        else so.addProperty("orientation", "landscape");
                     } catch (Exception ignored) {
                     }
                 }
+                so.addProperty("frame", SceneInfo.describe(ed, p, n));
                 scenes.add(so);
             }
             o.add("scenes", scenes);
@@ -308,6 +317,7 @@ final class CoreTools {
             o.addProperty("scene", scene);
             boolean live = scene.equals(ed.getScene());
             if (live && ed.isLoading()) throw new Gl.ToolError("The scene is still loading, try again in a moment.");
+            o.addProperty("frame", SceneInfo.describe(ed, p, scene));
             FileHandle cf = Gdx.files.absolute(p.getConfig(scene));
             try {
                 if (cf.exists()) o.add("config", JsonParser.parseString(cf.readString()));

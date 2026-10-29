@@ -38,8 +38,16 @@ public final class RemoteCommands {
         return "";
     }
 
-    /** Two lines for Claude: the guide link and the request. All rules come from the server (connector instructions and AI.md). */
+    /**
+     * The short prompt for Claude when the Star2D connector is attached to the chat: the connector already delivers every rule
+     * (MCP instructions + tool descriptions), so no link is needed.
+     */
     public static String workCommand(Context c, String repoUrl) {
+        return "Use the Star2D connector. My request: ";
+    }
+
+    /** The same request WITH the guide link, for chats where the connector is not attached (or an AI that ignores connector instructions). */
+    public static String workCommandWithLink(Context c, String repoUrl) {
         return "Star2D: " + RemoteSettings.guideUrl(c) + "\nMy request: ";
     }
 

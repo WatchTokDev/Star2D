@@ -17,11 +17,13 @@ Treat the URL like a password. Never print it back to other people.
 
 {{CORE}}
 
+Before anything else read `status.frame` (orientation and size of the open scene, y is up) and design for exactly that frame. Pass `orientation:"portrait"` to `scenes create` for vertical games. Use `physics_info` before choosing jump power, gravity, speeds or platform gaps, and `layout_check` after building (it also finds a background covering other elements).
+
 Also: call `set_plan` before working, `update_task` as tasks start/finish, `finish_work` at the end. The server has a daily call budget shared by all users, so batch.
 
 ## Tools (names)
 
-`status` · `wait_for_app` · `get_guide` · `read_docs` · `set_plan` · `update_task` · `finish_work` · `project_info` · `scene_dump` · `get_elements` · `scenes` · `elements` · `joints` · `variables` · `block_catalog` · `events` · `define_blocks` · `files` · `create_image` · `create_sound` · `import_asset` · `editor` · `build` · `run_game` · `stop_game` · `screenshot` · `game_input` · `game_state` · `run_test` · `game_logs` · `git`
+`status` · `wait_for_app` · `get_guide` · `read_docs` · `set_plan` · `update_task` · `finish_work` · `project_info` · `scene_dump` · `get_elements` · `scenes` · `elements` · `templates` · `physics_info` · `layout_check` · `joints` · `prefabs` · `variables` · `block_catalog` · `events` · `define_blocks` · `files` · `create_image` · `create_sound` · `import_asset` · `editor` · `build` · `run_game` · `stop_game` · `screenshot` · `game_input` · `game_state` · `run_test` · `game_logs` · `git`
 
 ## Privacy
 

@@ -68,15 +68,24 @@ try {
 
   r = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "1" } });
   check("initialize", r.json.result.protocolVersion === "2025-06-18" && r.json.result.instructions.includes("Star2D"));
+  const instr = r.json.result.instructions;
+  const r0Instr = () => instr;
 
   r = await fetch(`${BASE}/v1/mcp/${SECRET}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) });
   check("notification -> 202", r.status === 202);
 
   r = await rpc("tools/list", {});
   const names = r.json.result.tools.map((t) => t.name);
+  const toolsList = r.json.result.tools;
+  const r0Tools = () => toolsList;
   check("tools/list has the tools", names.length >= 28 && names.includes("elements") && names.includes("run_test"), names.length);
   const elementsTool = r.json.result.tools.find((t) => t.name === "elements");
   check("elements schema keeps ops + scene", elementsTool.inputSchema.properties.ops && elementsTool.inputSchema.properties.scene && elementsTool.inputSchema.properties.ops.items.properties.op.enum.includes("add"));
+
+  const scenesTool = r0Tools().find((t) => t.name === "scenes");
+  check("scenes create takes orientation", scenesTool.inputSchema.properties.orientation && scenesTool.inputSchema.properties.orientation.enum.includes("portrait"));
+  check("physics_info tool exists", names.includes("physics_info"));
+  check("instructions carry the frame/z/physics rules", r0Instr().includes("status.frame") && r0Instr().includes("physics_info") && r0Instr().includes("Background 0"));
 
   r = await call("get_guide");
   check("get_guide (local)", r.content[0].text.includes("Star2D Remote"));

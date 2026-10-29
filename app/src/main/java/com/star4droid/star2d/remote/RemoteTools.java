@@ -12,6 +12,7 @@ public final class RemoteTools {
         switch (tool) {
             case "elements": return "read_docs {topic:'elements', section:'<TYPE>'}";
             case "layout_check": return "read_docs {topic:'ui-input', section:'Designing UI'}";
+            case "physics_info": return "read_docs {topic:'physics'}";
             case "events": return "read_docs {topic:'events'} and {topic:'blocks'}";
             case "define_blocks": case "block_catalog": return "read_docs {topic:'blocks', section:'define_blocks'}";
             case "create_image": case "create_sound": case "import_asset": return "read_docs {topic:'assets', section:'paths'}";
@@ -62,6 +63,7 @@ public final class RemoteTools {
                 case "scene_dump": return CoreTools.sceneDump(args);
                 case "get_elements": return CoreTools.getElements(args);
                 case "layout_check": return LayoutCheck.check(args);
+                case "physics_info": return PhysicsInfo.info(args);
                 case "scenes": return EditTools.scenes(args);
                 case "elements": return EditTools.elements(args);
                 case "joints": return EditTools.joints(args);

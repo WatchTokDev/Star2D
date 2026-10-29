@@ -109,12 +109,15 @@ public class RemotePanel implements PanelHost.Panel, RemoteClient.StateListener 
         // ---- copy commands
         col.addView(Ui.sectionLabel(c, Tr.t("rc_commands", "Commands to copy")));
         LinearLayout cc = card(c, col);
-        TextView how = Ui.text(c, Tr.t("rc_commands_hint", "Paste the work order into Claude (or any AI chat) and write what you want after it."), 12.5f, Ui.TEXT_2);
+        TextView how = Ui.text(c, Tr.t("rc_commands_hint", "With the connector added in Claude, paste the short work command and write what you want after it. No link is needed: the connector already carries all the instructions."), 12.5f, Ui.TEXT_2);
         how.setPadding(0, 0, 0, Ui.dp(c, 8));
         cc.addView(how, Ui.matchWrap());
         LinearLayout b1 = Ui.button(c, R.drawable.ic_s2_copy, Tr.t("rc_copy_work", "Copy work command for Claude"), true, v -> copyWork(c));
         b1.setLayoutParams(Ui.matchWrap());
         cc.addView(b1);
+        LinearLayout b1b = Ui.button(c, R.drawable.ic_s2_copy, Tr.t("rc_copy_work_link", "Copy with guide link (if the connector is not attached)"), false, v -> copyWorkWithLink(c));
+        b1b.setLayoutParams(Ui.margins(Ui.matchWrap(), c, 0, 8, 0, 0));
+        cc.addView(b1b);
         LinearLayout b2 = Ui.button(c, R.drawable.ic_s2_copy, Tr.t("rc_copy_ai", "Copy command for another AI"), false, v -> copyOther(c));
         b2.setLayoutParams(Ui.margins(Ui.matchWrap(), c, 0, 8, 0, 0));
         cc.addView(b2);
@@ -186,6 +189,15 @@ public class RemotePanel implements PanelHost.Panel, RemoteClient.StateListener 
             String repo = RemoteCommands.repoUrl(new File(path));
             Dialogs.copy(c, RemoteCommands.workCommand(c, repo));
         });
+    }
+
+    /** Old behaviour: the work command with the guide link, for chats where the connector is not attached. */
+    private void copyWorkWithLink(Context c) {
+        if (!RemoteSettings.hasServer(c)) {
+            Ui.toast(c, Tr.t("rc_no_server", "Type the server link first"));
+            return;
+        }
+        Dialogs.copy(c, RemoteCommands.workCommandWithLink(c, ""));
     }
 
     private void copyOther(Context c) {

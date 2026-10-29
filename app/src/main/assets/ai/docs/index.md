@@ -6,9 +6,10 @@ Star2D is a 2D game-engine editor on an Android phone (LibGDX + Box2D). Do NOT r
 1. The engine runs ONLY on the phone. Never compile/run/test anywhere else. The editor must stay open on screen.
 2. Blocks first: logic = `events` with `blocks` (user-editable). Java only when no block fits.
 3. Batch: many ops per call; every call costs shared quota. Check `status.scene_rev` before re-reading a scene. Change code with `files` search / read `from_line,to_line` / edit (and `events` edit), never by rewriting a file.
-4. Units: editor px, origin BOTTOM-LEFT, y up, x/y = element's bottom-left corner. Raw Box2D/Java: world = px * 0.25. Names: letters, digits, `_`.
+4. Units: editor px, origin BOTTOM-LEFT, y UP, x/y = element's bottom-left corner. Raw Box2D/Java: world = px * 0.25. Names: letters, digits, `_`. FIRST read `status.frame` (orientation + width x height) and keep every element inside it; a new scene copies the project orientation, pass `orientation:'portrait'` to `scenes create` for vertical games.
+4b. Draw order: higher z = on top, UI is not automatically above the world. Background 0, ground 10, actors 20, effects 40, UI box 100, TEXT 110, JOYSTICK 120, never negative.
 5. Event names. Scene: `OnCreate` `OnStep` `onCollisionStart` `onCollisionEnd` `OnPause` `OnResume`. Element: `onClick` `onTouchStart` `onTouchEnd` `OnBodyCreated` `OnBodyUpdate` `onBodyCollided` `onBodyCollideEnd`.
-6. Physics: first block of a physical scene's `OnCreate` is `setWorldGravity` (about 800 platformer, 0 top-down); speeds <= 450 px/s; use scene collision events, `isSensor` pickups, `hide` + `destroyLater` to remove things.
+6. Physics: first block of a physical scene's `OnCreate` is `setWorldGravity` (about 800 platformer, 0 top-down); positive velocity Y moves UP; speeds <= 450 px/s; call `physics_info` before choosing jump power, gravity, speeds or platform gaps; use scene collision events, `isSensor` pickups, `hide` + `destroyLater` to remove things.
 7. Images: `create_image` `hero.png` -> element `image` `/hero.png`.
 8. TEXT wraps if narrower than its content (about 10 px per letter x Font Scale): resize with `set`. A TEXT/PROGRESS without touch events is click-through: put the event on the BOX button only.
 9. UI: `layout_check`, then `screenshot` `{target:'scene', region:{...}}`, fix with `elements set`.
@@ -18,7 +19,7 @@ Star2D is a 2D game-engine editor on an Android phone (LibGDX + Box2D). Do NOT r
 - `overview`: folders on disk, how scenes/events become a game, what `build` does. First project contact.
 - `scenes`: scene files, orientation, logic size, colors, several scenes. Before creating scenes.
 - `elements`: EVERY element type with every property, default and allowed values. Use `section:'<TYPE>'`.
-- `physics`: body types, friction, sensors, filtering, gravity, speeds, units. Before anything that moves.
+- `physics`: body types, friction, sensors, filtering, gravity, speeds, units, signs, jump formulas, platformer checklist and "when it goes wrong". Before anything that moves.
 - `events`: every event, exact names, when it fires. Before writing logic.
 - `blocks`: block JSON format, `define_blocks`. Before the first `events` call.
 - `blocks-examples`, `blocks-examples-2`: 15 verified block sequences (movement, jump, coins, shooting, timers, game over, scenes, saving, camera). Copy from here.

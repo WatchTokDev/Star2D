@@ -62,6 +62,11 @@ final class Proj {
         return list;
     }
 
+    /** "landscape" or "portrait": the orientation of the PROJECT, from its config files (scene1 first), ignoring {@code except}. GL thread not required. */
+    static String projectOrientation(String except) {
+        return com.star4droid.star2d.editor.ProjectOrientation.read(project(), except).landscape ? "landscape" : "portrait";
+    }
+
     static String sceneOrDefault(String scene) {
         return scene == null || scene.isEmpty() ? editor().getScene() : scene;
     }

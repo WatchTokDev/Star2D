@@ -132,12 +132,13 @@ export const TOOLS: ToolDef[] = [
   {
     name: "scenes",
     description:
-      "Manage scenes: list, open, create, rename, copy, delete, configure (sceneColor, Ambient Light, or=landscape|portrait, logicWidth, logicHeight).",
+      "Manage scenes: list, open, create (orientation: landscape|portrait, default = the project's), rename, copy, delete, configure (sceneColor, Ambient Light, or=landscape|portrait, logicWidth, logicHeight, swap_size). Every reply states the scene frame in plain words (orientation, width x height, y up).",
     inputSchema: obj(
       {
         action: str("list|open|create|rename|copy|delete|configure", { enum: ["list", "open", "create", "rename", "copy", "delete", "configure"] }),
         name: str("scene name"),
         new_name: str("for rename/copy"),
+        orientation: str("create: landscape|portrait. Omit = same as the project (read from its config files). Say portrait whenever the user wants a vertical game.", { enum: ["landscape", "portrait"] }),
         config: anyObj("for configure/create: {sceneColor:'#263238', 'Ambient Light':'#FFFFFF', or:'landscape', logicWidth:1280, logicHeight:720}"),
       },
       ["action"],
@@ -378,9 +379,23 @@ export const TOOLS: ToolDef[] = [
     }),
   },
   {
+    name: "physics_info",
+    description:
+      "Arithmetic for jumps and speeds in pixels, so you never guess: the scene frame, gravity (read from the scene), jump height / air time / horizontal reach, the jump_speed needed for a wanted jump_height, and whether platform gaps (gap px, rise px) can be crossed. Call it BEFORE choosing gravity, jump power, speeds or platform spacing. Y is up: positive vertical velocity moves UP.",
+    inputSchema: obj({
+      scene: str("scene, default = the open one"),
+      gravity: num("px/s2, default = the scene's setWorldGravity or 800"),
+      jump_speed: num("px/s given to the jump block / setVelocityY"),
+      jump_height: num("wanted jump height in px: returns the needed jump_speed (or how to lower the gravity)"),
+      move_speed: num("walk speed px/s, default 250"),
+      jumps: arr(obj({ name: str("label"), gap: num("horizontal distance between the edge you leave and the edge you land on, px"), rise: num("height of the target above the start, px (negative = lower)") }), "platform jumps to check"),
+      element: str("element name: also report its size/material"),
+    }),
+  },
+  {
     name: "layout_check",
     description:
-      "Geometry check of a scene's layout (no picture): elements outside the logic screen, overlapping UI elements, TEXT too narrow for its content (wraps), touch targets smaller than 48 px, text hidden under its box. Compact list of problems with the fix. Run it after building a screen, then screenshot (target scene, region) to look.",
+      "Geometry check of a scene's layout (no picture): elements outside the logic screen, overlapping UI elements, TEXT too narrow for its content (wraps), touch targets smaller than 48 px, text hidden under its box, DRAW ORDER (a background covering other elements, elements hidden behind a bigger one, UI under world objects). Compact list of problems with the fix. Run it after building a screen, then screenshot (target scene, region) to look.",
     inputSchema: obj({ scene: str("scene name, default = the open one") }),
   },
   {
@@ -465,15 +480,18 @@ export const CORE_RULES = `You control the user's Star2D game-engine editor on T
 
 Start: call status. If app_not_connected, tell the user in their language "Open the Star2D editor now and keep it open on screen, Claude works in the background", then wait_for_app. Next set_plan, work with update_task, end with finish_work. The user watches the plan and cannot edit meanwhile.
 
+FIRST read status.frame (orientation + size, e.g. PORTRAIT 720 wide x 1280 tall). Design only for that frame, never assume 1280x720. A new scene copies the project orientation; pass scenes create orientation:portrait when the user wants a vertical game. For common game types call templates {action:'list'} first and apply one instead of building from scratch.
+
 Rules:
 1. Blocks first: logic = events with blocks (the user can edit them); raw Java only when no block fits; define_blocks makes new blocks/categories.
 2. Batch: elements, events, files, variables, joints take lists of ops; every call costs shared quota. Skip re-reading a scene when status.scene_rev is unchanged.
 3. Never rewrite a script to change a part: files search / read from_line,to_line / edit, or events edit.
-4. Units: editor px, origin BOTTOM-LEFT, y up, x/y = element's bottom-left corner (Box2D/Java world = px * 0.25). Names: letters, digits, _.
+4. Units: editor px, origin BOTTOM-LEFT, y UP, x/y = element's bottom-left corner (Box2D/Java world = px * 0.25); keep every element inside the frame. Names: letters, digits, _.
+4b. Draw order: higher z = drawn on top, UI is NOT automatically above the world. Background 0, ground 10, actors 20, effects 40, UI box 100, TEXT/PROGRESS 110, JOYSTICK 120, never negative (elements add sets these when you give no z).
 5. Events. Scene: OnCreate OnStep onCollisionStart onCollisionEnd OnPause OnResume. Element: onClick onTouchStart onTouchEnd OnBodyCreated OnBodyUpdate onBodyCollided onBodyCollideEnd.
-6. Physics: first block of a physical scene's OnCreate is setWorldGravity (about 800 platformer, 0 top-down); speeds <= 450 px/s; scene collision events, isSensor pickups, hide + destroyLater to remove.
+6. Physics: first block of a physical scene's OnCreate is setWorldGravity (about 800 platformer, 0 top-down); positive velocity Y moves UP (jump = positive power); speeds <= 450 px/s; call physics_info before choosing jump power, gravity, speeds or platform gaps; scene collision events, isSensor pickups, hide + destroyLater to remove.
 7. Images: create_image name.png -> element image "/name.png". TEXT wraps if narrower than its content (about 10 px per letter x Font Scale): resize with elements set (the reply warns). A TEXT/PROGRESS without touch events is click-through: put onClick/onTouchStart on the BOX button only.
-8. UI: after building a screen run layout_check, then screenshot (target scene, region/camera) and fix what you see.
+8. UI: after building a screen run layout_check (it also checks draw order), then screenshot (target scene, region/camera) and fix what you see.
 8b. Structure: put related elements under a GROUP (parent, read_docs groups); a repeated enemy/UI piece becomes a prefab (prefabs tool, read_docs prefabs), edit one instance then apply.
 9. Test: run_game compiles and starts in ONE call (never build first, that compiles twice); build only to check errors without opening the game. It returns when loaded (ready:true). game_input: tap, hold(ms), down (stays pressed until up/release), swipe, key, joystick, wait; real time, 45 s per call (run_test start:false continues). Verify with screenshot, game_state, game_logs before saying it works.
 
