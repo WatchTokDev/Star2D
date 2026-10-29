@@ -168,7 +168,48 @@ public interface PlayerItem {
 	default public void setAnimation(Animation animation){}
 	default public void removeAnimation(){}
 	public ElementEvent getElementEvents();
+	// ---- behaviors at runtime (ids = class names: "PlatformerPlayer", "Shooter"...) ----
+	/** Attaches a behavior object to this element (starts on the next frame). Returns it. */
+	default public com.star4droid.template.behaviors.Behavior addBehavior(com.star4droid.template.behaviors.Behavior b){
+	    return b.attach(this,com.star4droid.template.Items.StageImp.of(this));
+	}
+	/** Attaches a new behavior by id with its default parameters (null if the id is unknown or it is already attached). */
+	default public com.star4droid.template.behaviors.Behavior addBehavior(String id){
+	    if(hasBehavior(id)) return getBehavior(id);
+	    com.star4droid.template.behaviors.Behavior b = com.star4droid.template.behaviors.BehaviorRegistry.create(id);
+	    return b==null?null:addBehavior(b);
+	}
+	default public void removeBehavior(String id){
+	    ItemScript s = getScript();
+	    if(s!=null) s.removeBehavior(id);
+	}
+	default public boolean hasBehavior(String id){
+	    return getBehavior(id)!=null;
+	}
+	default public com.star4droid.template.behaviors.Behavior getBehavior(String id){
+	    ItemScript s = getScript();
+	    return s==null?null:s.getBehavior(id);
+	}
+	/** Sets a public field of a behavior by name (numbers are converted, element fields accept an element name): setBehaviorParam("Shooter","fireRate",8). */
+	default public boolean setBehaviorParam(String id,String field,Object value){
+	    com.star4droid.template.behaviors.Behavior b = getBehavior(id);
+	    return b!=null && b.setParam(field,value);
+	}
+	default public Object getBehaviorParam(String id,String field){
+	    com.star4droid.template.behaviors.Behavior b = getBehavior(id);
+	    return b==null?null:b.getParam(field);
+	}
+	/** Turns a behavior of this element on/off by class name: item.setBehaviorEnabled("Car", true). Enabling one disables the others of its exclusive group (movement...). */
+	default public void setBehaviorEnabled(String behavior,boolean enabled){
+	    ItemScript s = getScript();
+	    if(s!=null) s.setBehaviorEnabled(behavior,enabled);
+	}
+	default public boolean isBehaviorEnabled(String behavior){
+	    ItemScript s = getScript();
+	    return s!=null && s.isBehaviorEnabled(behavior);
+	}
 	default public void destroy(){
+	    try { if(getScript()!=null) ((ItemScript) getScript()).destroyBehaviors(); } catch(Throwable ignored){}
 	    ChildsHolder holder = getChildsHolder();
 	    if(holder != null){
 	        if(holder.destroyed) return;

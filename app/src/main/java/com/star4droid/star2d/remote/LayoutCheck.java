@@ -38,6 +38,7 @@ final class LayoutCheck {
 
     private static boolean isUi(LinkedHashMap<String, String> m) {
         if (type(m).equals("GROUP")) return false;
+        if (type(m).equals("UIHOLDER")) return true;
         return "UI".equalsIgnoreCase(m.get("type")) || type(m).equals("JOYSTICK");
     }
 

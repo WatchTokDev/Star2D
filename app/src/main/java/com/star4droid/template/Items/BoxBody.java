@@ -43,16 +43,22 @@ public class BoxBody extends Image implements PlayerItem {
 		addListener(new InputListener(){
 			@Override
 			public void touchUp (InputEvent event, float x, float y, int pointer, int button) {
+				touchImagesUp(pointer);
 				if(getScript()!=null)
 					getScript().touchEnd(event);
 				else if(elementEvent!=null) elementEvent.onTouchEnd(BoxBody.this,event);
 			}
 			@Override
 			public boolean touchDown (InputEvent event, float x, float y, int pointer, int button) {
+				touchImagesDown(pointer);
 				if(getScript()!=null)
 					getScript().touchStart(event);
 				else if(elementEvent!=null) elementEvent.onTouchStart(BoxBody.this,event);
 				return true;
+			}
+			@Override
+			public void touchDragged (InputEvent event, float x, float y, int pointer) {
+				touchImagesDrag(pointer,x,y);
 			}
 		});
 		addListener(new ClickListener(){
@@ -65,6 +71,59 @@ public class BoxBody extends Image implements PlayerItem {
 		});
 	}
 	
+	// ---- optional touch images: Pressed Image (while the finger is down and inside), Touch Start Image / Touch End Image (stay) ----
+	private Drawable pressedD, startD, endD, beforePressed;
+	private boolean pressedOn;
+	private int touchPointer = -1;
+
+	/** The drawable of an images/ path (same loading path as the base image, so .9.png works), or null. The element keeps its current drawable. */
+	private Drawable resolveTouchImage(String img){
+		if(img==null || img.isEmpty()) return null;
+		Drawable keep = getDrawable();
+		Drawable d = null;
+		try {
+			if(stage.setImage(this,img)) d = getDrawable();
+		} catch(Throwable t){}
+		super.setDrawable(keep);
+		return d;
+	}
+
+	private void showPressed(){
+		beforePressed = getDrawable();
+		super.setDrawable(pressedD);
+		pressedOn = true;
+	}
+
+	private void releasePressed(){
+		if(!pressedOn) return;
+		pressedOn = false;
+		// the user's own events may already have changed the image: then leave it
+		if(beforePressed!=null && getDrawable()==pressedD) super.setDrawable(beforePressed);
+		beforePressed = null;
+	}
+
+	private void touchImagesDown(int pointer){
+		if(touchPointer!=-1) return;
+		touchPointer = pointer;
+		if(animation!=null) return;
+		if(startD!=null) super.setDrawable(startD);
+		if(pressedD!=null) showPressed();
+	}
+
+	private void touchImagesUp(int pointer){
+		if(pointer!=touchPointer) return;
+		touchPointer = -1;
+		releasePressed();
+		if(animation==null && endD!=null) super.setDrawable(endD);
+	}
+
+	private void touchImagesDrag(int pointer,float x,float y){
+		if(pointer!=touchPointer || pressedD==null || animation!=null) return;
+		boolean inside = x>=0 && y>=0 && x<getWidth() && y<getHeight();
+		if(!inside) releasePressed();
+		else if(!pressedOn) showPressed();
+	}
+
 	public BoxBody setElementEvent(ElementEvent event){
 		elementEvent = event;
 		return this;
@@ -125,6 +184,9 @@ public class BoxBody extends Image implements PlayerItem {
 		    }
 		}
 		
+		pressedD = resolveTouchImage(boxDef.Pressed_Image);
+		startD = resolveTouchImage(boxDef.Touch_Start_Image);
+		endD = resolveTouchImage(boxDef.Touch_End_Image);
 		setName(boxDef.name);
 		setPosition((UI ? 1 : StageImp.WORLD_SCALE) * x,(UI ? 1 : StageImp.WORLD_SCALE) * y);
 		if(!boxDef.Tint.equals(tint)){
@@ -243,6 +305,7 @@ public class BoxBody extends Image implements PlayerItem {
 				ItemScript script = (ItemScript)(getScript().getClass().getConstructor(PlayerItem.class).newInstance(body));
 				script.setItem(body).setStage(stage);
 				body.setScript(script);
+				script.cloneBehaviorsFrom(getScript());
 			} catch(Exception ex){}
 		}
 		return body;

@@ -60,11 +60,16 @@ def main():
 
     step("1. compile templates + real block catalog")
     srcs = glob.glob(os.path.join(SRC, "remote/Template*.java")) + glob.glob(os.path.join(CHK, "stubs/**/*.java"), recursive=True)
-    srcs += [os.path.join(SRC, "ui/blocks/BlockCatalog.java"), os.path.join(SRC, "ui/blocks/BlockModel.java"), os.path.join(SRC, "remote/BlockBuilder.java"),
+    srcs += [os.path.join(SRC, "ui/blocks/BlockCatalog.java"), os.path.join(SRC, "ui/blocks/BlockModel.java"), os.path.join(SRC, "ui/blocks/BlockInfo.java"), os.path.join(SRC, "remote/BlockBuilder.java"),
              os.path.join(CHK, "src/com/star4droid/star2d/remote/Check.java")]
+    # BlockCatalog now pulls in the behavior-block generator (pure Java, no Android)
+    srcs += glob.glob(os.path.join(SRC, "blocks/*.java")) + glob.glob(os.path.join(ROOT, "app/src/main/java/com/star4droid/star2d/behaviors/*.java"))
     # Templates.java (the Android side) is not part of the offline build
     srcs = [s for s in srcs if not s.endswith("/Templates.java")]
-    r = run(["javac", "-nowarn", "-d", CLS, "-cp", GSON] + srcs)
+    _gdx = sorted(glob.glob(os.path.expanduser("~/.gradle/caches/modules-2/files-2.1/com.badlogicgames.gdx/gdx/*/*/gdx-1*.jar")))
+    _gdx = [j for j in _gdx if "sources" not in j][-1:]
+    _tpl = os.path.join(ROOT, "template/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes")
+    r = run(["javac", "-nowarn", "-d", CLS, "-cp", os.pathsep.join([GSON, _tpl] + _gdx)] + srcs)
     if r.returncode != 0:
         print(r.stdout + r.stderr)
         print("COMPILE FAILED")

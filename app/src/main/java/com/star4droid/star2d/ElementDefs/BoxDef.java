@@ -8,6 +8,8 @@ public class BoxDef extends ItemDef {
 	public ElementEvent elementEvents;
 	public static final String TYPE="BOX";
 	public String image="",parentName ="",type="DYNAMIC",name="", Collision="",Script="",Tint="";
+	/** optional touch images (path under images/, "" = none): shown while pressed / applied at touch start / applied at touch end */
+	public String Pressed_Image="",Touch_Start_Image="",Touch_End_Image="";
 	public boolean Active=true,Bullet=false,isSensor=false,Fixed_Rotation=false,Visible=true;
 	public float ColliderX=0,x=0,y=0,z=0,rotation=0,ColliderY=0,Gravity_Scale=1,
 	density=1,Scale_X=1,Scale_Y=1,friction=0,restitution=0.5f,
@@ -29,6 +31,9 @@ public class BoxDef extends ItemDef {
 	    BoxDef clone = new BoxDef();
 	    clone.elementEvents = elementEvents;
 	    clone.image = this.image;
+	    clone.Pressed_Image = this.Pressed_Image;
+	    clone.Touch_Start_Image = this.Touch_Start_Image;
+	    clone.Touch_End_Image = this.Touch_End_Image;
         clone.type = this.type;
         clone.parentName = (parentName!=null&&parentName.equals("")) ? parentName : name;
         clone.Collision = this.Collision;

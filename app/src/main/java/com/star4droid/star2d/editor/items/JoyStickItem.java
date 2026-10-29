@@ -87,11 +87,24 @@ public class JoyStickItem extends Touchpad implements EditorItem {
             
             if (isKnob) {
                 getStyle().knob = drawable;
+                knobCustom = true;
             } else {
                 getStyle().background = drawable;
+                backCustom = true;
+            }
+        } else if (propertySet.getString(propertyKey).isEmpty()) {
+            // image reset / cleared: back to the default joystick pictures (once)
+            if (isKnob && knobCustom) {
+                getStyle().knob = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/joybtn.png")));
+                knobCustom = false;
+            } else if (!isKnob && backCustom) {
+                getStyle().background = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/joyback.png")));
+                backCustom = false;
             }
         }
     }
+
+    private boolean knobCustom = false, backCustom = false;
 
     @Override
     public PropertySet<String, Object> getPropertySet() {

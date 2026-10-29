@@ -2,7 +2,16 @@ package com.star4droid.star2d.editor.utils;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
+import com.kotcrab.vis.ui.VisUI;
+import com.star4droid.star2d.fonts.FontPresets;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
@@ -30,6 +39,10 @@ public class BitmapFontEditor extends VisDialog {
 	OnSave onSave;
 	VisTable table;
 	VisTextButton save,cancel;
+	// preset strip (horizontal, scrollable) + live preview
+	private final Array<BitmapFont> chipFonts = new Array<>();
+	private Label previewLabel;
+	private BitmapFont previewFont;
 	/*
     	* dir = directory to save the file (no need for it if the filehandle exists)
     	* filehandle = full filepath (null means the user should enter file name)
@@ -84,6 +97,7 @@ public class BitmapFontEditor extends VisDialog {
 		isRtl.setNameText(getTrans("Support RTL"));
 		isRtl.setValue(propertySet!=null ? propertySet.getString("rtl") : "false");
 		if(first){
+			try { addPresetStrip(root); } catch(Throwable t){ Gdx.app.log("star2d_fonts","preset strip : "+t); }
 			table.add(name).row();
 			table.add(fontInput).row();
 			table.add(isRtl).row();
@@ -198,6 +212,121 @@ public class BitmapFontEditor extends VisDialog {
 		return this;
 	}
 	
+	// ------------------------------------------------------------- presets
+
+	private static String tr(String en,String ar){
+		return Lang.isRTL() ? ar : en;
+	}
+
+	private void addPresetStrip(final String root){
+		java.util.List<FontPresets.Preset> presets = FontPresets.all();
+		if(presets.isEmpty()) return;
+		Drawable dark = VisUI.getSkin().newDrawable("white", 0.13f, 0.14f, 0.18f, 1f);
+		Drawable darkSel = VisUI.getSkin().newDrawable("white", 0.22f, 0.24f, 0.30f, 1f);
+		table.add(new Label(tr("Ready presets (tap one)","قوالب جاهزة (اضغط على واحد)"), VisUI.getSkin())).left().padTop(4).row();
+		VisTable chips = new VisTable();
+		final float chipW = Gdx.graphics.getWidth()*0.2f, chipH = Gdx.graphics.getHeight()*0.17f;
+		Map<String,FreeTypeFontGenerator> generators = new HashMap<>();
+		try {
+			for(final FontPresets.Preset preset:presets){
+				Label.LabelStyle style = null;
+				try {
+					FreeTypeFontGenerator generator = generators.get(preset.ttf);
+					if(generator==null){
+						generator = new FreeTypeFontGenerator(Gdx.files.internal("files/"+preset.ttf));
+						generators.put(preset.ttf, generator);
+					}
+					float size = Math.max(8f, Float.parseFloat(preset.params.containsKey("size") ? preset.params.get("size") : "32"));
+					BitmapFont font = FontPresets.generate(generator, preset.params, Math.min(1f, 30f/size), preset.rtl ? "\u0623\u0628" : "Aa");
+					chipFonts.add(font);
+					style = new Label.LabelStyle(font, Color.WHITE);
+				} catch(Throwable t){
+					Gdx.app.log("star2d_fonts","chip "+preset.id+" : "+t);
+				}
+				final VisTable chip = new VisTable();
+				chip.setBackground(dark);
+				Label sample = style != null ? new Label(preset.rtl ? "\u0623\u0628" : "Aa", style) : new Label("?", VisUI.getSkin());
+				chip.add(sample).expand().center().row();
+				Label caption = new Label(preset.name, VisUI.getSkin());
+				caption.setFontScale(0.6f);
+				caption.setEllipsis(true);
+				chip.add(caption).width(chipW - 8).center().padBottom(2);
+				chip.addListener(new ClickListener() {
+					@Override
+					public void clicked(InputEvent event, float x, float y) {
+						applyPreset(preset, root);
+					}
+				});
+				chips.add(chip).size(chipW, chipH).pad(3);
+			}
+		} finally {
+			for(FreeTypeFontGenerator g:generators.values()) g.dispose();
+		}
+		VisScrollPane strip = new VisScrollPane(chips);
+		strip.setScrollingDisabled(false, true);
+		strip.setFlickScroll(true);
+		strip.setScrollbarsVisible(false);
+		table.add(strip).width(Gdx.graphics.getWidth()*0.75f).height(chipH + 10).padBottom(4).row();
+		previewLabel = new Label("", VisUI.getSkin());
+		previewLabel.setAlignment(com.badlogic.gdx.utils.Align.center);
+		VisTable previewBox = new VisTable();
+		previewBox.setBackground(dark);
+		previewBox.add(previewLabel).expand().center().minHeight(chipH*0.6f);
+		table.add(previewBox).growX().padBottom(4).row();
+		VisTextButton previewButton = new VisTextButton(tr("Preview","معاينة"));
+		previewButton.addListener(new ClickListener() {
+			@Override
+			public void clicked(InputEvent event, float x, float y) {
+				refreshPreview(root);
+			}
+		});
+		table.add(previewButton).growX().padBottom(8).row();
+	}
+
+	private void applyPreset(FontPresets.Preset preset, String root){
+		try {
+			FontPresets.ensureBundledTtf(Gdx.files.absolute(root), preset.ttf);
+			fontInput.setValue("/"+preset.ttf);
+			isRtl.setValue(preset.rtl ? "true" : "false");
+			for(InputField input:inputFields){
+				String key = input.getFieldName();
+				String value = preset.params.get(key);
+				if(value == null){
+					try { value = String.valueOf(cls.getField(key).get(instance)); } catch(Exception ignored){}
+				}
+				if(value != null) input.setValue(value);
+			}
+			refreshPreview(root);
+		} catch(Throwable t){
+			app.toast("Error : "+t);
+		}
+	}
+
+	/** Draws a sample with the values currently in the form (GL thread: dialogs run there). */
+	private void refreshPreview(String root){
+		if(previewLabel == null) return;
+		try {
+			LinkedHashMap<String,String> params = new LinkedHashMap<>();
+			for(InputField input:inputFields) params.put(input.getFieldName(), input.getValue());
+			String ttfName = fontInput.getValue();
+			FileHandle ttf = ttfName.isEmpty() ? null : Gdx.files.absolute(root + (ttfName.startsWith("/") ? "" : "/") + ttfName);
+			if(ttf == null || !ttf.exists()) ttf = Gdx.files.absolute(ttfName);
+			if(ttf == null || !ttf.exists()) ttf = Gdx.files.internal("files/DroidSans.ttf");
+			float size = 32f;
+			try { size = Math.max(8f, Float.parseFloat(params.get("size"))); } catch(Exception ignored){}
+			boolean rtl = "true".equals(isRtl.getValue());
+			BitmapFont font = FontPresets.generate(ttf, params, Math.min(1f, 56f/size), rtl ? "\u0623\u0628\u062c AaBb 123" : "Aa Bb 123");
+			BitmapFont old = previewFont;
+			previewFont = font;
+			previewLabel.setStyle(new Label.LabelStyle(font, Color.WHITE));
+			previewLabel.setText(rtl ? "\u0623\u0628\u062c AaBb 123" : "Aa Bb 123");
+			if(old != null) old.dispose();
+		} catch(Throwable t){
+			previewLabel.setText("?");
+			Gdx.app.log("star2d_fonts","preview : "+t);
+		}
+	}
+
 	@Override
 	public VisDialog show(Stage stage) {
 		super.show(stage);

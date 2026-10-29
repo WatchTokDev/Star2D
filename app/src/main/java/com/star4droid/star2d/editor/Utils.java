@@ -124,6 +124,16 @@ public class Utils {
 			return full;
 	}
 	
+	private static com.badlogic.gdx.scenes.scene2d.utils.Drawable defaultImage;
+
+	/** The picture an element shows when its `image` is empty (the Star2D logo): what "reset image" goes back to. */
+	public static void setDefaultImage(Image image){
+		try {
+			if(defaultImage==null) defaultImage = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/logo.png")));
+			if(image.getDrawable()!=defaultImage) image.setDrawable(defaultImage);
+		} catch(Throwable ignored){}
+	}
+
 	public static void setImageFromFile(Image image,String path){
 		setImageFromFile(image,path,-1,-1);
 	}

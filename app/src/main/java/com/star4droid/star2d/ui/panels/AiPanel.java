@@ -459,7 +459,7 @@ public class AiPanel implements PanelHost.Panel {
             String cls = null;
             java.util.regex.Matcher m = java.util.regex.Pattern.compile("class\\s+(\\w+)").matcher(code);
             if (m.find()) cls = m.group(1);
-            if (code.contains("extends SceneScript")) return "java/com/star4droid/Game/SceneScript/" + scene.toLowerCase(Locale.ROOT) + "Script.java";
+            if (code.contains("extends SceneScript") || code.contains("SceneRefs")) return "java/com/star4droid/Game/SceneScript/" + scene.toLowerCase(Locale.ROOT) + "Script.java";
             if (cls != null) return "java/com/star4droid/Game/Scripts/" + scene + "/" + cls + ".java";
             return "scripts/NewScript.java";
         }, suggested -> Dialogs.input(c, Tr.t("ui_save_to_project", "Save to project"), Tr.t("ui_path", "Path in the project"), suggested, v -> v.contains("..") ? "Invalid" : null,

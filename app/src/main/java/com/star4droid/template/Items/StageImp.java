@@ -219,6 +219,11 @@ public class StageImp extends ApplicationAdapter {
 	    return this;
 	}
 	
+	/** The scene script object (or null); the generated code sets its public variables from the inspector. */
+	public SceneScript getSceneScript(){
+		return sceneScript;
+	}
+	
 	public StageImp setScript(SceneScript sceneScript){
 		this.sceneScript = sceneScript;
 		return this;
@@ -596,6 +601,11 @@ public class StageImp extends ApplicationAdapter {
 		return world;
 	}
 	
+	/** Physics sub-steps per frame (6 by default, 1 after setWorldGravity). Velocities in px/s are divided by it so behaviors move at true speed. */
+	public int getSteps(){
+		return steps;
+	}
+	
 	public StageImp setSteps(int x){
 		steps = Math.max(x,1);
 		return this;
@@ -779,10 +789,10 @@ public class StageImp extends ApplicationAdapter {
 				}
 				if(body1!=null && body2!=null){
 				    if(body1.getScript()!=null) body1.getScript().collisionBegin(body2);
-						else body1.getElementEvents().onCollisionBegin(body1,body2);
-					
+						else if(body1.getElementEvents()!=null) body1.getElementEvents().onCollisionBegin(body1,body2);
+
 					if(body2.getScript()!=null) body2.getScript().collisionBegin(body1);
-						else body1.getElementEvents().onCollisionBegin(body2,body1);
+						else if(body2.getElementEvents()!=null) body2.getElementEvents().onCollisionBegin(body2,body1);
 				    onCollisionBegin(body1,body2);
 				}
 			}
@@ -800,10 +810,10 @@ public class StageImp extends ApplicationAdapter {
 				}
 				if(body1!=null && body2!=null){
 				    if(body1.getScript()!=null) body1.getScript().collisionEnd(body2);
-						else body1.getElementEvents().onCollisionEnd(body1,body2);
-					
+						else if(body1.getElementEvents()!=null) body1.getElementEvents().onCollisionEnd(body1,body2);
+
 					if(body2.getScript()!=null) body2.getScript().collisionEnd(body1);
-						else body1.getElementEvents().onCollisionEnd(body2,body1);
+						else if(body2.getElementEvents()!=null) body2.getElementEvents().onCollisionEnd(body2,body1);
 				    onCollisionEnd(body1,body2);
 				}
 			}
@@ -1144,7 +1154,17 @@ public class StageImp extends ApplicationAdapter {
 		GameStage.act();
 	}
 	
+	private static final java.util.WeakHashMap<Actor,StageImp> OWNERS = new java.util.WeakHashMap<Actor,StageImp>();
+	
+	/** The scene an element belongs to (null when unknown): used by PlayerItem.addBehavior. */
+	public static StageImp of(PlayerItem item){
+		try {
+			synchronized(OWNERS){ return item==null?null:OWNERS.get(item.getActor()); }
+		} catch(Exception e){ return null; }
+	}
+	
 	public void addActor(Actor actor) {
+	    synchronized(OWNERS){ OWNERS.put(actor,this); }
 	    boolean isUi = false;
 		if(actor instanceof PlayerItem){
 		    try {
@@ -1337,6 +1357,33 @@ public class StageImp extends ApplicationAdapter {
             return ui || game;
         }
     }
+
+	/**
+	 * Hands every element (by name) to the Body Scripts and the Scene Script that extend a generated
+	 * {@code <scene>ItemRefs} / {@code <scene>SceneRefs} base, so they can write {@code player.getBody()} directly.
+	 * Called by the generated scene code once all elements exist; safe to call again.
+	 */
+	public void bindScriptRefs(){
+		try {
+			java.util.HashMap<String,PlayerItem> map = new java.util.HashMap<String,PlayerItem>();
+			ArrayList<PlayerItem> items = new ArrayList<PlayerItem>();
+			Stage[] stages = {GameStage, UiStage};
+			for(Stage st : stages){
+				if(st == null) continue;
+				for(Actor actor : st.getActors()){
+					if(!(actor instanceof PlayerItem)) continue;
+					PlayerItem item = (PlayerItem)actor;
+					items.add(item);
+					String n = actor.getName();
+					if(n != null && !map.containsKey(n)) map.put(n, item);
+				}
+			}
+			for(PlayerItem item : items)
+				if(item.getScript() != null) item.getScript().bindRefs(map);
+			if(sceneScript != null) sceneScript.bindRefs(map);
+		} catch(Exception ex){
+		}
+	}
 
 	public void notifyBodies(){
 		if(GameStage!=null)

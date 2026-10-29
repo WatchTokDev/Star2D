@@ -7,6 +7,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import com.star4droid.star2d.blocks.BehaviorBlocks;
+
 import java.io.File;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -29,6 +31,8 @@ public final class BlockCatalog {
         public String[] defaults;
         public boolean isIf;
         public int color;
+        /** Behavior ids: shown only while the scene uses one of them (null = always shown). */
+        public String[] showWhen;
 
         public BlockModel.Node create() {
             BlockModel.Node n = new BlockModel.Node();
@@ -45,6 +49,8 @@ public final class BlockCatalog {
     /** A reporter (value) block template. */
     public static class Reporter {
         public String group, display, template;
+        /** Behavior ids: shown only while the scene uses one of them (null = always shown). */
+        public String[] showWhen;
         Reporter(String g, String d, String t) { group = g; display = d; template = t; }
     }
 
@@ -61,6 +67,9 @@ public final class BlockCatalog {
         GROUP_OF.clear();
         TEMPLATE_COLOR.clear();
         CATEGORY_COLOR.clear();
+        SHAPE_OF.clear();
+        GEN_TEMPLATES.clear();
+        BlockInfo.clearDescriptions();
         try (InputStream in = c.getAssets().open("java/nodes.java")) {
             byte[] b = readAll(in);
             parseDsl(new String(b, StandardCharsets.UTF_8), null);
@@ -74,6 +83,7 @@ public final class BlockCatalog {
             loadCustomBlocks(new File(base, "Nodes/blocks.json"));
         }
         addReporters();
+        applyBehaviorBlocks(behaviorProject, true);
     }
 
     /** Reload user libraries (after editing them). */
@@ -205,8 +215,13 @@ public final class BlockCatalog {
 
     private static final HashMap<String, String> GROUP_OF = new HashMap<>();
 
+    /** Shape chosen explicitly for a value template: 'b' condition, 't' text, 'n' number / element. */
+    private static final HashMap<String, Character> SHAPE_OF = new HashMap<>();
+
     public static boolean isBooleanTemplate(String t) {
         if (t == null) return false;
+        Character k = SHAPE_OF.get(t);
+        if (k != null) return k == 'b';
         return t.contains("==") || t.contains("!=") || t.contains(" < ") || t.contains(" > ") || t.contains("<=") || t.contains(">=")
                 || t.contains("&&") || t.contains("||") || t.startsWith("(!(") || t.contains("checkCollision") || t.contains("isTouched")
                 || t.contains("isVisible()") || t.contains(".equals(") || t.equals("true") || t.equals("false");
@@ -214,12 +229,15 @@ public final class BlockCatalog {
 
     public static boolean isTextTemplate(String t) {
         if (t == null || t.endsWith(".length()")) return false;
+        Character k = SHAPE_OF.get(t);
+        if (k != null) return k == 't';
         return t.startsWith("String.valueOf(") || t.contains("getName()") || t.startsWith("getValue(") || t.startsWith("(String.valueOf(") || t.startsWith("\"");
     }
 
     public static int groupColor(String g) {
         if (g == null) return 0xFF00838F;
         if (g.startsWith("★")) return 0xFF6D4C41;
+        if (g.startsWith(BehaviorBlocks.CATEGORY_PREFIX)) return behaviorColor(g);
         switch (g) {
             case "Operators": return 0xFF43A047;
             case "Math": return 0xFF2E7D32;
@@ -330,6 +348,15 @@ public final class BlockCatalog {
         def("Physics", phys, "setWorldGravity", "strength", "600", false,
                 "setSteps(1);\nsetGravity(0f,-(float)(%1$s)*" + ws + ");\n%2$s");
 
+        // Behaviors (always shown): attach / detach / turn on-off / settings of a behavior of an element
+        int beh = 0xFF6A1B9A;
+        def("Behaviors", beh, "addBehavior", "body(Body) behavior(behavior)", "current|", false, "%1$s.addBehavior(\"%2$s\");\n%3$s");
+        def("Behaviors", beh, "removeBehavior", "body(Body) behavior(behavior)", "current|", false, "%1$s.removeBehavior(\"%2$s\");\n%3$s");
+        def("Behaviors", beh, "enableBehavior", "body(Body) behavior(behavior)", "current|", false, "%1$s.setBehaviorEnabled(\"%2$s\", true);\n%3$s");
+        def("Behaviors", beh, "disableBehavior", "body(Body) behavior(behavior)", "current|", false, "%1$s.setBehaviorEnabled(\"%2$s\", false);\n%3$s");
+        def("Behaviors", beh, "setBehaviorEnabled", "body(Body) behavior(behavior) on(Boolean)", "current||true", false, "%1$s.setBehaviorEnabled(\"%2$s\", %3$s);\n%4$s");
+        def("Behaviors", beh, "setBehaviorParam", "body(Body) behavior(behavior) setting value", "current|||0", false, "%1$s.setBehaviorParam(\"%2$s\", \"%3$s\", %4$s);\n%5$s");
+
         // Debug
         def("Debug", dbg, "toastValue", "value", "", false, "toast(String.valueOf(%1$s));\n%2$s");
         def("Debug", dbg, "logValue", "value", "score", false, "debug(String.valueOf(%1$s));\n%2$s");
@@ -409,12 +436,26 @@ public final class BlockCatalog {
         r("Input", "camera y", "(getCameraY()/" + WS + ")");
         r("Data", "saved text ___", "getValue(\"%1$s\")");
         r("Data", "saved number ___", "getNumber(\"%1$s\")");
+        // behaviors
+        r("Behaviors", "___ has behavior ___", "%1$s.hasBehavior(\"%2$s\")");
+        shape("%1$s.hasBehavior(\"%2$s\")", 'b');
+        r("Behaviors", "___ has behavior ___ turned on", "%1$s.isBehaviorEnabled(\"%2$s\")");
+        shape("%1$s.isBehaviorEnabled(\"%2$s\")", 'b');
+        r("Behaviors", "number setting ___ of behavior ___ on ___", "com.star4droid.template.behaviors.BehaviorOps.num(%3$s.getBehaviorParam(\"%2$s\", \"%1$s\"))");
+        shape("com.star4droid.template.behaviors.BehaviorOps.num(%3$s.getBehaviorParam(\"%2$s\", \"%1$s\"))", 'n');
+        r("Behaviors", "text setting ___ of behavior ___ on ___", "com.star4droid.template.behaviors.BehaviorOps.text(%3$s.getBehaviorParam(\"%2$s\", \"%1$s\"))");
+        shape("com.star4droid.template.behaviors.BehaviorOps.text(%3$s.getBehaviorParam(\"%2$s\", \"%1$s\"))", 't');
+        r("Behaviors", "yes/no setting ___ of behavior ___ on ___", "com.star4droid.template.behaviors.BehaviorOps.bool(%3$s.getBehaviorParam(\"%2$s\", \"%1$s\"))");
+        shape("com.star4droid.template.behaviors.BehaviorOps.bool(%3$s.getBehaviorParam(\"%2$s\", \"%1$s\"))", 'b');
+        r("Behaviors", "behavior ___ of ___", "%2$s.getBehavior(\"%1$s\")");
         r("Logic", "true", "true");
         r("Logic", "___ is named ___", "%1$s.getName().equals(\"%2$s\")");
         r("Logic", "___ equals ___", "String.valueOf(%1$s).equals(String.valueOf(%2$s))");
         r("Logic", "false", "false");
         r("Text", "\"___\"", "\"%1$s\"");
     }
+
+    private static void shape(String template, char k) { SHAPE_OF.put(template, k); }
 
     private static void r(String g, String d, String t) {
         REPORTERS.add(new Reporter(g, d, t));
@@ -450,6 +491,7 @@ public final class BlockCatalog {
                     d.fields = fs.toArray(new String[0]);
                     d.defaults = dv.toArray(new String[0]);
                     add(d);
+                    if (n.has("desc")) BlockInfo.setDescription(d.title, parseDesc(n.get("desc")));
                 }
             }
         } catch (Exception ignored) {}
@@ -467,10 +509,119 @@ public final class BlockCatalog {
                     JsonObject b = be.getAsJsonObject();
                     String code = BlockModel.str(b, "code", "%1$s");
                     r(g, BlockModel.str(b, "title", "___"), code);
+                    if (b.has("desc")) BlockInfo.setDescription(BlockModel.str(b, "title", "___"), parseDesc(b.get("desc")));
                     try { if (b.has("color")) TEMPLATE_COLOR.put(code, b.get("color").getAsInt()); } catch (Exception ignored) {}
                 }
             }
         } catch (Exception ignored) {}
+    }
+
+    /** Description stored in a custom block: {"en":"..","ar":".."} (a plain string counts as English). Never null. */
+    public static java.util.Map<String, String> parseDesc(JsonElement e) {
+        return com.star4droid.star2d.blocks.BlockDesc.parse(e);
+    }
+
+    // ------------------------------------------------------------------ behavior blocks (@Block methods)
+
+    private static String behaviorProject = null;
+    private static final ArrayList<String> GEN_TEMPLATES = new ArrayList<>();
+    private static java.util.Set<String> activeBehaviors = null;
+
+    private static final int[] BEHAVIOR_COLORS = {0xFF6A1B9A, 0xFF00695C, 0xFFAD1457, 0xFF283593, 0xFF4E342E, 0xFF558B2F, 0xFFEF6C00, 0xFF00838F};
+
+    public static int behaviorColor(String category) {
+        return BEHAVIOR_COLORS[(category.hashCode() & 0x7FFFFFFF) % BEHAVIOR_COLORS.length];
+    }
+
+    /** True for the generated behavior blocks (they come and go with the scene). */
+    private static boolean generated(Def d) { return d.showWhen != null; }
+
+    /**
+     * (Re)builds the blocks of the {@code @Block} methods of the built-in behaviors and of the project's own
+     * ({@code <project>/java/com/star4droid/Game/Behaviors/*.java}). They are only shown when {@link #isVisible} says the scene uses
+     * the behavior. Call it again after the project's behavior sources changed.
+     */
+    public static synchronized void applyBehaviorBlocks(String projectPath) {
+        applyBehaviorBlocks(projectPath, false);
+    }
+
+    private static String behaviorSignature = null;
+
+    private static void applyBehaviorBlocks(String projectPath, boolean force) {
+        behaviorProject = projectPath;
+        String sig = signature(projectPath);
+        if (!force && sig.equals(behaviorSignature)) return;
+        behaviorSignature = sig;
+        for (java.util.Iterator<java.util.Map.Entry<String, ArrayList<Def>>> it = CATEGORIES.entrySet().iterator(); it.hasNext(); ) {
+            java.util.Map.Entry<String, ArrayList<Def>> e = it.next();
+            for (int i = e.getValue().size() - 1; i >= 0; i--) if (generated(e.getValue().get(i))) e.getValue().remove(i);
+            if (e.getValue().isEmpty()) { CATEGORY_COLOR.remove(e.getKey()); it.remove(); }
+        }
+        for (int i = REPORTERS.size() - 1; i >= 0; i--) if (REPORTERS.get(i).showWhen != null) REPORTERS.remove(i);
+        for (String t : GEN_TEMPLATES) { GROUP_OF.remove(t); SHAPE_OF.remove(t); }
+        GEN_TEMPLATES.clear();
+        BlockInfo.clearGenerated();
+        try {
+            for (java.util.List<BehaviorBlocks.Spec> list : BehaviorBlocks.all(projectPath).values())
+                for (BehaviorBlocks.Spec s : list) {
+                    String cat = s.paletteCategory();
+                    String[] show = {s.behaviorId};
+                    if (!s.isValue()) {
+                        Def d = new Def();
+                        d.category = cat;
+                        d.color = behaviorColor(cat);
+                        d.title = s.title;
+                        d.fields = s.fields();
+                        d.defaults = s.defaults();
+                        d.code = s.statementCode();
+                        d.showWhen = show;
+                        add(d);
+                        BlockInfo.registerGenerated(s.key(), s.label, s.labelAr, null, s.descMap());
+                    } else {
+                        String tpl = s.reporterTemplate();
+                        Reporter rep = new Reporter(cat, s.reporterDisplay(false), tpl);
+                        rep.showWhen = show;
+                        REPORTERS.add(rep);
+                        GROUP_OF.put(tpl, cat);
+                        SHAPE_OF.put(tpl, s.shape().equals("bool") ? 'b' : s.shape().equals("text") ? 't' : 'n');
+                        GEN_TEMPLATES.add(tpl);
+                        BlockInfo.registerGenerated(s.key(), s.label, s.labelAr, s.reporterDisplay(true), s.descMap());
+                    }
+                }
+        } catch (Throwable ignored) {}
+        version++;
+    }
+
+    private static String signature(String projectPath) {
+        StringBuilder sb = new StringBuilder(String.valueOf(projectPath));
+        try {
+            for (BehaviorBlocks.Spec s : BehaviorBlocks.flat(projectPath))
+                sb.append('\n').append(s.title).append('|').append(s.label).append('|').append(s.labelAr).append('|').append(s.desc).append('|').append(s.descAr).append('|')
+                        .append(s.category).append('|').append(s.statementCode());
+        } catch (Throwable ignored) {}
+        return sb.toString();
+    }
+
+    /** Which behaviors the scene being edited uses (null = no filter: every behavior block is shown). */
+    public static synchronized void setActiveBehaviors(java.util.Set<String> ids) {
+        if (ids == null ? activeBehaviors == null : ids.equals(activeBehaviors)) return;
+        activeBehaviors = ids;
+        version++;
+    }
+
+    public static synchronized boolean isVisible(String[] showWhen) {
+        if (showWhen == null || activeBehaviors == null) return true;
+        for (String id : showWhen) if (activeBehaviors.contains(id)) return true;
+        return false;
+    }
+
+    public static boolean isVisible(Def d) { return isVisible(d.showWhen); }
+
+    public static boolean isVisible(Reporter r) { return isVisible(r.showWhen); }
+
+    /** Ids of every behavior that has blocks (built-in and the project's). */
+    public static java.util.Set<String> behaviorsWithBlocks(String projectPath) {
+        return new java.util.LinkedHashSet<>(BehaviorBlocks.all(projectPath).keySet());
     }
 
     static byte[] readAll(InputStream in) throws Exception {

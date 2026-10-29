@@ -36,6 +36,9 @@ public final class PropertyTips {
         t("Active", "Inactive bodies don't take part in physics.", "الجسم غير النشط لا يشارك في الفيزياء.");
         t("Visible", "Show or hide the element.", "إظهار أو إخفاء العنصر.");
         t("image", "Picture shown for this element (from the images folder).", "الصورة المعروضة للعنصر (من مجلد images).");
+        t("Pressed Image", "Optional picture shown while the element is pressed (back to normal on release). Empty = none.", "صورة اختيارية تظهر أثناء الضغط على العنصر وترجع للأصل عند الرفع. فارغ = بدون.");
+        t("Touch Start Image", "Optional picture applied when the touch starts (stays until changed).", "صورة اختيارية تُطبَّق عند بدء اللمس وتبقى حتى تتغير.");
+        t("Touch End Image", "Optional picture applied when the touch ends (stays until changed).", "صورة اختيارية تُطبَّق عند انتهاء اللمس وتبقى حتى تتغير.");
         t("Tint", "Color multiplied over the image.", "لون يُمزج فوق الصورة.");
         t("Collision", "Elements this one should NOT collide with.", "العناصر التي لا يجب أن يتصادم معها هذا العنصر.");
         t("Points", "Custom collider polygon points.", "نقاط شكل التصادم المخصص.");

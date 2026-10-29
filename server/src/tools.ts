@@ -155,7 +155,8 @@ export const TOOLS: ToolDef[] = [
         type: str("add: element type"),
         name: str("element name (add: the new name)"),
         new_name: str("rename/duplicate"),
-        props: anyObj("property map, e.g. {x:100,y:200,width:64,height:64,image:'/images/hero.png',type:'DYNAMIC'}"),
+        props: anyObj("property map, e.g. {x:100,y:200,width:64,height:64,image:'/images/hero.png',type:'DYNAMIC'}; an image property set to '' or 'reset' goes back to the default picture"),
+        reset: arr(str("property"), "set: property names to put back to their default value (e.g. ['image','Pressed Image'])"),
         parent: str("add: parent element"),
         z: num("order: new z"),
       },
@@ -204,7 +205,13 @@ export const TOOLS: ToolDef[] = [
     name: "block_catalog",
     description:
       "List the visual blocks you can use (statement blocks by category with their fields, value blocks/reporters, and the user's custom categories). Prefer blocks over Java: blocks are what the user edits visually.",
-    inputSchema: obj({ category: str("only this category"), search: str("text to search in titles") }),
+    inputSchema: obj({
+      category: str("only this category"),
+      search: str("text to search in titles"),
+      detail: bool("also return each block's description (what it does); off by default to keep the list short"),
+      scene: str("scene whose behaviors decide which behavior blocks are listed, default = the open one"),
+      all: bool("also list the blocks of behaviors the scene does not use (they normally appear only when an element uses the behavior)"),
+    }),
   },
   {
     name: "events",
@@ -239,6 +246,11 @@ export const TOOLS: ToolDef[] = [
                 "Java template. Use %1$s,%2$s for fields in order; statement: end with %N$s for the next block (N = fields+1); container: %N$s is the inner blocks, %N+1$s the next. Value blocks: an expression using %1$s...",
               ),
               display: str("value blocks: label with ___ for each field, e.g. 'distance ___ to ___'"),
+              description: {
+                anyOf: [{ type: "string" }, { type: "object", additionalProperties: { type: "string" } }],
+                description:
+                  "what the block does, shown when the user taps the block's info button: a string (English) or a map by language code, e.g. {en:'Moves up', ar:'يتحرك للأعلى'}",
+              } as Json,
             },
             ["title", "code"],
           ),
@@ -306,6 +318,85 @@ export const TOOLS: ToolDef[] = [
         replace: bool("overwrite an existing image of that name"),
         pressed: bool("also create name_pressed (pushed-in look; default true)"),
         preview: bool("return a picture of the result"),
+      },
+      [],
+    ),
+  },
+  {
+    name: "fonts",
+    description:
+      "Make a game font (.s2df, built from a TTF at load time) from ready presets: fill colour + outline + drop shadow (no gradient/glow exists). action 'list' = presets, real params, ranges (call it first); 'create' {name, preset?, size?, color?, borderWidth?, borderColor?, shadowOffsetX/Y?, ttf?, rtl?, element?} -> use_as for a TEXT element's font property (element sets it right away); 'measure' {name, text, font_scale?} = width needed so the TEXT does not wrap; 'get'/'apply' {name, element}. Arabic: presets arabic_*. Details: read_docs fonts.",
+    inputSchema: obj(
+      {
+        action: str("list|create|get|apply|measure", { enum: ["list", "create", "get", "apply", "measure"] }),
+        name: str("font name, letters/digits/_ (e.g. title_font)"),
+        preset: str("look id from list (default arcade_outline)"),
+        size: num("glyph height px at Font Scale 1 (8..160)"),
+        color: str("fill colour #RRGGBB or #RRGGBBAA (keep white to tint with the element's Text Color)"),
+        borderWidth: num("outline px (0 = none)"),
+        borderColor: str("outline colour"),
+        shadowOffsetX: num("drop shadow x px (+ right)"),
+        shadowOffsetY: num("drop shadow y px (+ down)"),
+        shadowColor: str("drop shadow colour"),
+        ttf: str("bundled DroidSans.ttf|Parvin-Regular.ttf|VisOpenSans.ttf or a project path of your own .ttf/.otf"),
+        rtl: bool("right-to-left (Arabic) support"),
+        replace: bool("overwrite an existing font of that name"),
+        element: str("TEXT element to set this font on (create/apply)"),
+        text: str("measure: the text"),
+        font_scale: num("measure: the TEXT element's Font Scale (default 1)"),
+      },
+      [],
+    ),
+  },
+  {
+    name: "ui",
+    description:
+      "Menus, HUDs and dialogs made as UI files (UI/<name>.ui, like the UI Maker): 15 widgets (Panel, Button, Label, Image, Slider, Switch, TextField, ScrollView, ...) laid out with anchors/margins/Linear/Grid, themed, resolution independent. Prefer it to building a menu from many BOX/TEXT elements. action 'list' = screens, templates (hud, pause_menu, settings_panel, dialog_box, controls, main_menu, game_over, level_select), widgets, themes; 'describe' {type?} = properties; 'create' {name, template?|templates?, theme?, tree?, orientation?, design?, replace?}; 'get' {name, size?, json?} = outline + warnings; 'set' {name, ops:[{op:'add',parent,type,id,props,children?}|{op:'set',id,props}|{op:'remove',id}|{op:'move',id,parent,index}|{op:'duplicate',id}|{op:'wrap',id,type}], theme?}; 'check' {name} = overlaps, off-screen, small touch targets in portrait and landscape; 'event' {scene, holder, node, event, code} = Java for a button/slider inside; 'delete' {name, confirm}. Show a UI in a scene with an UIHOLDER element (ui:'<name>'). Details: read_docs ui.",
+    inputSchema: obj(
+      {
+        action: str("list|describe|get|create|set|check|event|delete", { enum: ["list", "describe", "get", "create", "set", "check", "event", "delete"] }),
+        name: str("UI file name, letters/digits/_ (e.g. hud)"),
+        type: str("describe: a widget type"),
+        template: str("create: a template id from list"),
+        templates: arr(str("template id"), "create: several templates added in order"),
+        theme: anyObj("create/set: {preset: id from list, overrides:{role:'#RRGGBB'}, font?}"),
+        tree: anyObj("create: nodes to add under the root: one node object or an array [{id,type,anchor,w,h,props,children}]"),
+        ops: arr(anyObj("operation"), "set: operations applied in order; failed ones are reported, the rest is saved"),
+        orientation: str("create: portrait|landscape (default = the project's)", { enum: ["portrait", "landscape"] }),
+        design: arr(num("px"), "create/set: design size [width,height]"),
+        replace: bool("create: overwrite an existing UI"),
+        size: arr(num("px"), "get/check: screen size [w,h] to compute positions for"),
+        json: bool("get: also return the raw JSON"),
+        outline: bool("set: also return the outline"),
+        scene: str("event: scene that holds the UIHOLDER"),
+        holder: str("event: UIHOLDER element name"),
+        node: str("event: widget id inside the .ui"),
+        event: str("event: onClick|onTouchStart|onTouchEnd|onChange|onSubmit|onScroll"),
+        code: str("event: Java statements (omit to read the current code)"),
+        ui: str("event: the .ui name, to validate node/event"),
+        confirm: bool("delete: must be true"),
+      },
+      [],
+    ),
+  },
+  {
+    name: "behaviors",
+    description:
+      "Ready, configurable behaviors for elements (scale touch effect, floating, spin, platformer player, joystick movement, shooter...) and the public variables of scripts. Prefer them to writing movement/effect logic by hand: the user can tune them in Properties > Additional behaviors. action 'list' {target?:ui|physics, search?} = catalog (id, what, params with defaults, exclusive group, needs, events); 'list' {element} = what the element has; 'info' {id} = every param with range; 'add' {element, id, params?} (a behavior of an exclusive group such as movement/weapon is refused if the element has another one: pass replace:true to swap or force:true to keep both, the new one OFF); 'set' {element, id, params?, enabled?}; 'remove'/'reset' {element, id, param?}; 'vars' {element?, values?} = read/set the public variables of the element's Body Script (no element = the scene script); element-reference variables take an element name, colours '#RRGGBB'. Behavior events (onShoot, onDeath...) are written with events {scope:'element', element, event:'behaviors/<id>/<event>'}. Details: read_docs behaviors.",
+    inputSchema: obj(
+      {
+        action: str("list|info|add|set|remove|reset|vars", { enum: ["list", "info", "add", "set", "remove", "reset", "vars"] }),
+        element: str("element name (omit for the catalog / the scene script)"),
+        id: str("behavior id from list, e.g. Floating"),
+        params: anyObj("param values by name, e.g. {speed:300, jumpSpeed:700, fireButton:'FireBtn', bulletColor:'#FFCC00'}; element references are element names; lists are arrays"),
+        values: anyObj("vars: public variable values by name (null removes the override)"),
+        enabled: bool("add/set: switch the behavior on or off"),
+        replace: bool("add: remove the conflicting behavior of the same exclusive group"),
+        force: bool("add: keep both conflicting behaviors (the new one starts OFF unless enabled:true)"),
+        param: str("reset: only this param (default all)"),
+        target: str("list: ui|physics", { enum: ["ui", "physics"] }),
+        search: str("list: text to search"),
+        scene: str("scene, default = the open one"),
       },
       [],
     ),
@@ -548,7 +639,9 @@ Rules:
 6. Physics: first block of a physical scene's OnCreate is setWorldGravity (about 800 platformer, 0 top-down); positive velocity Y moves UP (jump = positive power); speeds <= 450 px/s; call physics_info before choosing jump power, gravity, speeds or platform gaps; scene collision events, isSensor pickups, hide + destroyLater to remove.
 7. Images: create_image name.png -> element image "/name.png". TEXT wraps if narrower than its content (about 10 px per letter x Font Scale): resize with elements set (the reply warns). A TEXT/PROGRESS without touch events is click-through: put onClick/onTouchStart on the BOX button only.
 7b. Buttons and panels: call buttons {action:'list'}, then buttons create (a 9-patch image: it stretches to any BOX size; no text inside, put a TEXT on top).
-7c. Small icons (heart, star, coin, sound, arrows...): icons search {query}, then icons import {id}; do not draw them with create_image.
+7c. Small icons (heart, star, coin, sound, arrows...): icons search {query}, then icons import {id}; do not draw them with create_image. Styled text (outline, shadow, Arabic): fonts {action:'list'}.
+7d. Movement, effects, shooting (platformer player, joystick movement, shooter, floating, spin, scale touch effect): behaviors {action:'list'} first and add one with behaviors add instead of hand-written logic.
+7e. Menus, HUD, pause/settings/game-over screens, dialogs: ui {action:'create', name, template:'pause_menu'} (then ui set / check) and show it with an UIHOLDER element, instead of many BOX/TEXT elements.
 8. UI: after building a screen run layout_check (it also checks draw order), then screenshot (target scene, region/camera) and fix what you see.
 8b. Structure: put related elements under a GROUP (parent, read_docs groups); a repeated enemy/UI piece becomes a prefab (prefabs tool, read_docs prefabs), edit one instance then apply.
 9. Test: run_game compiles and starts in ONE call (never build first, that compiles twice); build only to check errors without opening the game. It returns when loaded (ready:true). game_input: tap, hold(ms), down (stays pressed until up/release), swipe, key, joystick, wait; real time, 45 s per call (run_test start:false continues). Verify with screenshot, game_state, game_logs before saying it works.

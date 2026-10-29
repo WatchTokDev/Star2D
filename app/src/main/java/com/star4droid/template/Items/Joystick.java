@@ -194,6 +194,7 @@ public class Joystick extends Touchpad implements PlayerItem {
 				ItemScript script = (ItemScript)(getScript().getClass().getConstructor(PlayerItem.class).newInstance(joystick));
 				script.setItem(joystick).setStage(stage);
 				joystick.setScript(script);
+				script.cloneBehaviorsFrom(getScript());
 			} catch(Exception ex){}
 		}
 		return joystick;

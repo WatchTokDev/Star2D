@@ -25,6 +25,11 @@ public final class Tr {
         loadedLang = lang;
     }
 
+    /** Language code of the app ("en", "ar", "fr"...), "en" before init. */
+    public static String lang() {
+        return loadedLang == null ? "en" : loadedLang;
+    }
+
     private static String fileFor(String lang) {
         switch (lang) {
             case "ar": return "i18n/strings_ar_SD.properties";

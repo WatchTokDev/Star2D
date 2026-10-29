@@ -91,7 +91,7 @@ final class ButtonTools {
         o.addProperty("use_as", sv.useAs);
         if (sv.pressedUseAs != null) {
             o.addProperty("pressed_use_as", sv.pressedUseAs);
-            o.addProperty("recipe", "on the BOX: onTouchStart -> setImage(" + "'" + sv.pressedUseAs + "'), onTouchEnd -> setImage('" + sv.useAs + "') (read_docs buttons)");
+            o.addProperty("recipe", "elements set {name:<BOX>, props:{image:'" + sv.useAs + "', 'Pressed Image':'" + sv.pressedUseAs + "'}}: the engine shows the pressed picture while the finger is down and restores it on release (no events needed; read_docs buttons)");
         }
         o.addProperty("stretchable", sv.stretchable);
         o.addProperty("base_size", sv.width + "x" + sv.height);

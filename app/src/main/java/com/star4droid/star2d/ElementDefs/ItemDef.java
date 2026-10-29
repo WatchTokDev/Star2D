@@ -19,6 +19,8 @@ public abstract class ItemDef {
             return ((TextDef) this).z;
         if (this instanceof GroupDef)
             return ((GroupDef) this).z;
+        if (this instanceof UIHolderDef)
+            return ((UIHolderDef) this).z;
         
         return 0; // default if no match
     }
@@ -54,6 +56,8 @@ public abstract class ItemDef {
             return ((TextDef) this).type;
         if (this instanceof GroupDef)
             return ((GroupDef) this).type;
+        if (this instanceof UIHolderDef)
+            return ((UIHolderDef) this).type;
         return "";
     }
     

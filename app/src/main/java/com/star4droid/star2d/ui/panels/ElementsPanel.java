@@ -305,6 +305,7 @@ public class ElementsPanel implements PanelHost.Panel {
             case "Camera": return R.drawable.ic_s2_videocam;
             case "Map": return R.drawable.ic_s2_map;
             case "Group": return R.drawable.ic_s2_container;
+            case "UIHolder": return R.drawable.ic_s2_widgets;
             case "Light": return R.drawable.ic_s2_light;
         }
         return R.drawable.ic_s2_square;
@@ -322,6 +323,7 @@ public class ElementsPanel implements PanelHost.Panel {
             case "Camera": return 0xFF78909C;
             case "Map": return 0xFF8D6E63;
             case "Group": return 0xFFFFC107;
+            case "UIHolder": return 0xFFFF9800;
             case "Light": return 0xFFFFEE58;
         }
         return Ui.ACCENT;

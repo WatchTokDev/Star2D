@@ -280,6 +280,9 @@ public class EditorAction {
 			case "GROUP":
 			item = new EditorGroupItem(editor);
 			break;
+			case "UIHOLDER":
+			item = new EditorUIHolderItem(editor);
+			break;
 		}
 		
 		if (item == null){

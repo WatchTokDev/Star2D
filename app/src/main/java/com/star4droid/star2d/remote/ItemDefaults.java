@@ -33,6 +33,7 @@ final class ItemDefaults {
             case "CAMERA": file = "camera.json"; break;
             case "MAP": file = "map.json"; break;
             case "GROUP": file = "group.json"; break;
+            case "UIHOLDER": file = "uiholder.json"; break;
             case "LIGHT": file = "Lights/" + key.substring(key.indexOf('/') + 1) + ".json"; break;
             default: file = null;
         }

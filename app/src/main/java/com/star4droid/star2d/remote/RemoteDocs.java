@@ -296,6 +296,7 @@ public final class RemoteDocs {
             {"CAMERA", "camera.json", "CAMERA element: in this version its settings are not applied; control the camera with the Camera blocks"},
             {"MAP", "map.json", "Tiled map (.tmx under images/), drawn only: it has no collision"},
             {"GROUP", "group.json", "GROUP: empty container, draws nothing. Elements with parent = the group follow it (move, rotate, hide, delete). See topic groups"},
+            {"UIHOLDER", "uiholder.json", "UIHOLDER: shows a screen made in the UI Maker (file UI/<ui>.ui) as ONE block (HUD, menu, dialog). ui = file name without .ui, fit = stretch|contain|cover. type UI = fixed on screen. Inner buttons have their own events (UI events), not editable as scene elements"},
             {"LIGHT point", "Lights/point.json", "Point light (needs a dark Ambient Light in the scene config to be visible)"},
             {"LIGHT cone", "Lights/cone.json", "Cone light"},
             {"LIGHT directional", "Lights/directional.json", "Directional light"},
@@ -389,6 +390,11 @@ public final class RemoteDocs {
     /** Short notes for blocks that do not do what their name suggests (verified against the block templates). */
     private static final HashMap<String, String> BLOCK_NOTES = new HashMap<>();
     private static final HashMap<String, String> REPORTER_NOTES = new HashMap<>();
+
+    /** English note of a built-in block (what it really does / how to fill it), or null; also shown by the block editor's (i) button when the block has no description. */
+    public static String noteFor(String title) {
+        return BLOCK_NOTES.get(title);
+    }
 
     static {
         BLOCK_NOTES.put("saveValue", "BROKEN: generates a method that does not exist, use saveData");

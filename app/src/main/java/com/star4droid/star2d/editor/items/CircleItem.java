@@ -158,6 +158,8 @@ public class CircleItem extends Image implements EditorItem {
                 float ry = this.propertySet.getFloat("tileY");
                 Utils.setImageFromFile(this, img, rx, ry);
             }
+        } else {
+            Utils.setDefaultImage(this); // image reset / cleared: back to the default picture
         }
     }
 

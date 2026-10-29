@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "name": "levels",
+  "designWidth": 1280,
+  "designHeight": 720,
+  "theme": {"preset": "candy"},
+  "root": {
+    "id": "root", "type": "Stack",
+    "children": [
+      {"id": "title", "type": "Label", "anchor": "top", "margin": [0, 24, 0, 0], "props": {"text": "Choose a level", "fontSize": 48}},
+      {"id": "scroll", "type": "ScrollView", "anchor": "stretch", "margin": [80, 110, 80, 100], "props": {"direction": "vertical"},
+       "children": [
+         {"id": "grid", "type": "Grid", "w": "fill", "h": "wrap", "props": {"columns": 4, "spacing": 24, "padding": 12, "rowHeight": 150, "align": "stretch"},
+          "children": [
+            {"id": "l1", "type": "Button", "props": {"text": "1", "style": "success", "fontSize": 48}},
+            {"id": "l2", "type": "Button", "props": {"text": "2", "style": "success", "fontSize": 48}},
+            {"id": "l3", "type": "Button", "props": {"text": "3", "style": "primary", "fontSize": 48}},
+            {"id": "l4", "type": "Button", "props": {"text": "4", "style": "primary", "fontSize": 48}},
+            {"id": "l5", "type": "Button", "props": {"text": "5", "style": "secondary", "fontSize": 48}},
+            {"id": "l6", "type": "Button", "props": {"text": "6", "style": "secondary", "fontSize": 48}},
+            {"id": "l7", "type": "Button", "props": {"text": "7", "style": "secondary", "fontSize": 48}},
+            {"id": "l8", "type": "Button", "props": {"text": "8", "style": "secondary", "fontSize": 48}},
+            {"id": "l9", "type": "Button", "props": {"text": "9", "style": "secondary", "fontSize": 48}},
+            {"id": "l10", "type": "Button", "props": {"text": "10", "style": "secondary", "fontSize": 48}}
+          ]}
+       ]},
+      {"id": "back", "type": "Button", "anchor": "bottomleft", "margin": [24, 0, 0, 24], "w": 200, "h": 60, "props": {"text": "Back", "style": "accent"}}
+    ]
+  }
+}

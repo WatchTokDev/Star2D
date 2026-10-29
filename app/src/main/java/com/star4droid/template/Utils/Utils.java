@@ -222,7 +222,8 @@ public class Utils {
 					} else if(type.contains("color")){
 						field.set(parameter,propertySet.getColor(field.getName()));
 					} else if(type.equals("boolean")){
-						field.set(parameter,field.getBoolean(field.getName()));
+						// was field.getBoolean(<the field name>), which always threw (caught below): boolean options of a font (mono, kerning...) were never applied
+						field.setBoolean(parameter,propertySet.getString(field.getName()).equalsIgnoreCase("true"));
 					}
 					//Gdx.files.external("logs/font.txt").writeString("set field: "+field.getName()+", value : "+propertySet.get(field.getName())+"\n",true);
 				} catch(Exception ex){

@@ -24,6 +24,9 @@ public final class RemoteTools {
             case "joints": return "read_docs {topic:'joints'}";
             case "prefabs": return "read_docs {topic:'prefabs'}";
             case "buttons": return "read_docs {topic:'buttons'}";
+            case "fonts": return "read_docs {topic:'fonts'}";
+            case "ui": return "read_docs {topic:'ui'}";
+            case "behaviors": return "read_docs {topic:'behaviors'}";
             case "templates": return "read_docs {topic:'templates'}";
             case "files": return "read_docs {topic:'overview'}";
             default: return null;
@@ -97,6 +100,9 @@ public final class RemoteTools {
                 case "create_image": return FileTools.createImage(args);
                 case "create_sound": return FileTools.createSound(args);
                 case "buttons": return ButtonTools.buttons(args);
+                case "fonts": return FontTools.fonts(args);
+                case "ui": return UiTools.ui(args);
+                case "behaviors": return BehaviorTools.behaviors(args);
                 case "templates": return Templates.tool(args);
                 case "import_asset": return FileTools.importAsset(args);
                 case "build": return GameTools.buildOrRun(false, args);

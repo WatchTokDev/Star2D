@@ -307,6 +307,7 @@ public class FilesPanel implements PanelHost.Panel {
         if (n.endsWith(".prefab")) return com.star4droid.star2d.ui.PrefabUi.ICON;
         if (FilePickerDialog.isImage(n)) return R.drawable.ic_s2_image;
         if (n.endsWith(".java") || n.endsWith(".code") || n.endsWith(".json") || n.endsWith(".visual") || n.endsWith(".xml")) return R.drawable.ic_s2_code;
+        if (n.endsWith(".ui")) return R.drawable.ic_s2_widgets;
         if (n.endsWith(".mp3") || n.endsWith(".wav") || n.endsWith(".ogg")) return R.drawable.ic_s2_sound;
         if (n.endsWith(".ttf") || n.endsWith(".otf") || n.endsWith(".s2df") || n.endsWith(".fnt")) return R.drawable.ic_s2_font;
         if (n.endsWith(".tmx") || n.endsWith(".tsx")) return R.drawable.ic_s2_map;
@@ -426,6 +427,10 @@ public class FilesPanel implements PanelHost.Panel {
                 && f.getParentFile().getParentFile().getAbsolutePath().equals(rootDir.getAbsolutePath())) {
             shell.panels.hide();
             com.star4droid.star2d.ui.AnimationEditorActivity.open(shell.activity(), f.getAbsolutePath(), new File(rootDir, "images").getAbsolutePath());
+        } else if (n.endsWith(".ui") && parent.equals("ui") && f.getParentFile().getParentFile() != null
+                && f.getParentFile().getParentFile().getAbsolutePath().equals(rootDir.getAbsolutePath())) {
+            shell.panels.hide();
+            com.star4droid.star2d.ui.UiMakerLauncher.open(shell.activity(), rootDir.getAbsolutePath(), f.getName().substring(0, f.getName().length() - 3), this::reload);
         } else if (n.endsWith(".s2df")) {
             shell.panels.hide();
             Bridge.gl(() -> Bridge.app().getFileBrowser().openFontEditor(Gdx.files.absolute(f.getParent()), Gdx.files.absolute(f.getAbsolutePath())));
@@ -626,6 +631,16 @@ public class FilesPanel implements PanelHost.Panel {
         shell.panels.show(new ButtonMakerPanel(shell, images, spec, name, null));
     }
 
+    /** Asks for a name and opens the UI Maker on a new {@code UI/<name>.ui}. */
+    private void newUi(Context c) {
+        Dialogs.input(c, Tr.t("ui_new_title", "New UI"), Tr.t("ui_new_msg", "Name (A-Z a-z 0-9 _)"), "", name -> {
+            String err = Dialogs.checkName(name);
+            if (err != null) return err;
+            if (new File(rootDir, "UI/" + name.trim() + ".ui").exists()) return Tr.t("ui_name_used", "A UI with this name already exists");
+            return null;
+        }, name -> com.star4droid.star2d.ui.UiMakerLauncher.open(shell.activity(), rootDir.getAbsolutePath(), name.trim(), this::reload));
+    }
+
     private void createMenu(Context c, View anchor) {
         PopupMenu m = new PopupMenu(c, anchor);
         m.getMenu().add(0, 1, 0, Tr.t("folder", "Folder"));
@@ -635,8 +650,21 @@ public class FilesPanel implements PanelHost.Panel {
         m.getMenu().add(0, 5, 4, Tr.t("prefab_new", "New prefab"));
         m.getMenu().add(0, 7, 5, Tr.t("bm_menu", "Button Maker"));
         m.getMenu().add(0, 8, 6, Tr.t("icn_title", "Icons"));
+        m.getMenu().add(0, 9, 7, Tr.t("uim_new", "New UI (UI Maker)"));
+        m.getMenu().add(0, 31, 90, Tr.t("bhv_new", "New behavior"));
+        m.getMenu().add(0, 32, 91, Tr.t("bhv_import", "Import behavior (.s2b)"));
         m.setOnMenuItemClickListener(it -> {
             int id = it.getItemId();
+            if (id == 31 || id == 32) {
+                if (projectPath == null) return true;
+                if (id == 31) com.star4droid.star2d.ui.behaviors.BehaviorShare.create(shell, projectPath, this::reload);
+                else com.star4droid.star2d.ui.behaviors.BehaviorShare.importPicker(shell, projectPath, this::reload);
+                return true;
+            }
+            if (id == 9) {
+                newUi(c);
+                return true;
+            }
             if (id == 8) {
                 if (projectPath != null)
                     com.star4droid.star2d.ui.IconBrowser.show(shell.activity(), new File(projectPath), false, (useAs, f) -> reload());

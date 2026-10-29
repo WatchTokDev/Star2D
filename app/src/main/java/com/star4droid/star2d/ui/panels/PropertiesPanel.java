@@ -34,6 +34,7 @@ import com.star4droid.star2d.ui.FilePickerDialog;
 import com.star4droid.star2d.ui.PanelHost;
 import com.star4droid.star2d.ui.Tr;
 import com.star4droid.star2d.ui.Ui;
+import com.star4droid.star2d.ui.UiMakerLauncher;
 
 import java.io.File;
 import java.io.InputStream;
@@ -63,6 +64,7 @@ public class PropertiesPanel implements PanelHost.Panel {
     private final HashMap<String, View> editors = new HashMap<>();
     private final HashSet<String> collapsed = new HashSet<>();
     private String fieldsSignature = "";
+    private com.star4droid.star2d.ui.behaviors.BehaviorSection behaviorSection;
     private final Runnable poll = this::pollValues;
     // prefab instance bar (see updateInstanceBar)
     private LinearLayout instanceBar;
@@ -172,6 +174,7 @@ public class PropertiesPanel implements PanelHost.Panel {
             selectedName = null;
             fieldsSignature = "";
             content.removeAllViews();
+            behaviorSection = null;
             editors.clear();
             header.setText("");
             hideInstanceBar();
@@ -195,6 +198,7 @@ public class PropertiesPanel implements PanelHost.Panel {
         values = v;
         editors.clear();
         content.removeAllViews();
+        behaviorSection = null;
         String type = (String) snap[2];
         header.setText(Tr.t("ui_type_" + (type == null ? "" : type.toLowerCase()), type) + " · " + name);
 
@@ -211,6 +215,9 @@ public class PropertiesPanel implements PanelHost.Panel {
         for (String k : v.keySet())
             if (!known.contains(k) && typeOf.containsKey(k) && !"static".equals(typeOf.get(k))) extra.add(k);
         if (!extra.isEmpty()) addSection(c, "Other", extra);
+        // public variables of the Body Script + "Additional behaviors" (stored in the element's scriptVars / behaviors)
+        if (!"LIGHT".equals(v.get("TYPE")))
+            behaviorSection = new com.star4droid.star2d.ui.behaviors.BehaviorSection(shell, content, name, v.get("behaviors"), v.get("scriptVars"));
     }
 
     private void addSection(Context c, String title, ArrayList<String> fields) {
@@ -428,10 +435,27 @@ public class PropertiesPanel implements PanelHost.Panel {
                 t.setPadding(Ui.dp(c, 10), 0, 0, 0);
                 t.setMaxLines(2);
                 r.addView(t, Ui.weight(1));
+                // reset (back to the default picture) / clear (touch images): only visible while the value is not the default ("")
+                final boolean touchImg = f.equals("Pressed Image") || f.equals("Touch Start Image") || f.equals("Touch End Image");
+                final ImageView resetBtn = Ui.iconButton(c, touchImg ? R.drawable.ic_s2_close : R.drawable.ic_s2_refresh,
+                        touchImg ? Tr.t("img_clear", "Clear") : Tr.t("img_reset", "Reset image"), null);
+                resetBtn.setVisibility(val.isEmpty() ? View.GONE : View.VISIBLE);
                 ImageView bmIcon = Ui.iconButton(c, R.drawable.ic_s2_palette, Tr.t("bm_menu", "Button Maker"), v -> Bridge.query(() -> Bridge.editor().getProject().getImagesPath(), imgs ->
-                        shell.panels.show(new ButtonMakerPanel(shell, new File(imgs), null, null, rel -> {
-                            values.put(f, rel);
-                            commit(() -> PropertyEditing.applyImage(Bridge.app(), f, rel));
+                        shell.panels.show(new ButtonMakerPanel(shell, new File(imgs), null, null, new ButtonMakerPanel.OnSaved() {
+                            @Override public void on(String rel) {
+                                values.put(f, rel);
+                                resetBtn.setVisibility(View.VISIBLE);
+                                commit(() -> PropertyEditing.applyImage(Bridge.app(), f, rel));
+                            }
+                            @Override public void on(String rel, String pressedRel) {
+                                on(rel);
+                                // a BOX button whose image came from the Button Maker with a pressed twin: use the twin as its Pressed Image
+                                if (pressedRel != null && f.equals("image") && values.containsKey("Pressed Image")) {
+                                    values.put("Pressed Image", pressedRel);
+                                    fieldsSignature = "";
+                                    commit(() -> PropertyEditing.applyImage(Bridge.app(), "Pressed Image", pressedRel));
+                                }
+                            }
                         }))));
                 r.addView(bmIcon);
                 ImageView iconLib = Ui.iconButton(c, R.drawable.ic_s2_widgets, Tr.t("icn_title", "Icons"), v -> Bridge.query(() -> Bridge.editor().getProject().getPath(), projectPath ->
@@ -439,9 +463,18 @@ public class PropertiesPanel implements PanelHost.Panel {
                             values.put(f, useAs);
                             t.setText(useAs);
                             FilePickerDialog.thumb(iv, file, Ui.dp(c, 40));
+                            resetBtn.setVisibility(View.VISIBLE);
                             commit(() -> PropertyEditing.applyImage(Bridge.app(), f, useAs));
                         })));
                 r.addView(iconLib);
+                r.addView(resetBtn);
+                resetBtn.setOnClickListener(v -> {
+                    values.put(f, "");
+                    t.setText("[" + Tr.t("choose", "choose") + "]");
+                    iv.setImageResource(R.drawable.ic_s2_image);
+                    resetBtn.setVisibility(View.GONE);
+                    commit(() -> PropertyEditing.applyImage(Bridge.app(), f, ""));
+                });
                 Bridge.query(() -> Bridge.editor().getProject().getImagesPath(), imgs -> {
                     File img = new File(imgs + values.get(f));
                     if (img.isFile()) FilePickerDialog.thumb(iv, img, Ui.dp(c, 40));
@@ -451,6 +484,7 @@ public class PropertiesPanel implements PanelHost.Panel {
                             values.put(f, rel);
                             t.setText(rel);
                             FilePickerDialog.thumb(iv, file, Ui.dp(c, 40));
+                            resetBtn.setVisibility(View.VISIBLE);
                             commit(() -> PropertyEditing.applyImage(Bridge.app(), f, rel));
                         })));
                 box.addView(r, Ui.matchWrap());
@@ -501,6 +535,66 @@ public class PropertiesPanel implements PanelHost.Panel {
                     }
                 }));
                 box.addView(t, Ui.matchWrap());
+                editors.put(f, t);
+                return box;
+            }
+            case "ui": {
+                box.addView(label(c, f));
+                TextView t = chooser(c, val.isEmpty() ? "[" + Tr.t("choose", "choose") + "]" : val);
+                final Runnable[] reload = new Runnable[1];
+                reload[0] = () -> Bridge.gl(() -> {
+                    Object sel = Bridge.editor().getSelectedActor();
+                    if (sel instanceof com.star4droid.star2d.editor.items.EditorItem)
+                        ((com.star4droid.star2d.editor.items.EditorItem) sel).update();
+                });
+                java.util.function.Consumer<String> setUi = nv -> {
+                    values.put(f, nv);
+                    t.setText(nv);
+                    commit(() -> PropertyEditing.applyString(Bridge.app(), f, nv));
+                };
+                java.util.function.Consumer<String> openMaker = nv -> Bridge.query(
+                        () -> Bridge.editor().getProject().getPath(),
+                        path -> UiMakerLauncher.open(c, path, nv, reload[0]));
+                LinearLayout r = Ui.row(c);
+                r.addView(Ui.button(c, R.drawable.ic_s2_edit, Tr.t("ui_edit", "Edit"), true, v ->
+                        Bridge.query(() -> Bridge.editor().getProject().getPath(), path -> {
+                            java.util.ArrayList<String> names = UiMakerLauncher.list(path);
+                            String cur = values.get(f) == null ? "" : values.get(f);
+                            if (names.remove(cur)) names.add(0, cur);
+                            if (names.isEmpty()) {
+                                Ui.toast(c, Tr.t("ui_none_yet", "No UI files yet - press New"));
+                                return;
+                            }
+                            Dialogs.choose(c, Tr.t("ui_choose", "Choose UI"), names.toArray(new String[0]), i -> {
+                                String nv = names.get(i);
+                                if (!nv.equals(cur)) setUi.accept(nv);
+                                openMaker.accept(nv);
+                            });
+                        })), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+                r.addView(Ui.button(c, R.drawable.ic_s2_add, Tr.t("ui_new", "New"), false, v ->
+                        Bridge.query(() -> Bridge.editor().getProject().getPath(), path ->
+                                Dialogs.input(c, Tr.t("ui_new_title", "New UI"), Tr.t("ui_new_msg", "Name (A-Z a-z 0-9 _)"), "", name -> {
+                                    if (name == null || name.trim().isEmpty()) return Tr.t("ui_name_empty", "Enter a name");
+                                    for (char ch : name.toCharArray())
+                                        if (!Character.isLetterOrDigit(ch) && ch != '_') return Tr.t("ui_name_chars", "Use A-Z a-z 0-9 or _");
+                                    if (new java.io.File(UiMakerLauncher.uiDir(path), name + ".ui").exists())
+                                        return Tr.t("ui_name_used", "A UI with this name already exists");
+                                    return null;
+                                }, name -> {
+                                    java.io.File dir = UiMakerLauncher.uiDir(path);
+                                    dir.mkdirs();
+                                    java.io.File file = new java.io.File(dir, name + ".ui");
+                                    try {
+                                        com.star4droid.star2d.ui.uimaker.UiOps.newDocument(name, 360, 640).write(file);
+                                    } catch (Exception e) {
+                                        Ui.toast(c, String.valueOf(e.getMessage()));
+                                        return;
+                                    }
+                                    setUi.accept(name);
+                                    openMaker.accept(name);
+                                }))), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+                box.addView(t, Ui.matchWrap());
+                box.addView(r, Ui.matchWrap());
                 editors.put(f, t);
                 return box;
             }
@@ -762,6 +856,7 @@ public class PropertiesPanel implements PanelHost.Panel {
                 root.removeCallbacks(infoRefresh);
                 root.postDelayed(infoRefresh, 900);
             }
+            if (behaviorSection != null && (f.equals("behaviors") || f.equals("scriptVars"))) behaviorSection.externalChange(f, v);
             View ed = editors.get(f);
             if (ed == null) continue;
             String type = typeOf.get(f);

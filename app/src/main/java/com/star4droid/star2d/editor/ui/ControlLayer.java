@@ -722,7 +722,7 @@ public class ControlLayer extends Table {
 			app.getEditor().redo();
 	}
 
-	/** Add a body: 0 Box, 1 Circle, 2 Text, 3 Joystick, 4 Progress, 5 Custom, 6 Particle, 7 Camera, 8 TiledMap, 9 Group. */
+	/** Add a body: 0 Box, 1 Circle, 2 Text, 3 Joystick, 4 Progress, 5 Custom, 6 Particle, 7 Camera, 8 TiledMap, 9 Group, 10 UI Holder. */
 	public void actionAddBody(int pos){
 		try {
 			EditorItem item = getItem(pos);
@@ -733,7 +733,7 @@ public class ControlLayer extends Table {
 				Object[] objs = null;
 				method.invoke(item,objs);
 			} catch(Exception e){}
-			item.getPropertySet().put("z",app.getEditor().getActors().size);
+			item.getPropertySet().put("z",pos == 10 ? Math.max(100, app.getEditor().getActors().size) : app.getEditor().getActors().size);
 			app.getEditor().selectActor((Actor)item);
 			EditorAction.itemAdded(app.getEditor(),(Actor)item);
 			item.update();
@@ -984,8 +984,8 @@ public class ControlLayer extends Table {
 	
 	private PopupMenu createBodiesMenu(){
 		PopupMenu menu = new PopupMenu();
-		String[] names={"Box Body","Circle Body","Text Item","Joystick Item","Progress Bar","Custom Body","Particle Effect","Camera","TiledMap","Group"};
-		String[] icons={"box","circle","text","joystick","progress","custom","particle","camera","map","group"};
+		String[] names={"Box Body","Circle Body","Text Item","Joystick Item","Progress Bar","Custom Body","Particle Effect","Camera","TiledMap","Group","UI Holder"};
+		String[] icons={"box","circle","text","joystick","progress","custom","particle","camera","map","group","uiholder"};
 		for(int x = 0; x < names.length; x++){
 			final String name = names[x];
 			final int pos = x;
@@ -1018,6 +1018,7 @@ public class ControlLayer extends Table {
 			case 7: return new EditorCameraItem(app.getEditor());
 			case 8: return new EditorMapItem(app.getEditor());
 			case 9: return new EditorGroupItem(app.getEditor());
+			case 10: return new EditorUIHolderItem(app.getEditor());
 		}
 		return null;
 	}

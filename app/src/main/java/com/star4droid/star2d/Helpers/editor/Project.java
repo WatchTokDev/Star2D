@@ -81,6 +81,20 @@ public class Project {
 				fileHandle.moveTo(Gdx.files.absolute(arrayList.get(x)));
 			x++;
 		}
+		// scripts that extend the generated Refs base of the old scene name must follow the rename
+		try {
+			String from = scene.toLowerCase(), to = newScene.toLowerCase();
+			ArrayList<FileHandle> scripts = new ArrayList<>();
+			FileHandle[] bodies = Gdx.files.absolute(getBodiesScripts(newScene)).list();
+			if(bodies != null) for(FileHandle f : bodies) scripts.add(f);
+			scripts.add(Gdx.files.absolute(getSceneScript(newScene)));
+			for(FileHandle f : scripts){
+				if(f.isDirectory() || !f.exists() || !f.name().endsWith(".java")) continue;
+				String text = f.readString();
+				String fixed = text.replace("Refs."+from+"ItemRefs","Refs."+to+"ItemRefs").replace("Refs."+from+"SceneRefs","Refs."+to+"SceneRefs");
+				if(!fixed.equals(text)) f.writeString(fixed,false);
+			}
+		} catch(Throwable ignored){}
 	}
 	
 	public String getScriptsPath(String scene){

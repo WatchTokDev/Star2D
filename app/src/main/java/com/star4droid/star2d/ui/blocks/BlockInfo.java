@@ -1,6 +1,7 @@
 package com.star4droid.star2d.ui.blocks;
 
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Human labels and (!) explanations for blocks, categories and field names (English / Arabic).
@@ -35,6 +36,17 @@ public final class BlockInfo {
         c("bodyBooleans", "Body options", "خيارات الجسم");
         c("Sounds", "Sounds", "الأصوات");
         c("Joints", "Joints", "الروابط");
+        c("Behaviors", "Behaviors", "السلوكيات");
+
+        f("behavior", "behavior", "السلوك");
+        f("setting", "setting", "الإعداد");
+        // behaviors (always visible): add / remove / turn on-off / settings
+        b("addBehavior", "Add behavior", "أضف سلوكاً", "Attaches a behavior to an element while the game runs (it starts with its default settings). Nothing happens if the element already has it.", "يضيف سلوكاً إلى عنصر أثناء تشغيل اللعبة (بإعداداته الافتراضية). لا يحدث شيء إن كان العنصر يملكه.");
+        b("removeBehavior", "Remove behavior", "احذف السلوك", "Detaches a behavior from an element for good.", "يفصل سلوكاً عن العنصر نهائياً.");
+        b("enableBehavior", "Turn behavior on", "فعّل السلوك", "Turns a behavior of the element on. Behaviors of the same exclusive group (movement...) turn off automatically.", "يفعّل سلوكاً للعنصر. السلوكيات من نفس المجموعة الحصرية (الحركة...) تتعطل تلقائياً.");
+        b("disableBehavior", "Turn behavior off", "عطّل السلوك", "Pauses a behavior of the element; it stays attached and can be turned on again.", "يوقف سلوكاً للعنصر مؤقتاً؛ يبقى مرتبطاً ويمكن تفعيله لاحقاً.");
+        b("setBehaviorEnabled", "Set behavior on/off", "فعّل/عطّل السلوك", "Turns a behavior on (true) or off (false).", "يفعّل السلوك (true) أو يعطّله (false).");
+        b("setBehaviorParam", "Set behavior setting", "اضبط إعداد السلوك", "Changes a setting of a behavior by the name shown in the inspector, e.g. behavior Shooter, setting fireRate, value 8. Text needs quotes.", "يغيّر إعداداً في السلوك باسمه كما في المفتّش، مثل: السلوك Shooter والإعداد fireRate والقيمة 8. النص يحتاج علامات تنصيص.");
 
         f("body", "element", "العنصر");
         f("body1", "element 1", "العنصر 1");
@@ -225,14 +237,77 @@ public final class BlockInfo {
         return s.replaceAll("[^A-Za-z0-9]+", "_");
     }
 
+    // ---- texts of blocks that are not in the tables above: behavior blocks (generated) and the user's blocks (creator)
+    private static final HashMap<String, String[]> DYN = new HashMap<>();           // key -> {label en, label ar}
+    private static final HashMap<String, String> REP_AR = new HashMap<>();          // value block display (en) -> display (ar)
+    private static final HashMap<String, Map<String, String>> DESC = new HashMap<>(); // key (title / value block display) -> {lang: text}
+
+    /** Forgets the texts of generated behavior blocks (they are registered again after the project's behaviors are rescanned). */
+    public static synchronized void clearGenerated() {
+        DYN.clear();
+        REP_AR.clear();
+        for (String k : GEN_DESC) DESC.remove(k);
+        GEN_DESC.clear();
+    }
+
+    private static final java.util.ArrayList<String> GEN_DESC = new java.util.ArrayList<>();
+
+    /** Label (en, ar) and description of a generated block. {@code valueDisplayAr} = Arabic display of a value block, or null. */
+    public static synchronized void registerGenerated(String key, String labelEn, String labelAr, String valueDisplayAr, Map<String, String> desc) {
+        DYN.put(key, new String[]{labelEn, labelAr == null || labelAr.isEmpty() ? labelEn : labelAr});
+        if (valueDisplayAr != null && !valueDisplayAr.isEmpty()) REP_AR.put(key, valueDisplayAr);
+        if (desc != null && !desc.isEmpty()) {
+            DESC.put(key, desc);
+            GEN_DESC.add(key);
+        }
+    }
+
+    /** Descriptions written in the block creator (key = block title, or the display text of a value block). */
+    public static synchronized void clearDescriptions() {
+        DESC.clear();
+        GEN_DESC.clear();
+    }
+
+    public static synchronized void setDescription(String key, Map<String, String> desc) {
+        if (desc == null || desc.isEmpty()) DESC.remove(key);
+        else DESC.put(key, desc);
+    }
+
+    /** The description in the app language, else English, else the first one written; null when the block has none. */
+    public static String description(String key) {
+        Map<String, String> m;
+        synchronized (BlockInfo.class) {
+            m = DESC.get(key);
+        }
+        return pickLang(m);
+    }
+
+    /** All the languages written for a block (never null). */
+    public static synchronized Map<String, String> descriptions(String key) {
+        Map<String, String> m = DESC.get(key);
+        return m == null ? new java.util.LinkedHashMap<String, String>() : new java.util.LinkedHashMap<>(m);
+    }
+
+    /** App language, else "en", else the first language that has text. */
+    public static String pickLang(Map<String, String> m) {
+        return com.star4droid.star2d.blocks.BlockDesc.pick(m, com.star4droid.star2d.ui.Tr.lang());
+    }
+
     public static String label(String title, boolean ar) {
         String t = tr("blk_l_" + key(title));
         if (t != null) return t;
+        String[] d;
+        synchronized (BlockInfo.class) {
+            d = DYN.get(title);
+        }
+        if (d != null) return d[ar ? 1 : 0];
         String[] v = B.get(title);
         return v == null ? title : v[ar ? 1 : 0];
     }
 
     public static String info(String title, boolean ar) {
+        String desc = description(title);
+        if (desc != null) return desc;
         String t = tr("blk_i_" + key(title));
         if (t != null) return t;
         String[] v = B.get(title);
@@ -256,7 +331,14 @@ public final class BlockInfo {
     /** Value block text ("x of ___"), translated when the language file has it. Keeps the ___ slots. */
     public static String reporter(String display) {
         String t = tr("blk_r_" + key(display));
-        if (t == null) return display;
+        if (t == null) {
+            String a;
+            synchronized (BlockInfo.class) {
+                a = REP_AR.get(display);
+            }
+            if (a != null && "ar".equals(com.star4droid.star2d.ui.Tr.lang()) && BlockModel.Param.count(a, "___") == BlockModel.Param.count(display, "___")) return a;
+            return display;
+        }
         // a translation must keep the same number of slots
         if (BlockModel.Param.count(t, "___") != BlockModel.Param.count(display, "___")) return display;
         return t;

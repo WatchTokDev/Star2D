@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "name": "hud",
+  "designWidth": 1280,
+  "designHeight": 720,
+  "theme": {"preset": "jelly"},
+  "root": {
+    "id": "root", "type": "Stack",
+    "children": [
+      {"id": "topBar", "type": "Linear", "anchor": "topleft", "margin": [16, 16, 16, 0], "h": "wrap", "w": "fill",
+       "props": {"orientation": "horizontal", "spacing": 16, "padding": 0, "align": "center"},
+       "children": [
+         {"id": "hpIcon", "type": "Icon", "w": 40, "h": 40},
+         {"id": "hp", "type": "Progress", "w": 300, "props": {"value": 72, "max": 100, "style": "health", "showText": true}},
+         {"id": "score", "type": "Label", "weight": 1, "props": {"text": "Score: 1250", "fontSize": 36, "textAlign": "right"}},
+         {"id": "btnPause", "type": "Button", "w": 64, "h": 64, "props": {"text": "II", "style": "secondary", "shape": "pill"}}
+       ]},
+      {"id": "btnJump", "type": "Button", "anchor": "bottomright", "margin": [0, 0, 40, 40], "w": 150, "h": 150,
+       "props": {"text": "JUMP", "style": "jelly", "shape": "pill", "fontSize": 30}},
+      {"id": "btnShoot", "type": "Button", "anchor": "bottomright", "margin": [0, 0, 220, 70], "w": 120, "h": 120,
+       "props": {"text": "FIRE", "style": "danger", "shape": "pill"}},
+      {"id": "xp", "type": "Progress", "anchor": "bottom", "margin": [0, 0, 0, 24], "w": "50%",
+       "props": {"value": 40, "style": "xp"}}
+    ]
+  }
+}

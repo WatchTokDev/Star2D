@@ -9,11 +9,16 @@ import com.star4droid.Game.*;
 import box2dLight.Light;
 import com.badlogic.gdx.math.Vector2;
 
-public class %1$s extends ItemScript {
+public class %1$s extends com.star4droid.Game.Refs.%3$sItemRefs {
 /*
     Hi coder... :)
     the engine still in it's beta and you may face so many bugs,
     so please contact us without hesitation...
+
+    Every element of the scene is a field here (generated base class):
+        player.getBody().setLinearVelocity(0, 2);   coin1.destroy();
+    Short form of findItem: item("name").
+    (extends ItemScript instead if you don't want that)
 */
     public void onClick(){
         

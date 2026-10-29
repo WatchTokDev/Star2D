@@ -266,6 +266,7 @@ public class CustomBody extends Image implements PlayerItem {
 				ItemScript script = (ItemScript)(getScript().getClass().getConstructor(PlayerItem.class).newInstance(body));
 				script.setItem(body).setStage(stage);
 				body.setScript(script);
+				script.cloneBehaviorsFrom(getScript());
 			} catch(Exception ex){}
 		}
 		return body;

@@ -1,0 +1,777 @@
+{
+ "version": 1,
+ "name": "gallery",
+ "designWidth": 1600,
+ "designHeight": 900,
+ "theme": {
+  "preset": "jelly"
+ },
+ "root": {
+  "id": "root",
+  "type": "Panel",
+  "anchor": "stretch",
+  "props": {
+   "style": "solid"
+  },
+  "children": [
+   {
+    "id": "row",
+    "type": "Linear",
+    "anchor": "stretch",
+    "props": {
+     "orientation": "horizontal",
+     "spacing": 14,
+     "padding": 14,
+     "align": "start"
+    },
+    "children": [
+     {
+      "id": "c_slider",
+      "type": "Linear",
+      "w": "fill",
+      "weight": 1,
+      "h": "wrap",
+      "props": {
+       "orientation": "vertical",
+       "spacing": 10,
+       "padding": 6,
+       "align": "stretch"
+      },
+      "children": [
+       {
+        "id": "t_slider",
+        "type": "Label",
+        "props": {
+         "text": "Slider",
+         "fontSize": 22,
+         "color": "accent"
+        }
+       },
+       {
+        "id": "sl_classic",
+        "type": "Slider",
+        "props": {
+         "style": "classic",
+         "value": 60
+        }
+       },
+       {
+        "id": "sl_jelly",
+        "type": "Slider",
+        "props": {
+         "style": "jelly",
+         "value": 60
+        }
+       },
+       {
+        "id": "sl_neon",
+        "type": "Slider",
+        "props": {
+         "style": "neon",
+         "value": 60
+        }
+       },
+       {
+        "id": "sl_minimal_line",
+        "type": "Slider",
+        "props": {
+         "style": "minimal_line",
+         "value": 60
+        }
+       },
+       {
+        "id": "sl_thick_candy",
+        "type": "Slider",
+        "props": {
+         "style": "thick_candy",
+         "value": 60
+        }
+       },
+       {
+        "id": "sl_game_bar",
+        "type": "Slider",
+        "props": {
+         "style": "game_bar",
+         "value": 60
+        }
+       },
+       {
+        "id": "sl_round_knob",
+        "type": "Slider",
+        "props": {
+         "style": "round_knob",
+         "value": 60
+        }
+       }
+      ]
+     },
+     {
+      "id": "c_progress",
+      "type": "Linear",
+      "w": "fill",
+      "weight": 1,
+      "h": "wrap",
+      "props": {
+       "orientation": "vertical",
+       "spacing": 10,
+       "padding": 6,
+       "align": "stretch"
+      },
+      "children": [
+       {
+        "id": "t_progress",
+        "type": "Label",
+        "props": {
+         "text": "Progress",
+         "fontSize": 22,
+         "color": "accent"
+        }
+       },
+       {
+        "id": "pr_classic",
+        "type": "Progress",
+        "props": {
+         "style": "classic",
+         "value": 60,
+         "max": 100
+        }
+       },
+       {
+        "id": "pr_jelly",
+        "type": "Progress",
+        "props": {
+         "style": "jelly",
+         "value": 60,
+         "max": 100
+        }
+       },
+       {
+        "id": "pr_neon",
+        "type": "Progress",
+        "props": {
+         "style": "neon",
+         "value": 60,
+         "max": 100
+        }
+       },
+       {
+        "id": "pr_minimal_line",
+        "type": "Progress",
+        "props": {
+         "style": "minimal_line",
+         "value": 60,
+         "max": 100
+        }
+       },
+       {
+        "id": "pr_thick_candy",
+        "type": "Progress",
+        "props": {
+         "style": "thick_candy",
+         "value": 60,
+         "max": 100
+        }
+       },
+       {
+        "id": "pr_game_bar",
+        "type": "Progress",
+        "props": {
+         "style": "game_bar",
+         "value": 60,
+         "max": 100
+        }
+       },
+       {
+        "id": "pr_health",
+        "type": "Progress",
+        "props": {
+         "style": "health",
+         "value": 60,
+         "max": 100
+        }
+       },
+       {
+        "id": "pr_xp",
+        "type": "Progress",
+        "props": {
+         "style": "xp",
+         "value": 60,
+         "max": 100
+        }
+       }
+      ]
+     },
+     {
+      "id": "c_switch",
+      "type": "Linear",
+      "w": "fill",
+      "weight": 1,
+      "h": "wrap",
+      "props": {
+       "orientation": "vertical",
+       "spacing": 10,
+       "padding": 6,
+       "align": "stretch"
+      },
+      "children": [
+       {
+        "id": "t_switch",
+        "type": "Label",
+        "props": {
+         "text": "Switch",
+         "fontSize": 22,
+         "color": "accent"
+        }
+       },
+       {
+        "id": "sw_classic",
+        "type": "Switch",
+        "props": {
+         "style": "classic",
+         "checked": true
+        }
+       },
+       {
+        "id": "sw_jelly",
+        "type": "Switch",
+        "props": {
+         "style": "jelly",
+         "checked": true
+        }
+       },
+       {
+        "id": "sw_neon",
+        "type": "Switch",
+        "props": {
+         "style": "neon",
+         "checked": true
+        }
+       },
+       {
+        "id": "sw_minimal",
+        "type": "Switch",
+        "props": {
+         "style": "minimal",
+         "checked": true
+        }
+       },
+       {
+        "id": "sw_square",
+        "type": "Switch",
+        "props": {
+         "style": "square",
+         "checked": true
+        }
+       },
+       {
+        "id": "ck_classic",
+        "type": "Checkbox",
+        "props": {
+         "style": "classic",
+         "checked": true,
+         "text": "classic"
+        }
+       },
+       {
+        "id": "ck_jelly",
+        "type": "Checkbox",
+        "props": {
+         "style": "jelly",
+         "checked": true,
+         "text": "jelly"
+        }
+       },
+       {
+        "id": "ck_neon",
+        "type": "Checkbox",
+        "props": {
+         "style": "neon",
+         "checked": true,
+         "text": "neon"
+        }
+       },
+       {
+        "id": "ck_minimal",
+        "type": "Checkbox",
+        "props": {
+         "style": "minimal",
+         "checked": true,
+         "text": "minimal"
+        }
+       },
+       {
+        "id": "ck_square",
+        "type": "Checkbox",
+        "props": {
+         "style": "square",
+         "checked": true,
+         "text": "square"
+        }
+       },
+       {
+        "id": "rd_classic",
+        "type": "Radio",
+        "props": {
+         "style": "classic",
+         "checked": true,
+         "text": "classic"
+        }
+       },
+       {
+        "id": "rd_jelly",
+        "type": "Radio",
+        "props": {
+         "style": "jelly",
+         "checked": true,
+         "text": "jelly"
+        }
+       },
+       {
+        "id": "rd_neon",
+        "type": "Radio",
+        "props": {
+         "style": "neon",
+         "checked": true,
+         "text": "neon"
+        }
+       },
+       {
+        "id": "rd_minimal",
+        "type": "Radio",
+        "props": {
+         "style": "minimal",
+         "checked": true,
+         "text": "minimal"
+        }
+       },
+       {
+        "id": "rd_square",
+        "type": "Radio",
+        "props": {
+         "style": "square",
+         "checked": true,
+         "text": "square"
+        }
+       }
+      ]
+     },
+     {
+      "id": "c_textfield",
+      "type": "Linear",
+      "w": "fill",
+      "weight": 1,
+      "h": "wrap",
+      "props": {
+       "orientation": "vertical",
+       "spacing": 10,
+       "padding": 6,
+       "align": "stretch"
+      },
+      "children": [
+       {
+        "id": "t_textfield",
+        "type": "Label",
+        "props": {
+         "text": "TextField",
+         "fontSize": 22,
+         "color": "accent"
+        }
+       },
+       {
+        "id": "tf_classic",
+        "type": "TextField",
+        "w": "fill",
+        "props": {
+         "style": "classic",
+         "text": "classic",
+         "hint": "type"
+        }
+       },
+       {
+        "id": "tf_jelly",
+        "type": "TextField",
+        "w": "fill",
+        "props": {
+         "style": "jelly",
+         "text": "jelly",
+         "hint": "type"
+        }
+       },
+       {
+        "id": "tf_neon",
+        "type": "TextField",
+        "w": "fill",
+        "props": {
+         "style": "neon",
+         "text": "neon",
+         "hint": "type"
+        }
+       },
+       {
+        "id": "tf_minimal_line",
+        "type": "TextField",
+        "w": "fill",
+        "props": {
+         "style": "minimal_line",
+         "text": "minimal_line",
+         "hint": "type"
+        }
+       },
+       {
+        "id": "tf_dark",
+        "type": "TextField",
+        "w": "fill",
+        "props": {
+         "style": "dark",
+         "text": "dark",
+         "hint": "type"
+        }
+       },
+       {
+        "id": "tf_flat",
+        "type": "TextField",
+        "w": "fill",
+        "props": {
+         "style": "flat",
+         "text": "flat",
+         "hint": "type"
+        }
+       }
+      ]
+     },
+     {
+      "id": "c_panel",
+      "type": "Linear",
+      "w": "fill",
+      "weight": 1,
+      "h": "wrap",
+      "props": {
+       "orientation": "vertical",
+       "spacing": 10,
+       "padding": 6,
+       "align": "stretch"
+      },
+      "children": [
+       {
+        "id": "t_panel",
+        "type": "Label",
+        "props": {
+         "text": "Panel",
+         "fontSize": 22,
+         "color": "accent"
+        }
+       },
+       {
+        "id": "pn_card",
+        "type": "Panel",
+        "w": "fill",
+        "h": 60,
+        "props": {
+         "style": "card"
+        },
+        "children": [
+         {
+          "id": "pl_card",
+          "type": "Label",
+          "anchor": "center",
+          "props": {
+           "text": "card"
+          }
+         }
+        ]
+       },
+       {
+        "id": "pn_solid",
+        "type": "Panel",
+        "w": "fill",
+        "h": 60,
+        "props": {
+         "style": "solid"
+        },
+        "children": [
+         {
+          "id": "pl_solid",
+          "type": "Label",
+          "anchor": "center",
+          "props": {
+           "text": "solid"
+          }
+         }
+        ]
+       },
+       {
+        "id": "pn_glass",
+        "type": "Panel",
+        "w": "fill",
+        "h": 60,
+        "props": {
+         "style": "glass"
+        },
+        "children": [
+         {
+          "id": "pl_glass",
+          "type": "Label",
+          "anchor": "center",
+          "props": {
+           "text": "glass"
+          }
+         }
+        ]
+       },
+       {
+        "id": "pn_outline",
+        "type": "Panel",
+        "w": "fill",
+        "h": 60,
+        "props": {
+         "style": "outline"
+        },
+        "children": [
+         {
+          "id": "pl_outline",
+          "type": "Label",
+          "anchor": "center",
+          "props": {
+           "text": "outline"
+          }
+         }
+        ]
+       },
+       {
+        "id": "pn_flat",
+        "type": "Panel",
+        "w": "fill",
+        "h": 60,
+        "props": {
+         "style": "flat"
+        },
+        "children": [
+         {
+          "id": "pl_flat",
+          "type": "Label",
+          "anchor": "center",
+          "props": {
+           "text": "flat"
+          }
+         }
+        ]
+       },
+       {
+        "id": "pn_dark",
+        "type": "Panel",
+        "w": "fill",
+        "h": 60,
+        "props": {
+         "style": "dark"
+        },
+        "children": [
+         {
+          "id": "pl_dark",
+          "type": "Label",
+          "anchor": "center",
+          "props": {
+           "text": "dark"
+          }
+         }
+        ]
+       },
+       {
+        "id": "pn_transparent",
+        "type": "Panel",
+        "w": "fill",
+        "h": 60,
+        "props": {
+         "style": "transparent"
+        },
+        "children": [
+         {
+          "id": "pl_transparent",
+          "type": "Label",
+          "anchor": "center",
+          "props": {
+           "text": "transparent"
+          }
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "id": "c_button",
+      "type": "Linear",
+      "w": "fill",
+      "weight": 1,
+      "h": "wrap",
+      "props": {
+       "orientation": "vertical",
+       "spacing": 10,
+       "padding": 6,
+       "align": "stretch"
+      },
+      "children": [
+       {
+        "id": "t_button",
+        "type": "Label",
+        "props": {
+         "text": "Button",
+         "fontSize": 22,
+         "color": "accent"
+        }
+       },
+       {
+        "id": "bt_primary",
+        "type": "Button",
+        "w": "fill",
+        "h": 44,
+        "props": {
+         "style": "primary",
+         "text": "primary"
+        }
+       },
+       {
+        "id": "bt_secondary",
+        "type": "Button",
+        "w": "fill",
+        "h": 44,
+        "props": {
+         "style": "secondary",
+         "text": "secondary"
+        }
+       },
+       {
+        "id": "bt_accent",
+        "type": "Button",
+        "w": "fill",
+        "h": 44,
+        "props": {
+         "style": "accent",
+         "text": "accent"
+        }
+       },
+       {
+        "id": "bt_success",
+        "type": "Button",
+        "w": "fill",
+        "h": 44,
+        "props": {
+         "style": "success",
+         "text": "success"
+        }
+       },
+       {
+        "id": "bt_danger",
+        "type": "Button",
+        "w": "fill",
+        "h": 44,
+        "props": {
+         "style": "danger",
+         "text": "danger"
+        }
+       },
+       {
+        "id": "bt_ghost",
+        "type": "Button",
+        "w": "fill",
+        "h": 44,
+        "props": {
+         "style": "ghost",
+         "text": "ghost"
+        }
+       },
+       {
+        "id": "bt_flat",
+        "type": "Button",
+        "w": "fill",
+        "h": 44,
+        "props": {
+         "style": "flat",
+         "text": "flat"
+        }
+       },
+       {
+        "id": "bt_outline",
+        "type": "Button",
+        "w": "fill",
+        "h": 44,
+        "props": {
+         "style": "outline",
+         "text": "outline"
+        }
+       },
+       {
+        "id": "bt_neon",
+        "type": "Button",
+        "w": "fill",
+        "h": 44,
+        "props": {
+         "style": "neon",
+         "text": "neon"
+        }
+       },
+       {
+        "id": "bt_glass",
+        "type": "Button",
+        "w": "fill",
+        "h": 44,
+        "props": {
+         "style": "glass",
+         "text": "glass"
+        }
+       },
+       {
+        "id": "bt_pill",
+        "type": "Button",
+        "w": "fill",
+        "h": 44,
+        "props": {
+         "style": "pill",
+         "text": "pill"
+        }
+       },
+       {
+        "id": "bt_jelly",
+        "type": "Button",
+        "w": "fill",
+        "h": 44,
+        "props": {
+         "style": "jelly",
+         "text": "jelly"
+        }
+       },
+       {
+        "id": "bt_soft",
+        "type": "Button",
+        "w": "fill",
+        "h": 44,
+        "props": {
+         "style": "soft",
+         "text": "soft"
+        }
+       },
+       {
+        "id": "bt_square",
+        "type": "Button",
+        "w": "fill",
+        "h": 44,
+        "props": {
+         "style": "square",
+         "text": "square"
+        }
+       },
+       {
+        "id": "bt_hex",
+        "type": "Button",
+        "w": "fill",
+        "h": 44,
+        "props": {
+         "style": "hex",
+         "text": "hex"
+        }
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+}

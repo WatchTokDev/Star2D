@@ -34,6 +34,19 @@ public class VisualScriptingDialog {
 		});
 	}
 	
+	/**
+	 * Event of an inner element of a UIHolder (a node of its .ui file): the code lives in
+	 * Events/&lt;scene&gt;/private/&lt;holder&gt;/ui/&lt;nodeId&gt;/&lt;event&gt;.
+	 */
+	public static void showForUi(final String holder,final String nodeId,final String event){
+		new Handler(Looper.getMainLooper()).post(()->{
+			Editor editor = Editor.getCurrentEditor();
+			String codePath = editor.getProject().getEventPath(editor.getScene(),holder+"/ui/"+nodeId,event);
+			try { new java.io.File(codePath).getParentFile().mkdirs(); } catch(Exception ignored){}
+			visual(editor,event,codePath,false);
+		});
+	}
+	
 	public static void openSceneScript(String scene,String path){
 		Intent intent = new Intent();
 		intent.putExtra("scene",scene.toLowerCase());

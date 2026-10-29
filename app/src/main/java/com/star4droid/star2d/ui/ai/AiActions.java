@@ -55,7 +55,8 @@ public final class AiActions {
         String t = s(a, "action");
         return t.equals("read_file") || t.equals("list_files") || t.equals("get_element")
                 || t.equals("physics_info") || t.equals("list_templates") || t.equals("list_buttons")
-                || t.equals("search_icons") || t.equals("layout_check");
+                || t.equals("search_icons") || t.equals("layout_check") || t.equals("list_font_presets") || t.equals("list_behaviors")
+                || t.equals("list_ui") || t.equals("get_ui") || t.equals("check_ui");
     }
 
     /**
@@ -66,6 +67,8 @@ public final class AiActions {
         switch (s(a, "action")) {
             case "physics_info": case "list_templates": case "apply_template": case "list_buttons": case "create_button":
             case "search_icons": case "import_icon": case "layout_check": case "create_scene":
+            case "list_font_presets": case "create_font": case "list_behaviors": case "add_behavior":
+            case "list_ui": case "get_ui": case "check_ui": case "create_ui": case "edit_ui":
                 return true;
         }
         return false;
@@ -139,6 +142,27 @@ public final class AiActions {
                 o.addProperty("action", "create");
                 return AiBridge.runTool("scenes", o);
             }
+            case "list_font_presets": {
+                JsonObject x = new JsonObject();
+                x.addProperty("action", "list");
+                return AiBridge.runTool("fonts", x);
+            }
+            case "create_font": {
+                o.addProperty("action", "create");
+                return AiBridge.runTool("fonts", o);
+            }
+            case "list_behaviors": {
+                o.addProperty("action", "list");
+                return AiBridge.runTool("behaviors", o);
+            }
+            case "add_behavior": {
+                o.addProperty("action", "add");
+                return AiBridge.runTool("behaviors", o);
+            }
+            case "list_ui": case "get_ui": case "check_ui": case "create_ui": case "edit_ui": {
+                o.addProperty("action", t.equals("list_ui") ? "list" : t.equals("get_ui") ? "get" : t.equals("check_ui") ? "check" : t.equals("create_ui") ? "create" : "set");
+                return AiBridge.runTool("ui", o);
+            }
         }
         return "Unknown action " + t;
     }
@@ -165,6 +189,15 @@ public final class AiActions {
             case "list_buttons": return (ar ? "🔘 أنماط الأزرار" : "🔘 Button presets");
             case "search_icons": return (ar ? "🔎 بحث أيقونات " : "🔎 Search icons ") + s(a, "query");
             case "layout_check": return (ar ? "📏 فحص التخطيط" : "📏 Layout check");
+            case "list_font_presets": return (ar ? "🔤 قوالب الخطوط" : "🔤 Font presets");
+            case "list_behaviors": return (ar ? "🧩 قائمة السلوكيات" : "🧩 List behaviors");
+            case "add_behavior": return (ar ? "🧩 سلوك " : "🧩 Behavior ") + s(a, "id") + " → " + s(a, "element");
+            case "list_ui": return (ar ? "🖼 قائمة الواجهات" : "🖼 List UIs");
+            case "get_ui": return (ar ? "🖼 قراءة الواجهة " : "🖼 Read UI ") + s(a, "name");
+            case "check_ui": return (ar ? "📏 فحص الواجهة " : "📏 Check UI ") + s(a, "name");
+            case "create_ui": return (ar ? "🖼 إنشاء واجهة " : "🖼 Create UI ") + s(a, "name") + (s(a, "template").isEmpty() ? "" : " (" + s(a, "template") + ")");
+            case "edit_ui": return (ar ? "🖼 تعديل الواجهة " : "🖼 Edit UI ") + s(a, "name");
+            case "create_font": return (ar ? "🔤 إنشاء خط " : "🔤 Create font ") + s(a, "name") + (s(a, "preset").isEmpty() ? "" : " (" + s(a, "preset") + ")");
         }
         return "? " + t;
     }
@@ -229,7 +262,7 @@ public final class AiActions {
                     int light = type.contains("point") ? 0 : type.contains("directional") ? 1 : type.contains("cone") ? 2 : -1;
                     if (light >= 0) app.getControlLayer().actionAddLight(light);
                     else {
-                        String[] kinds = {"box", "circle", "text", "joystick", "progress", "custom", "particle", "camera", "map", "group"};
+                        String[] kinds = {"box", "circle", "text", "joystick", "progress", "custom", "particle", "camera", "map", "group", "uiholder"};
                         int pos = 0;
                         for (int i = 0; i < kinds.length; i++) if (type.contains(kinds[i])) pos = i;
                         if (type.contains("tiled")) pos = 8;
@@ -335,7 +368,14 @@ public final class AiActions {
             case "boolean": PropertyEditing.applyBoolean(app, field, String.valueOf(Boolean.parseBoolean(value))); return null;
             case "string": return PropertyEditing.applyString(app, field, value);
             case "color": PropertyEditing.applyColor(app, field, value.replace("#", "")); return null;
-            case "image": PropertyEditing.applyImage(app, field, value.startsWith("/") ? value : "/" + value); return null;
+            case "image": {
+                // "", "reset", "default" or "none" = back to the default picture (empty path), not "/"
+                String lv = value == null ? "" : value.trim();
+                if (lv.isEmpty() || lv.equalsIgnoreCase("reset") || lv.equalsIgnoreCase("default") || lv.equalsIgnoreCase("none")) lv = "";
+                else if (!lv.startsWith("/")) lv = "/" + lv;
+                PropertyEditing.applyImage(app, field, lv);
+                return null;
+            }
             case "File": PropertyEditing.applyFile(app, field, value.startsWith("/") ? value : "/" + value); return null;
             case "body": return PropertyEditing.applyBody(app, field, value);
             case "script": PropertyEditing.applyScript(app, field, value); return null;

@@ -90,6 +90,7 @@ Rules:
 - A literal percent sign in the Java must be written `%%`.
 - `defaults` are in field order; the `title` must be unique (redefining a title replaces it).
 - Code runs inside the scene class: elements and variables are directly visible; Java 7 only (no lambdas).
+- Optional `description` (a string = English, or a map by language `{"en":"Kills the enemy","ar":"يقتل العدو"}`): shown when the user taps the block's (i) button. Always write one for blocks the user will see; `block_catalog {detail:true}` returns descriptions of the blocks (off by default to keep the list short).
 - Using it: `{"block":"killEnemy","fields":{"enemy":"body2","points":20}}`, `{"block":"repeatWhileAlive","fields":{"times":5},"do":[ ... ]}`, and the value block as `{"r":"half of ___","args":["score"]}`.
 
 ## Standard helper: `destroyLater` (define it once, use it everywhere)
@@ -104,3 +105,7 @@ Destroying a body twice (for example a bullet that hits an enemy AND has a 2 sec
 ```
 
 Use: `{"block":"destroyLater","fields":{"item":"body2","seconds":0.05}}` (usually after `hide` of the same element so it stops being visible and interacting at once). Never destroy inside a collision callback directly; the delay makes it safe.
+
+## Blocks of behaviors
+
+Behaviors (`read_docs behaviors`) bring their own blocks, titled `<Behavior>.<method>` (for example `PlatformerPlayer.jump`, value block `is on the ground ___`). The first slot is the element that owns the behavior (`current`); if that element does not have the behavior nothing happens (value blocks give false / 0 / ""). They are listed by `block_catalog` only for behaviors the scene uses (`hidden_behavior_blocks` names the rest; `all:true` lists them anyway). Always available, category `Behaviors`: `addBehavior`, `removeBehavior`, `enableBehavior`, `disableBehavior`, `setBehaviorEnabled`, `setBehaviorParam` and the values `___ has behavior ___`, `___ has behavior ___ turned on`, `number|text|yes/no setting ___ of behavior ___ on ___`, `behavior ___ of ___` (behavior names are the class names: `PlatformerPlayer`, `Shooter`).

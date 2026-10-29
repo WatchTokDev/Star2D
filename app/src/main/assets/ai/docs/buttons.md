@@ -63,13 +63,17 @@ Colours: `#RRGGBB`, `#AARRGGBB`, a name, or `none` (switches a ring/shadow/glow 
 (`elements` tool; exact property names in `read_docs {topic:'elements'}`.) Pattern, with the same x/y/width/height for both:
 - BOX `playBtn`: `type:"UI"`, `image:"/btn_play.9.png"`, `z:100`, the touch event (`onClick` for menus, `onTouchStart` for game controls).
 - TEXT `playLbl`: same position and size, `z:110`, text, `Font Scale`; no events (it is click-through, the tap reaches the BOX). Keep the text inside the content area given in the reply (`Label area`).
-- Pressed look (two events on the BOX, verified block `setImage`; the image field takes the name with or without the leading slash):
+- Pressed look: set the BOX property `Pressed Image` to the pressed twin; the engine shows it while the finger is down and inside the button and restores the normal image on release, drag-out or cancel. No events needed, and the user's own `onClick` / `onTouchStart` / `onTouchEnd` still run:
+```json
+{"ops":[{"op":"set","name":"playBtn","props":{"image":"/btn_play.9.png","Pressed Image":"/btn_play_pressed.9.png"}}]}
+```
+  `Touch Start Image` / `Touch End Image` (same format) are applied at touch start / end and STAY until something changes the image. Remove one with `reset:["Pressed Image"]` in a `set` op. Alternative with events (the image then changes by blocks): `onTouchStart` -> `setImage` pressed, `onTouchEnd` -> `setImage` normal, verified block `setImage`:
 ```json
 {"ops":[
  {"op":"set","scope":"element","element":"playBtn","event":"onTouchStart","blocks":[{"block":"setImage","fields":{"body":"playBtn","image":"btn_play_pressed.9.png"}}]},
  {"op":"set","scope":"element","element":"playBtn","event":"onTouchEnd","blocks":[{"block":"setImage","fields":{"body":"playBtn","image":"btn_play.9.png"}}]}
 ]}
 ```
-  (`events` tool; the click action stays in `onClick`, it can be set in the same batch.) Keep the TEXT label still, or move it down about 2 px in the same events if you want it to look pushed in.
+  (`events` tool.) Keep the TEXT label still, or move it down about 2 px in the same events if you want it to look pushed in.
 
 Edit later: `buttons {"action":"get","name":"btn_play"}` returns the stored settings; `create` again with the changed values and `replace:true`. The user can also open the Button Maker (Files panel -> + -> Button Maker) and edit the same image by hand.

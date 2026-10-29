@@ -163,6 +163,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         parseHints(pendingHints);
         loadVariables();
         BlockCatalog.load(this);
+        refreshBehaviorBlocks();
         catalogSeen = BlockCatalog.version();
         model = BlockModel.load(file);
         canvas = new BlockCanvas(this, this, rtl);
@@ -238,6 +239,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
     @Override
     protected void onResume() {
         super.onResume();
+        refreshBehaviorBlocks();
         // blocks made in the block creator appear right away
         if (catalogSeen != BlockCatalog.version() && paletteList != null) {
             catalogSeen = BlockCatalog.version();
@@ -246,6 +248,27 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
     }
 
     private int catalogSeen = -1;
+
+    /**
+     * Behavior blocks (@Block methods): rebuilt from the project's behaviors, and shown only for the behaviors the scene of this
+     * event uses (or that this event already uses / adds with addBehavior).
+     */
+    private void refreshBehaviorBlocks() {
+        try {
+            BlockCatalog.applyBehaviorBlocks(projectKey);
+            java.util.HashSet<String> ids = new java.util.HashSet<>(com.star4droid.star2d.blocks.SceneBehaviors.inProject(projectKey,
+                    com.star4droid.star2d.blocks.SceneBehaviors.sceneOfEventPath(file.getAbsolutePath())));
+            try {
+                ids.addAll(com.star4droid.star2d.blocks.SceneBehaviors.mentionedIn(BlockModel.read(file), BlockCatalog.behaviorsWithBlocks(projectKey)));
+            } catch (Exception ignored) {}
+            BlockCatalog.setActiveBehaviors(ids);
+        } catch (Throwable ignored) {}
+    }
+
+    private static boolean hasVisibleBlocks(ArrayList<BlockCatalog.Def> l) {
+        for (BlockCatalog.Def d : l) if (BlockCatalog.isVisible(d)) return true;
+        return false;
+    }
 
     @Override
     protected void onDestroy() {
@@ -510,7 +533,8 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         categoryRow.setPadding(0, Ui.dp(c, 6), 0, Ui.dp(c, 6));
         hs.addView(categoryRow);
         blocksPane.addView(hs, Ui.matchWrap());
-        ArrayList<String> cats = new ArrayList<>(BlockCatalog.CATEGORIES.keySet());
+        ArrayList<String> cats = new ArrayList<>();
+        for (Map.Entry<String, ArrayList<BlockCatalog.Def>> ce : BlockCatalog.CATEGORIES.entrySet()) if (hasVisibleBlocks(ce.getValue())) cats.add(ce.getKey());
         cats.add(1 < cats.size() ? 1 : cats.size(), VALUES_CAT);
         for (String cat : cats) {
             String name = cat.equals(VALUES_CAT) ? "ƒ " + Tr.t("blk_values", "Values") : BlockInfo.category(cat, rtl);
@@ -548,6 +572,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         String q = search == null ? "" : search.getText().toString().trim().toLowerCase(Locale.ROOT);
         for (Map.Entry<String, ArrayList<BlockCatalog.Def>> e : BlockCatalog.CATEGORIES.entrySet()) {
             for (BlockCatalog.Def d : e.getValue()) {
+                if (!BlockCatalog.isVisible(d)) continue;
                 if (q.isEmpty()) {
                     if (e.getKey().equals(currentCategory)) paletteItems.add(d);
                 } else {
@@ -559,6 +584,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         if (VALUES_CAT.equals(currentCategory) || !q.isEmpty()) {
             String lastGroup = null;
             for (BlockCatalog.Reporter r : BlockCatalog.REPORTERS) {
+                if (!BlockCatalog.isVisible(r)) continue;
                 if (!q.isEmpty() && !(r.display + " " + r.group).toLowerCase(Locale.ROOT).contains(q)) continue;
                 if (!r.group.equals(lastGroup)) {
                     paletteItems.add(r.group);
@@ -1081,7 +1107,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         valueGroups = Ui.row(c);
         valueGroups.setPadding(0, Ui.dp(c, 3), 0, Ui.dp(c, 3));
         ArrayList<String> groups = new ArrayList<>();
-        for (BlockCatalog.Reporter r : BlockCatalog.REPORTERS) if (!groups.contains(r.group)) groups.add(r.group);
+        for (BlockCatalog.Reporter r : BlockCatalog.REPORTERS) if (BlockCatalog.isVisible(r) && !groups.contains(r.group)) groups.add(r.group);
         if (valueGroup == null || !groups.contains(valueGroup)) valueGroup = preferredGroup(field, groups);
         for (String g : groups) {
             TextView chip = Ui.text(c, groupName(g), 12, Ui.TEXT);
@@ -1115,7 +1141,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
 
     private void fillValues() {
         valueItems.clear();
-        for (BlockCatalog.Reporter r : BlockCatalog.REPORTERS) if (r.group.equals(valueGroup)) valueItems.add(r);
+        for (BlockCatalog.Reporter r : BlockCatalog.REPORTERS) if (r.group.equals(valueGroup) && BlockCatalog.isVisible(r)) valueItems.add(r);
         for (int i = 0; i < valueGroups.getChildCount(); i++) {
             TextView chip = (TextView) valueGroups.getChildAt(i);
             String g = (String) chip.getTag();
@@ -1146,7 +1172,8 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
     }
 
     private void showReporterInfo(BlockCatalog.Reporter r) {
-        TextView t = Ui.text(this, Tr.t("blk_value_info", "A value block: it gives a value to the field it is dropped in. Empty circles are inner fields you can fill or nest more value blocks into.")
+        String own = BlockInfo.description(r.display);
+        TextView t = Ui.text(this, (own != null ? own : Tr.t("blk_value_info", "A value block: it gives a value to the field it is dropped in. Empty circles are inner fields you can fill or nest more value blocks into."))
                 + "\n\n" + Tr.t("ui_generated_code", "Generated code") + ":\n" + r.template, 13.5f, Ui.TEXT);
         t.setPadding(Ui.dp(this, 20), Ui.dp(this, 8), Ui.dp(this, 20), 0);
         t.setTextIsSelectable(true);
@@ -1174,7 +1201,8 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
     private void showInfo(String title, BlockCatalog.Def def) {
         String info = BlockInfo.info(title, rtl);
         StringBuilder sb = new StringBuilder();
-        sb.append(info == null ? Tr.t("blk_custom", "Custom block.") : info);
+        String note = info == null ? com.star4droid.star2d.remote.RemoteDocs.noteFor(title) : null;
+        sb.append(info != null ? info : note != null ? note : Tr.t("blk_custom", "Custom block."));
         if (def != null && def.fields.length > 0) {
             sb.append("\n\n").append(Tr.t("blk_fields", "Fields")).append(": ");
             for (int i = 0; i < def.fields.length; i++) {
@@ -1376,6 +1404,12 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
             s.add("body2");
             s.addAll(items);
             out.put(elements, s);
+        } else if (t.equals("behavior")) {
+            ArrayList<String> s = new ArrayList<>();
+            try {
+                for (com.star4droid.star2d.behaviors.BehaviorMeta m : com.star4droid.star2d.behaviors.BehaviorCatalog.all(projectKey)) s.add(m.id);
+            } catch (Throwable ignored) {}
+            out.put(Tr.t("blk_behaviors", "Behaviors"), s);
         } else if (t.equals("boolean")) {
             ArrayList<String> s = new ArrayList<>();
             s.add("true");

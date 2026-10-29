@@ -118,6 +118,7 @@ public class VariablesPanel implements PanelHost.Panel {
         LinearLayout add = Ui.button(c, R.drawable.ic_s2_add, Tr.t("ui_add_variable", "Add variable"), true, v -> edit(c, -1));
         com.star4droid.star2d.ui.tutorial.Tut.tag(add, "vars:add");
         list.addView(add, Ui.margins(new LinearLayout.LayoutParams(-2, Ui.dp(c, 38)), c, 4, 10, 4, 0));
+        com.star4droid.star2d.ui.behaviors.SceneScriptVars.add(list);
     }
 
     private void edit(Context c, int pos) {

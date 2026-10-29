@@ -41,6 +41,15 @@ import org.eclipse.tm4e.core.registry.IThemeSource;
     Advanced code editor using tyron java completion library and sora editor.....
 */
 public class CodeEditorActivity extends AppCompatActivity {
+	/** The new script extends the scene's generated Refs base class: make sure that class exists (from the saved scene). */
+	private void writeSceneRefs(String scene){
+		try {
+			String root = com.star4droid.star2d.CodeEditor.SmartProject.rootOf(path);
+			if(root != null)
+				com.star4droid.star2d.Helpers.CodeGenerator.writeRefs(new com.star4droid.star2d.Helpers.editor.Project(root), scene);
+		} catch(Throwable ignored){}
+	}
+
 	CodeEditor editor;
 	SmartEditor smart;
 	String path;
@@ -135,10 +144,16 @@ public class CodeEditorActivity extends AppCompatActivity {
 		try {
 		File file = new File(path);
 		if(FileUtil.readFile(path).equals("")){
-			if(getIntent().getBooleanExtra("body",false))
-				FileUtil.writeFile(path,String.format(Utils.readAssetFile("java/script.java",this),getIntent().getStringExtra("name"),Editor.getCurrentEditor().getScene()));
-			if(getIntent().hasExtra("scene") && !getIntent().getStringExtra("scene").equals(""))
-				FileUtil.writeFile(path,String.format(Utils.readAssetFile("java/SceneScript.java",this),getIntent().getStringExtra("scene")));
+			if(getIntent().getBooleanExtra("body",false)){
+				String sceneName = Editor.getCurrentEditor().getScene();
+				writeSceneRefs(sceneName);
+				FileUtil.writeFile(path,String.format(Utils.readAssetFile("java/script.java",this),getIntent().getStringExtra("name"),sceneName,sceneName.toLowerCase()));
+			}
+			if(getIntent().hasExtra("scene") && !getIntent().getStringExtra("scene").equals("")){
+				String sceneName = getIntent().getStringExtra("scene");
+				writeSceneRefs(sceneName);
+				FileUtil.writeFile(path,String.format(Utils.readAssetFile("java/SceneScript.java",this),sceneName,sceneName.toLowerCase()));
+			}
 		}
 		if(file.exists()){
 			FileInputStream fis=new FileInputStream(file);

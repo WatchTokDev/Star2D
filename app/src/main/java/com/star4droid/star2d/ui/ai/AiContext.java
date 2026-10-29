@@ -33,7 +33,7 @@ public final class AiContext {
             "  * Each event has a .visual twin (blocks). Code inside events is plain Java statements (no class, no method header).\n" +
             "- Scene variables: Events/<scene>/public/variables.json, declared as fields of the scene class (usable in every event).\n" +
             "- Custom scripts: scripts/<name>.java — Java members (methods/fields) pasted inside the scene class.\n" +
-            "- Body Script (advanced): java/com/star4droid/Game/Scripts/<scene>/<Element>Script.java, class <Element>Script extends com.star4droid.template.Utils.ItemScript\n" +
+            "- Body Script (advanced): java/com/star4droid/Game/Scripts/<scene>/<Element>Script.java, class <Element>Script extends com.star4droid.template.Utils.ItemScript (or extends com.star4droid.Game.Refs.<scenelowercase>ItemRefs: the scene's elements are then fields, player.getBody(); item(\"name\") finds one; Scene Scripts likewise with <scenelowercase>SceneRefs)\n" +
             "  (fields: body, actor, stage, playerItem; override onClick(), onTouchStart(InputEvent), onTouchEnd(InputEvent), onBodyCreated(), onBodyUpdate(), onCollisionBegin(PlayerItem other), onCollisionEnd(PlayerItem other)).\n" +
             "  Package com.star4droid.Game.Scripts.<scene>. Set the element's Script property to the element name.\n" +
             "- Scene Script (advanced): java/com/star4droid/Game/SceneScript/<scene>Script.java extends com.star4droid.template.Utils.SceneScript (create, draw, pause, resume).\n" +
@@ -62,11 +62,14 @@ public final class AiContext {
             "- {\"action\":\"delete_element\",\"element\":\"enemy3\"}\n" +
             "- {\"action\":\"add_variable\",\"name\":\"score\",\"type\":\"int\",\"value\":\"0\"}\n" +
             "- {\"action\":\"write_file\",\"path\":\"java/com/star4droid/Game/Scripts/scene1/playerScript.java\",\"content\":\"...\"}\n" +
-            "Helper actions (they use the same tools as the connector assistants; physics_info, list_*, search_icons and layout_check run automatically and their result comes back to you; the others are applied when the user taps Apply):\n" +
+            "Helper actions (they use the same tools as the connector assistants; physics_info, list_*, search_icons, list_font_presets, list_behaviors, list_ui, get_ui, check_ui and layout_check run automatically and their result comes back to you; the others are applied when the user taps Apply):\n" +
             "- {\"action\":\"physics_info\",\"jump_height\":150,\"gravity\":800,\"move_speed\":250,\"jumps\":[{\"gap\":200,\"rise\":80}]}  (jump/reach numbers in px; also reports the scene frame)\n" +
             "- {\"action\":\"list_templates\"} / {\"action\":\"apply_template\",\"id\":\"platformer\",\"scene\":\"level1\",\"params\":{}}  (complete ready games; prefer them for standard game types)\n" +
             "- {\"action\":\"list_buttons\"} / {\"action\":\"create_button\",\"name\":\"btn_play\",\"preset\":\"jelly\",\"color\":\"green\"}  (9-patch button image + pressed twin; no text inside)\n" +
             "- {\"action\":\"search_icons\",\"query\":\"heart\",\"set\":\"ui|game\"} / {\"action\":\"import_icon\",\"id\":\"heart\",\"size\":64,\"color\":\"#FF4081\"}  (small icons into images/)\n" +
+            "- {\"action\":\"list_ui\"} / {\"action\":\"create_ui\",\"name\":\"pause\",\"template\":\"pause_menu\"} / {\"action\":\"edit_ui\",\"name\":\"pause\",\"ops\":[{\"op\":\"set\",\"id\":\"btnPlay\",\"props\":{\"text\":\"Play\"}}]} / get_ui / check_ui {name}  (menus, HUDs and dialogs as .ui screens, shown with an UIHOLDER element; templates hud, pause_menu, settings_panel, dialog_box, controls, main_menu, game_over, level_select)\n" +
+            "- {\"action\":\"list_font_presets\"} / {\"action\":\"create_font\",\"name\":\"title_font\",\"preset\":\"gold_royal\",\"size\":80,\"element\":\"TitleText\"}  (styled .s2df font: outline, shadow, Arabic; sets the TEXT font)\n" +
+            "- {\"action\":\"list_behaviors\"} / {\"action\":\"add_behavior\",\"element\":\"hero\",\"id\":\"PlatformerPlayer\",\"params\":{\"speed\":300,\"jumpButton\":\"JumpBtn\"}}  (ready behaviors: scale touch effect, floating, spin, platformer player, joystick movement, shooter; prefer them to hand-written movement; an exclusive group conflict is refused unless \"replace\":true)\n" +
             "- {\"action\":\"create_scene\",\"name\":\"level2\",\"orientation\":\"portrait\"}  (keeps the project orientation when omitted) and {\"action\":\"layout_check\"}\n" +
             "Paths are relative to the project root. Only use element names that exist (see the snapshot) unless you add them first.\n" +
             "When you give code for an event, prefer set_event_code. Keep explanations short and use Markdown (headings, lists, code blocks).\n";

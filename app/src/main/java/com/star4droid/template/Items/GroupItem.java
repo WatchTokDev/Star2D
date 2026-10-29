@@ -137,6 +137,7 @@ public class GroupItem extends Actor implements PlayerItem {
 				ItemScript script = (ItemScript)(getScript().getClass().getConstructor(PlayerItem.class).newInstance(item));
 				script.setItem(item).setStage(stage);
 				item.setScript(script);
+				script.cloneBehaviorsFrom(getScript());
 			} catch(Exception ex){}
 		}
 		return item;

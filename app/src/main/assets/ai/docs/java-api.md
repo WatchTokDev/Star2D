@@ -37,6 +37,8 @@ public class enemyScript extends ItemScript {
 ```
 A scripted element receives its own collisions correctly (this avoids the element-event collision problem in `events`).
 
+**Elements as fields (preferred for new scripts)**: every build writes `java/com/star4droid/Game/Refs/<scenelowercase>ItemRefs.java` and `...SceneRefs.java`. Extend them instead of `ItemScript` / `SceneScript` and every element of that scene is a public field, no `findItem` needed: `public class enemyScript extends com.star4droid.Game.Refs.scene1ItemRefs { public void onBodyUpdate(){ if(playerItem.distTo(player) < 100) coin1.destroy(); } }` (scene script: `extends com.star4droid.Game.Refs.scene1SceneRefs`, same fields). `item("name")` / `findItem("name")` also work in both script kinds. Names that clash with script members (`body`, `actor`, `stage`, `playerItem`, `ID`) are not fields: use `item("body")`. Plain `extends ItemScript` / `SceneScript` still works. Events, `scripts/` members and anything inside the scene class already see the elements by plain name.
+
 ### SceneScript
 
 ```java

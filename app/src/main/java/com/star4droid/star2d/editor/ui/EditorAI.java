@@ -603,7 +603,7 @@ public class EditorAI extends VisTable {
 
         FileHandle file = null;
         
-        if (code.contains("extends SceneScript")) {
+        if (code.contains("extends SceneScript") || code.contains("SceneRefs")) {
             // Scene Script Path: project/java/com/star4droid/Game/SceneScript/{sceneName}Script.java
             String path = projectPath + "/java/com/star4droid/Game/SceneScript/" + scene + "Script.java";
             file = Gdx.files.absolute(path);

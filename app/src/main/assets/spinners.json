@@ -1,5 +1,6 @@
 {
 "type":"DYNAMIC,STATIC,KINAMATIC,UI",
 "Light Type":"cone,point,directional",
-"Shape":"Circle,Custom,Box"
+"Shape":"Circle,Custom,Box",
+"fit":"stretch,contain,cover"
 }

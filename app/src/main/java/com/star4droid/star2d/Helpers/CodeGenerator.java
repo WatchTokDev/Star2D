@@ -48,12 +48,31 @@ public class CodeGenerator {
     }
 
     // Template strings for code generation - preserved from original implementation
+    // An element with no event code gets no elementEvents at all (the runtime null-checks it).
     private static final String defualtItemCode = 
         "\n\t\t%1$s %2$s_def = new %1$s();\n" + //%1 => item def from ElementsDef class. 2 => name
-        "%3$s \n\t\t\n" + // => properites init...
-        "\t\t\t%2$s_def.elementEvents = new ElementEvent(){\n" +
-        "%4$s \n\t\t};\n" +
-        "\t%2$s = (PlayerItem)(%2$s_def.build(this));\n";
+        "%3$s\n" + // => properites init...
+        "\t\t%2$s = (PlayerItem)(%2$s_def.build(this));\n";
+    
+    // An element with events overrides ONLY the events that have code (ElementEventAdapter keeps getName()).
+    private static final String itemWithEventsCode = 
+        "\n\t\t%1$s %2$s_def = new %1$s();\n" +
+        "%3$s\n" +
+        "\t\t%2$s_def.elementEvents = new ElementEventAdapter(\"%2$s\"){\n" +
+        "%4$s" +
+        "\t\t};\n" +
+        "\t\t%2$s = (PlayerItem)(%2$s_def.build(this));\n";
+    
+    /** Signature of each event method, in the order of the event files (onClick, onTouchStart, onTouchEnd, OnBodyCreated, OnBodyUpdate, onBodyCollided, onBodyCollideEnd). */
+    private static final String[] EVENT_SIGNATURES = {
+        "onClick(PlayerItem current)",
+        "onTouchStart(PlayerItem current, InputEvent event)",
+        "onTouchEnd(PlayerItem current, InputEvent event)",
+        "onBodyCreated(PlayerItem current)",
+        "onBodyUpdate(PlayerItem current)",
+        "onCollisionBegin(PlayerItem current, PlayerItem body2)",
+        "onCollisionEnd(PlayerItem current, PlayerItem body2)"
+    };
     
     private static final String defaultLightCode = 
         "\n\t\t%1$s %2$s_def = new %1$s();\n" + //%1 => item def from ElementsDef class. 2 => name
@@ -111,13 +130,16 @@ public class CodeGenerator {
             boolean changed = false;
             try {
                 all = buildAll(project, scene, properties);
+                java.util.HashSet<String> keep = new java.util.HashSet<>();
                 for (SceneCode sc : all) {
+                    keep.add(new java.io.File(sc.path).getPath());
                     FileHandle f = Gdx.files.absolute(sc.path);
                     if (!f.exists() || !f.readString().equals(sc.code)) {
                         changed = true;
                         f.writeString(sc.code, false);
                     }
                 }
+                if (deleteStaleRefs(project, keep)) changed = true;
             } catch (Throwable t) {
                 Gdx.files.external("logs/code generation.txt").writeString(Utils.getStackTraceString(t), false);
             }
@@ -144,6 +166,7 @@ public class CodeGenerator {
             String result = null;
             try {
                 result = build(project, scene, properties);
+                writeRefs(project, scene, properties);
             } catch (Throwable t) {
                 Gdx.files.external("logs/code generation.txt").writeString(Utils.getStackTraceString(t), false);
             }
@@ -209,6 +232,15 @@ public class CodeGenerator {
 				neededScenes.add(scene);
                 final StringBuilder scriptBuilder = new StringBuilder("");
                 boolean thereIsScript = false;
+                // behaviors + public-variable overrides of every element (emitted once all elements exist)
+                final StringBuilder behaviorCode = new StringBuilder();
+                final com.star4droid.star2d.behaviors.BehaviorCodeGen.Env behaviorEnv = new com.star4droid.star2d.behaviors.BehaviorCodeGen.Env() {
+                    @Override public String projectPath() { return project.getPath(); }
+                    @Override public String eventCode(String body, String event) {
+                        return readTraced(trace, project, scene, body, event, scene + " › " + body + " › " + event);
+                    }
+                    @Override public String readFile(String path) { return FileUtil.readFile(path); }
+                };
                 
                 // Collect and process all script files for this scene
                 ArrayList<String> scriptsList = new ArrayList<>();
@@ -279,9 +311,6 @@ public class CodeGenerator {
                     }
                 }
                 
-                // Load default event handlers template
-                String defEvents = Gdx.files.internal("java/events.java").readString();
-                
                 // Process each item's properties
                 for (PropertySet<String, Object> propertySet : properties) {
                     boolean isLight = propertySet.getString("TYPE").equals("LIGHT");
@@ -309,11 +338,16 @@ public class CodeGenerator {
                             }
                         }
                         
-                        // Set name getter for the last event handler
-                        eventsList[7] = "return \"" + name + "\";";
-                        
-                        // Format event handlers
-                        String events = String.format(defEvents, (Object[])eventsList);
+                        // Only the events that have code are overridden (marker wrappers count as code, so
+                        // the editor's trace regions survive); no events at all -> no elementEvents.
+                        StringBuilder eventMethods = new StringBuilder();
+                        for (int ev = 0; ev < EVENT_SIGNATURES.length; ev++) {
+                            String code = eventsList[ev];
+                            if (code == null || code.isEmpty()) continue;
+                            eventMethods.append("\t\t\t@Override public void ").append(EVENT_SIGNATURES[ev]).append(" {\n")
+                                    .append(code).append("\n\t\t\t}\n");
+                        }
+                        String events = eventMethods.toString();
                         
                         // Create instance of the item definition class for property comparison
                         Class<?> cls = Class.forName("com.star4droid.star2d.ElementDefs." + defType);
@@ -324,7 +358,8 @@ public class CodeGenerator {
                             String propertyKey = entry.getKey();
                             
                             // Skip certain properties
-                            if ("(TYPE)(Shape)(lock)(parent)(prefab)(pid)(pbase)".contains("(" + propertyKey + ")")) {
+                            // Script: the runtime never reads ItemDef.Script (the script object is attached by the generated setScript below)
+                            if ("(TYPE)(Shape)(lock)(parent)(prefab)(pid)(pbase)(Script)(behaviors)(scriptVars)".contains("(" + propertyKey + ")")) {
                                 continue;
                             }
                             if (propertyKey.equals("lock")) {
@@ -365,10 +400,15 @@ public class CodeGenerator {
                                       "=" + (fieldType.equals("String") ? new Gson().toJson(entry.getValue().toString()) : entry.getValue().toString()) + qu2 + ";";
                         }
                         
+                        // UIHolder: events of the inner UI elements (Events/<scene>/private/<holder>/ui/<node>/<event>)
+                        if (!isLight && "UIHOLDER".equals(propertySet.getString("TYPE"))) {
+                            String uiEv = UiEventsGen.generate(trace, project, scene, name, propertySet.getString("ui"));
+                            if (!uiEv.isEmpty()) initCode = (initCode.equals("") ? "" : (initCode + "\n")) + uiEv;
+                        }
                         // Generate item code using appropriate template
                         itemsCode = itemsCode + (itemsCode.equals("") ? "" : "\n") + 
                                    String.format(
-                                       isLight ? defaultLightCode : defualtItemCode,
+                                       isLight ? defaultLightCode : (events.isEmpty() ? defualtItemCode : itemWithEventsCode),
                                        defType,
                                        name,
                                        initCode,
@@ -417,6 +457,20 @@ public class CodeGenerator {
                             thereIsScript = true;
                         }
                         
+                        // Behaviors and public-variable overrides of this element
+                        try {
+                            String bodyScriptFile = project.getBodyScriptPath(script, scriptScene);
+                            String bhv = com.star4droid.star2d.behaviors.BehaviorCodeGen.forItem(behaviorEnv, name,
+                                    propertySet.getString("behaviors"), propertySet.getString("scriptVars"),
+                                    FileUtil.readFile(bodyScriptFile).equals("") ? null : bodyScriptFile);
+                            if (bhv != null && !bhv.isEmpty()) {
+                                behaviorCode.append(bhv);
+                                thereIsScript = true;
+                            }
+                        } catch (Exception behaviorEx) {
+                            behaviorCode.append("\n// behaviors of ").append(name).append(": ").append(behaviorEx).append("\n");
+                        }
+                        
                         // Add variable declarations
                         if (!propertySet.getString("TYPE").contains("LIGHT")) {
                             vars += (vars.equals("") ? "PlayerItem " : ",") + name;
@@ -445,7 +499,10 @@ public class CodeGenerator {
                 }
                 
                 // Finalize item code
-                itemsCode += "\n" + fixZ + (addChilds.equals("")?"":("\n"+addChilds)) + joint.toString() + readTraced(trace, project, scene, "", "OnCreate", scene + " › OnCreate");
+                boolean hasSceneScript = FileUtil.isExistFile(project.getSceneScript(scene));
+                // Scripts that extend the generated <scene>ItemRefs / <scene>SceneRefs get the elements once ALL of them exist
+                String bindRefs = (thereIsScript || hasSceneScript) ? "\nbindScriptRefs();\n" : "";
+                itemsCode += "\n" + fixZ + (addChilds.equals("")?"":("\n"+addChilds)) + joint.toString() + bindRefs + behaviorCode + readTraced(trace, project, scene, "", "OnCreate", scene + " › OnCreate");
                 
                 // Finalize variable declarations
                 if (!vars.equals("")) {
@@ -454,7 +511,7 @@ public class CodeGenerator {
                 if (!lightsVar.equals("")) {
                     lightsVar += ";";
                 }
-                String sceneScript = FileUtil.isExistFile(project.getSceneScript(scene)) ? ("\nsetScript(new com.star4droid.game.SceneScript."+scene.toLowerCase()+"Script().setStage(this));") : "";
+                String sceneScript = hasSceneScript ? ("\nsetScript(new com.star4droid.game.SceneScript."+scene.toLowerCase()+"Script().setStage(this));\nbindScriptRefs();" + sceneScriptVarsCode(project, scene, behaviorEnv)) : "";
                 // Prepare final code and variables
                 final String code = itemsCode + sceneScript;
                 final String userVarsJsonPath = project.getVariables(scene);
@@ -493,6 +550,130 @@ public class CodeGenerator {
                 return finalCode;
             }
         }
+    }
+
+    // ------------------------------------------------------------------ generated Refs base classes
+
+    /** Folder (inside the project's java folder) of the generated <scene>ItemRefs / <scene>SceneRefs classes. */
+    public static String refsDir(com.star4droid.star2d.Helpers.editor.Project project) {
+        return project.getPath() + "/java/com/star4droid/Game/Refs/";
+    }
+
+    private static final java.util.HashSet<String> JAVA_WORDS = new java.util.HashSet<>(java.util.Arrays.asList(
+            "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do",
+            "double", "else", "enum", "extends", "final", "finally", "float", "for", "goto", "if", "implements", "import", "instanceof",
+            "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static",
+            "strictfp", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while",
+            "true", "false", "null", "_"));
+    /** Members of ItemScript / SceneScript a generated field must not hide. */
+    private static final java.util.HashSet<String> REFS_RESERVED = new java.util.HashSet<>(java.util.Arrays.asList(
+            "playerItem", "body", "actor", "stage", "ID", "linkedScript", "bindRefs"));
+
+    private static boolean isJavaName(String n) {
+        return n != null && n.matches("[A-Za-z_][A-Za-z0-9_]*") && !JAVA_WORDS.contains(n);
+    }
+
+    /** Class-name prefix of a scene's Refs classes (lower case, like the generated scene class). */
+    public static String refsName(String scene) {
+        return scene.toLowerCase();
+    }
+
+    /**
+     * The two generated base classes of a scene: {@code <scene>ItemRefs extends ItemScript} and
+     * {@code <scene>SceneRefs extends SceneScript}. Every element of the scene is a public field
+     * (PlayerItem, or Light for lights), filled by {@code bindRefs} once all elements exist, so a script
+     * that extends one of them can write {@code player.getBody()} without declaring or finding anything.
+     * Returns an empty list when the scene name is not a valid Java name or is a temporary prefab scene.
+     */
+    public static ArrayList<SceneCode> refsFor(com.star4droid.star2d.Helpers.editor.Project project, String scene,
+                                               ArrayList<PropertySet<String, Object>> properties) {
+        ArrayList<SceneCode> out = new ArrayList<>();
+        if (scene == null || com.star4droid.star2d.prefab.PrefabStore.isTempScene(scene) || !isJavaName(refsName(scene))) return out;
+        for (int kind = 0; kind < 2; kind++) {
+            boolean item = kind == 0;
+            String cls = refsName(scene) + (item ? "ItemRefs" : "SceneRefs");
+            StringBuilder items = new StringBuilder(), lights = new StringBuilder(), skipped = new StringBuilder();
+            StringBuilder bindItems = new StringBuilder(), bindLights = new StringBuilder();
+            java.util.HashSet<String> seen = new java.util.HashSet<>();
+            for (PropertySet<String, Object> ps : properties) {
+                String name = ps.getString("name");
+                if (name == null || !seen.add(name)) continue;
+                if (!isJavaName(name) || REFS_RESERVED.contains(name)) {
+                    skipped.append(skipped.length() == 0 ? "" : ", ").append(name);
+                    continue;
+                }
+                if (ps.getString("TYPE").equals("LIGHT")) {
+                    lights.append(lights.length() == 0 ? "" : ", ").append(name);
+                    bindLights.append("        ").append(name).append(" = findLight(\"").append(name).append("\");\n");
+                } else {
+                    items.append(items.length() == 0 ? "" : ", ").append(name);
+                    bindItems.append("        ").append(name).append(" = items.get(\"").append(name).append("\");\n");
+                }
+            }
+            StringBuilder src = new StringBuilder();
+            src.append("package com.star4droid.Game.Refs;\n\n")
+               .append("import com.star4droid.template.Utils.PlayerItem;\n")
+               .append(item ? "import com.star4droid.template.Utils.ItemScript;\n" : "import com.star4droid.template.Utils.SceneScript;\n")
+               .append("import box2dLight.Light;\n\n")
+               .append("/**\n * Generated by Star2D for scene \"").append(scene.replace("*/", "")).append("\" - rewritten on every build, do not edit.\n")
+               .append(" * Extend it instead of ").append(item ? "ItemScript" : "SceneScript")
+               .append(" and every element of the scene is a field: player.getBody(), coin1.destroy() ...\n");
+            if (skipped.length() > 0) src.append(" * Not available here (invalid or clashing names): ").append(skipped.toString().replace("*/", "")).append("\n");
+            src.append(" */\n")
+               .append("public abstract class ").append(cls).append(" extends ").append(item ? "ItemScript" : "SceneScript").append(" {\n");
+            if (items.length() > 0) src.append("    public PlayerItem ").append(items).append(";\n");
+            if (lights.length() > 0) src.append("    public Light ").append(lights).append(";\n");
+            src.append("\n    @Override\n    public void bindRefs(java.util.Map<String, PlayerItem> items) {\n")
+               .append("        super.bindRefs(items);\n")
+               .append(bindItems).append(bindLights)
+               .append("    }\n}\n");
+            SceneCode sc = new SceneCode();
+            sc.scene = scene;
+            sc.path = refsDir(project) + cls + ".java";
+            sc.code = src.toString();
+            out.add(sc);
+        }
+        return out;
+    }
+
+    /** Writes the Refs classes of a scene when their text changed. True when a file was written. */
+    public static boolean writeRefs(com.star4droid.star2d.Helpers.editor.Project project, String scene,
+                                    ArrayList<PropertySet<String, Object>> properties) {
+        boolean changed = false;
+        try {
+            for (SceneCode sc : refsFor(project, scene, properties)) {
+                FileHandle f = Gdx.files.absolute(sc.path);
+                if (!f.exists() || !f.readString().equals(sc.code)) {
+                    f.writeString(sc.code, false);
+                    changed = true;
+                }
+            }
+        } catch (Throwable t) {
+            Gdx.files.external("logs/code generation.txt").writeString(Utils.getStackTraceString(t), false);
+        }
+        return changed;
+    }
+
+    /** Writes the Refs classes of a scene from its SAVED file (used when a script is created). */
+    public static boolean writeRefs(com.star4droid.star2d.Helpers.editor.Project project, String scene) {
+        return writeRefs(project, scene, loadProperties(project, scene));
+    }
+
+    /** Deletes Refs files that no scene needs any more (deleted / renamed scenes). True when something was deleted. */
+    private static boolean deleteStaleRefs(com.star4droid.star2d.Helpers.editor.Project project, java.util.Set<String> keepPaths) {
+        boolean deleted = false;
+        try {
+            java.io.File[] fs = new java.io.File(refsDir(project)).listFiles();
+            if (fs == null) return false;
+            for (java.io.File f : fs) {
+                String n = f.getName();
+                if (f.isFile() && (n.endsWith("ItemRefs.java") || n.endsWith("SceneRefs.java")) && !keepPaths.contains(f.getPath())) {
+                    if (f.delete()) deleted = true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return deleted;
     }
 
     /** Generated Java of one scene. */
@@ -569,6 +750,7 @@ public class CodeGenerator {
                 continue;
             }
             out.add(sc);
+            out.addAll(refsFor(project, scene, props));
         }
         return out;
     }
@@ -577,7 +759,20 @@ public class CodeGenerator {
      * Event code of a piece (a body's event, or a public event when {@code body} is empty), wrapped in
      * trace markers. Block files get one marker per block when their generated code still matches the .java.
      */
-    private static String readTraced(SourceTrace trace, com.star4droid.star2d.Helpers.editor.Project project,
+    /** Public variables of the scene script set from the inspector (Events/<scene>/public/scriptvars.json). */
+    private static String sceneScriptVarsCode(com.star4droid.star2d.Helpers.editor.Project project, String scene,
+                                              com.star4droid.star2d.behaviors.BehaviorCodeGen.Env env) {
+        try {
+            String json = FileUtil.readFile(project.getPath() + "/Events/" + scene + "/public/scriptvars.json");
+            if (json == null || json.trim().isEmpty()) return "";
+            String c = com.star4droid.star2d.behaviors.BehaviorCodeGen.forSceneScript(env, project.getSceneScript(scene), json);
+            return c == null || c.isEmpty() ? "" : "\n" + c;
+        } catch (Exception ex) {
+            return "";
+        }
+    }
+
+    static String readTraced(SourceTrace trace, com.star4droid.star2d.Helpers.editor.Project project,
                                      String scene, String body, String event, String origin) {
         String base = project.getEventPath(scene, body, event);
         StringBuilder out = new StringBuilder();
@@ -661,6 +856,7 @@ public class CodeGenerator {
             case "CAMERA": return "CameraDef";
             case "MAP": return "MapDef";
             case "GROUP": return "GroupDef";
+            case "UIHOLDER": return "UIHolderDef";
             default: return "Unknown";
         }
     }

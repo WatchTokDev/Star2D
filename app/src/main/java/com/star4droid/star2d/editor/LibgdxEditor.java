@@ -415,6 +415,7 @@ public class LibgdxEditor extends Stage {
 			case "CAMERA": return new EditorCameraItem(this);
 			case "MAP": return new EditorMapItem(this);
 			case "GROUP": return new EditorGroupItem(this);
+			case "UIHOLDER": return new EditorUIHolderItem(this);
 		}
 		return null;
 	}
@@ -1034,6 +1035,9 @@ public class LibgdxEditor extends Stage {
 					case "GROUP":
 					item = new EditorGroupItem(this);
 					break;
+					case "UIHOLDER":
+					item = new EditorUIHolderItem(this);
+					break;
 				}
 				
 				if (item == null)
@@ -1343,13 +1347,9 @@ public class LibgdxEditor extends Stage {
 		
 		//draw border and selector
 		shapeRenderer.setProjectionMatrix(camera.combined);
-		Gdx.gl.glLineWidth(3f);
-		shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-		shapeRenderer.setColor(Color.RED);
-		//if landscape draw border with (width,height) and reverse them if its not...
-		shapeRenderer.rect(0,0,getLogicWidth(),getLogicHeight());
-		shapeRenderer.end();
-		Gdx.gl.glLineWidth(1f);
+		//scene frame: light grey stroke under dashed orange lines (readable on dark and light scene colors)
+		//if landscape the frame is (width,height) and reversed if its not (the getters do that)...
+		drawSceneFrame(camera,getLogicWidth(),getLogicHeight());
 		
 		try { Hierarchy.applyVisibility(this); } catch(Throwable ignored){}
 		super.draw();
@@ -1374,6 +1374,53 @@ public class LibgdxEditor extends Stage {
 		
 	}
 	
+	// ---- scene frame (dashed orange + light grey stroke), constant on screen: widths and dash length are in screen pixels ----
+	private static final Color FRAME_ORANGE = new Color(1f,0.60f,0.05f,1f);
+	private static final Color FRAME_STROKE = new Color(0.80f,0.82f,0.85f,0.50f);
+	private static final float FRAME_DASH_PX = 14f, FRAME_GAP_PX = 8f;
+
+	private void drawSceneFrame(OrthographicCamera camera,float w,float h){
+		Gdx.gl.glEnable(com.badlogic.gdx.graphics.GL20.GL_BLEND);
+		Gdx.gl.glBlendFunc(com.badlogic.gdx.graphics.GL20.GL_SRC_ALPHA,com.badlogic.gdx.graphics.GL20.GL_ONE_MINUS_SRC_ALPHA);
+		// world units per screen pixel (zoom-aware)
+		float upp = camera.viewportWidth * camera.zoom / Math.max(1,Gdx.graphics.getWidth());
+		float dash = FRAME_DASH_PX * upp, period = (FRAME_DASH_PX + FRAME_GAP_PX) * upp;
+		float vl = camera.position.x - camera.viewportWidth*camera.zoom*0.5f - period,
+			vr = camera.position.x + camera.viewportWidth*camera.zoom*0.5f + period,
+			vb = camera.position.y - camera.viewportHeight*camera.zoom*0.5f - period,
+			vt = camera.position.y + camera.viewportHeight*camera.zoom*0.5f + period;
+		// 1) soft grey stroke (solid, a little wider)
+		Gdx.gl.glLineWidth(5f);
+		shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+		shapeRenderer.setColor(FRAME_STROKE);
+		shapeRenderer.rect(0,0,w,h);
+		shapeRenderer.end();
+		// 2) dashed orange on top
+		Gdx.gl.glLineWidth(2.5f);
+		shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+		shapeRenderer.setColor(FRAME_ORANGE);
+		dashedLine(0,0,w,0,true,dash,period,vl,vr);
+		dashedLine(0,h,w,h,true,dash,period,vl,vr);
+		dashedLine(0,0,0,h,false,dash,period,vb,vt);
+		dashedLine(w,0,w,h,false,dash,period,vb,vt);
+		shapeRenderer.end();
+		Gdx.gl.glLineWidth(1f);
+	}
+
+	/** Dashes of an axis-aligned edge, only the part inside [visLo,visHi]; no allocation. Needs an open Line renderer. */
+	private void dashedLine(float x1,float y1,float x2,float y2,boolean horizontal,float dash,float period,float visLo,float visHi){
+		float a = horizontal ? x1 : y1, b = horizontal ? x2 : y2;
+		float lo = Math.max(a,visLo), hi = Math.min(b,visHi);
+		if(hi <= lo || period <= 0f) return;
+		float d = a + (float)Math.floor((lo - a) / period) * period;
+		for(; d < hi; d += period){
+			float s = Math.max(d,a), e = Math.min(d + dash,b);
+			if(e <= s) continue;
+			if(horizontal) shapeRenderer.line(s,y1,e,y1);
+			else shapeRenderer.line(x1,s,x1,e);
+		}
+	}
+
 	public Stage getUiStage(){
 		return UiStage;
 	}

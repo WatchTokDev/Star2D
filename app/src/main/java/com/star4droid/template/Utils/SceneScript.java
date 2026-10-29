@@ -13,6 +13,27 @@ public abstract class SceneScript {
 	public final StageImp getStage(){
 		return stage;
 	}
+	/** The element called name in this scene, or null: findItem("player") / item("player") (no getStage() needed). */
+	public PlayerItem findItem(String name){
+		try {
+			return stage == null ? null : stage.findItem(name);
+		} catch(Exception ex){
+			return null;
+		}
+	}
+	public PlayerItem item(String name){
+		return findItem(name);
+	}
+	public com.badlogic.gdx.physics.box2d.Joint getJoint(String name){
+		return stage == null ? null : stage.getJoint(name);
+	}
+	public box2dLight.Light findLight(String name){
+		return stage == null ? null : stage.findLight(name);
+	}
+	/** Filled by the generated <scene>SceneRefs base class (elements as fields); a linked script gets them too. */
+	public void bindRefs(java.util.Map<String,PlayerItem> items){
+		if(linkedScript != null) linkedScript.bindRefs(items);
+	}
 	public abstract void create();
 	public abstract void draw();
 	public abstract void pause();

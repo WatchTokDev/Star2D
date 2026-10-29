@@ -9,14 +9,15 @@ import box2dLight.Light;
     Hi Coder :)
     & Thanks for using Star2D Evolution 
     example :
-    - Reverse body gravity on create:
-        getStage().findItem("body").getBody().setGavityScale(-1);
+    - Every element of the scene is a field (generated base class):
+        player.getBody().setGravityScale(-1);
+      or look one up by name: item("player") / findItem("player")
     - Link to the other script:
         linkTo(OtherScene.class);
         //or
         linkTo(new OtherScene());
 */
-public class %1$sScript extends SceneScript {
+public class %1$sScript extends com.star4droid.Game.Refs.%2$sSceneRefs {
     public void create(){
         
     }

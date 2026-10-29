@@ -110,7 +110,47 @@ public class EventsPanel implements PanelHost.Panel {
         if (dir.exists())
             for (FileHandle f : dir.list()) if (f.name().endsWith(".java")) scripts.add(f.name().replace(".java", ""));
         String bodyInfo = sel == null ? null : (bodyScene.equals(scene) ? body : bodyScene + "/" + body);
-        return new Object[]{scene, selName, bodyInfo, scripts, withCode};
+        // events raised by the behaviors added to the element ("Additional behaviors")
+        java.util.List<String[]> behaviorEvents = new ArrayList<>();
+        if (sel != null) {
+            PropertySet ps2 = PropertySet.getPropertySet(sel);
+            if (ps2.containsKey("behaviors")) behaviorEvents = com.star4droid.star2d.ui.behaviors.BehaviorEvents.listFor(selName, ps2.getString("behaviors"));
+        }
+        return new Object[]{scene, selName, bodyInfo, scripts, withCode, uiEntries(p, scene, sel), behaviorEvents};
+    }
+
+    /**
+     * UIHolder selected: its inner elements that can have events.
+     * Entries: {holder, nodeId, nodeType, comma-separated events, "1" when some event has code, ui name}.
+     */
+    private static ArrayList<String[]> uiEntries(Project p, String scene, Actor sel) {
+        ArrayList<String[]> out = new ArrayList<>();
+        try {
+            if (sel == null) return out;
+            PropertySet ps = PropertySet.getPropertySet(sel);
+            if (!"UIHOLDER".equals(ps.getString("TYPE"))) return out;
+            String ui = ps.getString("ui");
+            if (ui == null || ui.isEmpty()) return out;
+            java.io.File f = new java.io.File(p.getPath(), "UI/" + ui + ".ui");
+            if (!f.exists()) return out;
+            com.star4droid.template.ui.UIDocument doc = com.star4droid.template.ui.UIDocument.read(f);
+            if (doc == null) return out;
+            String holder = ps.getString("name");
+            for (com.star4droid.template.ui.UINode n : doc.allNodes()) {
+                String[] evs = com.star4droid.template.ui.UIWidgetRegistry.eventsOf(n);
+                if (evs.length == 0) continue;
+                boolean any = false;
+                for (String ev : evs)
+                    if (hasCode(p.getEventPath(scene, com.star4droid.star2d.Helpers.UiEventsGen.body(holder, n.id), ev))) any = true;
+                String t = n.type;
+                boolean interactive = t.equals("Button") || t.equals("Slider") || t.equals("Checkbox") || t.equals("Radio")
+                        || t.equals("Switch") || t.equals("TextField") || t.equals("ScrollView");
+                if (!interactive && !any) continue;
+                out.add(new String[]{holder, n.id, t, String.join(",", evs), any ? "1" : "0", ui});
+            }
+        } catch (Throwable ignored) {
+        }
+        return out;
     }
 
     private static boolean hasCode(String path) {
@@ -132,6 +172,7 @@ public class EventsPanel implements PanelHost.Panel {
         String bodyInfo = (String) st[2];
         ArrayList<String> scripts = (ArrayList<String>) st[3];
         HashSet<String> withCode = (HashSet<String>) st[4];
+        ArrayList<String[]> uiNodes = (ArrayList<String[]>) st[5];
 
         // scene
         list.addView(Ui.sectionLabel(c, Tr.t("ui_scene_events", "Scene events") + " · " + scene));
@@ -167,6 +208,14 @@ public class EventsPanel implements PanelHost.Panel {
                 com.star4droid.star2d.ui.tutorial.Tut.tag(r, "event:" + e[0]);
                 list.addView(r);
             }
+            java.util.List<String[]> behaviorEvents = (java.util.List<String[]>) st[6];
+            if (!behaviorEvents.isEmpty()) {
+                list.addView(Ui.sectionLabel(c, Tr.t("bhv_events_group", "Behavior events") + " · " + sel));
+                for (String[] be : behaviorEvents) {
+                    list.addView(row(c, R.drawable.ic_s2_events, 0xFFAB47BC, be[3], be[1], !be[4].isEmpty(),
+                            v -> com.star4droid.star2d.ui.behaviors.BehaviorEvents.open(sel, be[0], be[2])));
+                }
+            }
             View bs = row(c, R.drawable.ic_s2_script, 0xFF7E57C2, Tr.t("bodyScript", "Body Script"),
                     ar ? "كود جافا خاص بهذا العنصر (للمحترفين)." : "Java code just for this element (advanced).", withCode.contains("Body Script"),
                     v -> VisualScriptingDialog.openCodeEditor());
@@ -180,6 +229,19 @@ public class EventsPanel implements PanelHost.Panel {
                 return true;
             });
             list.addView(bs);
+        }
+
+        // inner elements of a UIHolder
+        if (!uiNodes.isEmpty()) {
+            list.addView(Ui.sectionLabel(c, Tr.t("ui_inner_events", "UI elements") + " · " + uiNodes.get(0)[5]));
+            for (String[] n : uiNodes) {
+                String[] evs = n[3].split(",");
+                View r = row(c, R.drawable.ic_s2_widgets, 0xFFFF9800, n[1] + "  (" + n[2] + ")", n[3].replace(",", " · "), "1".equals(n[4]), v -> {
+                    if (evs.length == 1) VisualScriptingDialog.showForUi(n[0], n[1], evs[0]);
+                    else Dialogs.choose(c, n[1], evs, i -> VisualScriptingDialog.showForUi(n[0], n[1], evs[i]));
+                });
+                list.addView(r);
+            }
         }
 
         // custom scripts

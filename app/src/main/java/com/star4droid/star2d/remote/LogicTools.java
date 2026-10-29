@@ -12,6 +12,7 @@ import com.star4droid.star2d.Helpers.editor.Project;
 import com.star4droid.star2d.editor.LibgdxEditor;
 import com.star4droid.star2d.evo.star2dApp;
 import com.star4droid.star2d.ui.blocks.BlockCatalog;
+import com.star4droid.star2d.ui.blocks.BlockInfo;
 import com.star4droid.star2d.ui.blocks.BlockModel;
 
 import java.io.File;
@@ -39,6 +40,11 @@ final class LogicTools {
 
     private static void ensureCatalog() {
         BlockCatalog.load(ctx());
+        // blocks of the @Block methods of behaviors (built-in and the project's own sources)
+        try {
+            BlockCatalog.applyBehaviorBlocks(Proj.project().getPath());
+        } catch (Throwable ignored) {
+        }
     }
 
     // ================================================================== event names
@@ -95,6 +101,25 @@ final class LogicTools {
         return new String[]{sc, body};
     }
 
+    /**
+     * Events a behavior raises (onDeath, onShoot...): the event name is 'behaviors/<Behavior>/<event>' (or '<Behavior>/<event>').
+     * Returns [body, event] for Project.getEventPath, or null when {@code raw} is not such a name.
+     */
+    static String[] behaviorEvent(Project p, String element, String raw) {
+        if (raw == null || raw.indexOf('/') < 0) return null;
+        String[] parts = raw.split("/");
+        int i = parts.length > 0 && parts[0].equalsIgnoreCase("behaviors") ? 1 : 0;
+        if (parts.length - i != 2) return null;
+        com.star4droid.star2d.behaviors.BehaviorMeta m = com.star4droid.star2d.behaviors.BehaviorCatalog.find(parts[i], p.getPath());
+        if (m == null) throw new Gl.ToolError("No behavior '" + parts[i] + "'. behaviors {action:'list'} shows the ids.");
+        for (com.star4droid.star2d.behaviors.BehaviorMeta.EventSpec e : m.events)
+            if (e.name.equalsIgnoreCase(parts[i + 1]))
+                return new String[]{com.star4droid.star2d.behaviors.BehaviorCodeGen.eventBody(element, m.id), e.name};
+        StringBuilder ev = new StringBuilder();
+        for (com.star4droid.star2d.behaviors.BehaviorMeta.EventSpec e : m.events) ev.append(ev.length() > 0 ? ", " : "").append(e.signature());
+        throw new Gl.ToolError(m.id + " has no event '" + parts[i + 1] + "'. Its events: " + (ev.length() == 0 ? "none" : ev) + ". In the code, `current` is the element and the arguments are typed locals.");
+    }
+
     static boolean hasCode(String path) {
         FileHandle j = Gdx.files.absolute(path + ".java"), v = Gdx.files.absolute(path + ".visual");
         return (j.exists() && j.length() > 0) || (v.exists() && v.length() > 2);
@@ -149,9 +174,10 @@ final class LogicTools {
                         results.add(r);
                         continue;
                     }
-                    String event = eventName(isEl, CoreTools.s(o, "event"));
-                    String sc = scene, body = "";
-                    if (isEl) {
+                    String[] bev = isEl ? behaviorEvent(p, element, CoreTools.s(o, "event")) : null;
+                    String event = bev != null ? bev[1] : eventName(isEl, CoreTools.s(o, "event"));
+                    String sc = scene, body = bev != null ? bev[0] : "";
+                    if (isEl && bev == null) {
                         if (element.isEmpty()) throw new Gl.ToolError("element is required when scope is 'element'");
                         String[] sb = bodyOf(p, ed, scene, element);
                         sc = sb[0];
@@ -159,6 +185,7 @@ final class LogicTools {
                     }
                     label = (isEl ? element + "." : "") + event;
                     String path = p.getEventPath(sc, body, event);
+                    if (bev != null) new File(path).getParentFile().mkdirs();
                     switch (op) {
                         case "get": {
                             JsonObject r = new JsonObject();
@@ -268,16 +295,34 @@ final class LogicTools {
     static ToolResult blockCatalog(JsonObject a) throws Exception {
         final String cat = CoreTools.s(a, "category").toLowerCase(Locale.ROOT);
         final String search = CoreTools.s(a, "search").toLowerCase(Locale.ROOT);
+        final boolean detail = a.has("detail") && a.get("detail").isJsonPrimitive() && a.get("detail").getAsBoolean();
+        final boolean showAll = a.has("all") && a.get("all").isJsonPrimitive() && a.get("all").getAsBoolean();
+        final String sceneArg = CoreTools.s(a, "scene");
         final JsonObject out = new JsonObject();
         Gl.run(() -> {
             ensureCatalog();
+            // behavior blocks (@Block methods) are listed only for behaviors the scene uses (all:true lists every behavior)
+            java.util.Set<String> active = new java.util.HashSet<>();
+            java.util.Set<String> hidden = new java.util.TreeSet<>();
+            String projectPath = Proj.project().getPath();
+            try {
+                active = com.star4droid.star2d.blocks.SceneBehaviors.inProject(projectPath, Proj.sceneOrDefault(sceneArg));
+            } catch (Throwable ignored) {
+            }
             JsonArray statements = new JsonArray();
             JsonArray cats = new JsonArray();
             for (Map.Entry<String, ArrayList<BlockCatalog.Def>> e : BlockCatalog.CATEGORIES.entrySet()) {
-                cats.add(e.getKey());
+                boolean any = false;
+                for (BlockCatalog.Def d : e.getValue()) {
+                    if (d.showWhen == null || showAll || visibleFor(d.showWhen, active)) any = true;
+                    else for (String id : d.showWhen) hidden.add(id);
+                }
+                if (any) cats.add(e.getKey());
                 if (!cat.isEmpty() && !e.getKey().toLowerCase(Locale.ROOT).contains(cat)) continue;
                 for (BlockCatalog.Def d : e.getValue()) {
-                    if (!search.isEmpty() && !d.title.toLowerCase(Locale.ROOT).contains(search)) continue;
+                    if (d.showWhen != null && !showAll && !visibleFor(d.showWhen, active)) continue;
+                    if (!search.isEmpty() && !d.title.toLowerCase(Locale.ROOT).contains(search)
+                            && !BlockInfo.label(d.title, false).toLowerCase(Locale.ROOT).contains(search)) continue;
                     JsonObject b = new JsonObject();
                     b.addProperty("block", d.title);
                     b.addProperty("category", e.getKey());
@@ -289,27 +334,60 @@ final class LogicTools {
                     }
                     b.add("fields", fs);
                     if (d.isIf) b.addProperty("container", true);
+                    if (d.showWhen != null) b.addProperty("label", BlockInfo.label(d.title, false));
+                    if (detail) {
+                        String info = englishInfo(d.title);
+                        if (info != null) b.addProperty("desc", info);
+                    }
                     b.addProperty("java", oneLine(d.code));
                     statements.add(b);
                 }
             }
             JsonArray reporters = new JsonArray();
             for (BlockCatalog.Reporter r : BlockCatalog.REPORTERS) {
+                if (r.showWhen != null && !showAll && !visibleFor(r.showWhen, active)) {
+                    for (String id : r.showWhen) hidden.add(id);
+                    continue;
+                }
                 if (!cat.isEmpty() && !r.group.toLowerCase(Locale.ROOT).contains(cat)) continue;
                 if (!search.isEmpty() && !r.display.toLowerCase(Locale.ROOT).contains(search)) continue;
                 JsonObject b = new JsonObject();
                 b.addProperty("r", r.display);
                 b.addProperty("group", r.group);
+                if (detail) {
+                    String info = englishInfo(r.display);
+                    if (info != null) b.addProperty("desc", info);
+                }
                 b.addProperty("java", oneLine(r.template));
                 reporters.add(b);
             }
             out.add("categories", cats);
             out.add("blocks", statements);
             out.add("reporters", reporters);
+            if (!hidden.isEmpty()) {
+                JsonArray h = new JsonArray();
+                for (String id : hidden) h.add(id);
+                out.add("hidden_behavior_blocks", h);
+                out.addProperty("hidden_hint", "These behaviors have blocks that appear once an element of the scene uses the behavior (or add them with the addBehavior block); all:true lists them anyway.");
+            }
             out.addProperty("hint", "Use 'block' titles in events.blocks; value blocks go inside fields as {\"r\":\"<r text>\",\"args\":[...]}. Fields typed (Body) take an element name or 'current'.");
             return null;
         });
         return ToolResult.text(out.toString());
+    }
+
+    private static boolean visibleFor(String[] showWhen, java.util.Set<String> active) {
+        for (String id : showWhen) if (active.contains(id)) return true;
+        return false;
+    }
+
+    /** Description of a block for the AI: English (or the first language written), null when there is none. */
+    private static String englishInfo(String key) {
+        java.util.Map<String, String> m = BlockInfo.descriptions(key);
+        String v = m.get("en");
+        if (v == null && !m.isEmpty()) v = m.values().iterator().next();
+        if (v == null) v = BlockInfo.info(key, false);
+        return v == null || v.trim().isEmpty() ? null : v.trim();
     }
 
     private static String oneLine(String s) {
@@ -366,6 +444,7 @@ final class LogicTools {
                     b.addProperty("title", display);
                     b.addProperty("code", code);
                     b.addProperty("color", catColor);
+                    addDescription(b, d);
                     replaceBy(blockSec.getAsJsonArray("blocks"), "title", display, b);
                 } else {
                     int extra = kind.equals("container") ? 3 : 1; // inner, else, next  |  next
@@ -390,6 +469,7 @@ final class LogicTools {
                         fa.add(f);
                     }
                     b.add("fields", fa);
+                    addDescription(b, d);
                     replaceBy(nodeSec.getAsJsonArray("nodes"), "title", title, b);
                 }
                 added++;
@@ -404,6 +484,13 @@ final class LogicTools {
             return null;
         });
         return ToolResult.text("Defined in category '★ " + category + "': " + report + "available now in block_catalog and in the editor's block palette.");
+    }
+
+    /** "description": "text" (English) or {"en":"..","ar":".."} -> "desc" {lang: text} on the stored block (shown by its (i) button). */
+    private static void addDescription(JsonObject stored, JsonObject def) {
+        if (!def.has("description")) return;
+        java.util.Map<String, String> m = com.star4droid.star2d.blocks.BlockDesc.parse(def.get("description"));
+        if (!m.isEmpty()) stored.add("desc", com.star4droid.star2d.blocks.BlockDesc.toJson(m));
     }
 
     private static JsonArray readArray(File f) {

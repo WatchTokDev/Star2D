@@ -210,12 +210,13 @@ final class EditTools {
 
     // ================================================================== elements
 
-    private static final String[] KINDS = {"BOX", "CIRCLE", "TEXT", "JOYSTICK", "PROGRESS", "CUSTOM", "PARTICLE", "CAMERA", "MAP", "GROUP"};
+    private static final String[] KINDS = {"BOX", "CIRCLE", "TEXT", "JOYSTICK", "PROGRESS", "CUSTOM", "PARTICLE", "CAMERA", "MAP", "GROUP", "UIHOLDER"};
 
     private static int kindIndex(String type) {
         String t = type.toUpperCase(Locale.ROOT).replace(" ", "");
         if (t.equals("TILEDMAP") || t.equals("TILEMAP")) t = "MAP";
         if (t.equals("CONTAINER") || t.equals("EMPTY") || t.equals("FOLDER")) t = "GROUP";
+        if (t.equals("UI") || t.equals("UIMAKER") || t.equals("UI_HOLDER") || t.equals("SCREEN")) t = "UIHOLDER";
         for (int i = 0; i < KINDS.length; i++) if (KINDS[i].equals(t)) return i;
         return -1;
     }
@@ -232,7 +233,7 @@ final class EditTools {
     private static List<String> orderKeys(JsonObject props) {
         ArrayList<String> first = new ArrayList<>(), rest = new ArrayList<>();
         for (String k : props.keySet()) {
-            if (k.equals("type") || k.equals("Shape") || k.equals("Light Type") || k.equals("image") || k.equals("Pad Image") || k.equals("Button Image"))
+            if (k.equals("type") || k.equals("Shape") || k.equals("Light Type") || k.equals("image") || k.equals("Pad Image") || k.equals("Button Image") || k.equals("Pressed Image") || k.equals("Touch Start Image") || k.equals("Touch End Image"))
                 first.add(k);
             else rest.add(k);
         }
@@ -386,7 +387,18 @@ final class EditTools {
                 case "set": {
                     Actor actor = Bridge.actor(name);
                     if (actor == null) return res(op, name, false, "no element named '" + name + "' in scene '" + ed.getScene() + "'");
-                    if (props.size() == 0) return res(op, name, false, "props is empty");
+                    JsonArray resetList = o.has("reset") && o.get("reset").isJsonArray() ? o.getAsJsonArray("reset") : new JsonArray();
+                    if (props.size() == 0 && resetList.size() == 0) return res(op, name, false, "props is empty (give props, or reset:[property names])");
+                    // reset: put the named properties back to their default value (what a new element starts with)
+                    if (resetList.size() > 0) {
+                        Map<String, String> live = Bridge.snapshot(PropertySet.getPropertySet(actor));
+                        Map<String, String> defs = ItemDefaults.of(live.get("TYPE"), live.get("Light Type"));
+                        for (JsonElement re : resetList) {
+                            String rk = canon(defs, live, str(re));
+                            if (rk != null && defs.containsKey(rk) && !props.has(rk)) props.addProperty(rk, defs.get(rk));
+                            else if (rk == null) props.addProperty(str(re), "unknown");
+                        }
+                    }
                     List<String> problems = applyProps(app, actor, props);
                     return problems.isEmpty() ? res(op, name, true, null) : res(op, name, false, String.join("; ", problems));
                 }

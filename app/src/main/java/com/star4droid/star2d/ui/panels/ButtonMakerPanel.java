@@ -54,7 +54,11 @@ import java.util.function.Supplier;
  */
 public class ButtonMakerPanel implements PanelHost.Panel {
 
-    public interface OnSaved { void on(String useAs); }
+    public interface OnSaved {
+        void on(String useAs);
+        /** also tells the pressed twin ("/name_pressed.9.png") when one was made, else null (callers that want it override this) */
+        default void on(String useAs, String pressedUseAs) { on(useAs); }
+    }
 
     private final EditorShell shell;
     private final File imagesDir;
@@ -593,7 +597,7 @@ public class ButtonMakerPanel implements PanelHost.Panel {
                         shell.files.refreshList();
                     } catch (Throwable ignored) {
                     }
-                    if (onSaved != null) onSaved.on(sv.useAs);
+                    if (onSaved != null) onSaved.on(sv.useAs, sv.pressedUseAs);
                 });
             } catch (Throwable e) {
                 Ui.toast(ctx, e.getMessage() == null ? e.toString() : e.getMessage());

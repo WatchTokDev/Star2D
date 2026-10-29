@@ -41,6 +41,7 @@ public class AddItemPanel implements PanelHost.Panel {
             {"camera", "Camera", "Camera", "Controls what part of the world is visible.", "تتحكم في الجزء الظاهر من العالم."},
             {"tiledMap", "Tiled map", "Map", "Load a level made with Tiled (.tmx).", "تحميل مرحلة مصممة ببرنامج Tiled."},
             {"groupItem", "Group", "Group", "Empty container: move, rotate, hide or delete several elements together.", "حاوية فارغة: حرّك أو دوّر أو أخفِ أو احذف عدة عناصر معاً."},
+            {"uiHolder", "UI Holder", "UIHolder", "Shows a screen made in the UI Maker (menus, HUD, dialogs) as one element.", "يعرض واجهة صنعتها في UI Maker (قوائم، HUD، نوافذ) كعنصر واحد."},
     };
     private static final String[][] LIGHTS = {
             {"pointLight", "Point light", "Light", "Light that shines in all directions.", "ضوء ينير في كل الاتجاهات."},

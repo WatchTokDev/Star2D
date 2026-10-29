@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "name": "settings",
+  "designWidth": 1280,
+  "designHeight": 720,
+  "theme": {"preset": "jelly"},
+  "root": {
+    "id": "root", "type": "Stack",
+    "children": [
+      {"id": "dim", "type": "Panel", "anchor": "stretch", "props": {"style": "solid", "panelColor": "#000000aa", "radius": 0, "border": 0, "shadow": 0}},
+      {"id": "dialog", "type": "Panel", "anchor": "center", "w": 700, "h": 640, "props": {"style": "card", "padding": 24},
+       "children": [
+         {"id": "title", "type": "Label", "anchor": "top", "props": {"text": "Settings", "fontSize": 44}},
+         {"id": "list", "type": "Linear", "anchor": "stretch", "margin": [0, 70, 0, 90],
+          "props": {"orientation": "vertical", "spacing": 18, "padding": 0},
+          "children": [
+            {"id": "rowMusic", "type": "Linear", "w": "fill", "props": {"orientation": "horizontal", "padding": 0, "align": "center"},
+             "children": [
+               {"id": "lblMusic", "type": "Label", "w": 180, "props": {"text": "Music"}},
+               {"id": "music", "type": "Slider", "weight": 1, "props": {"value": 0.7, "style": "jelly", "showValueLabel": false}}
+             ]},
+            {"id": "rowSfx", "type": "Linear", "w": "fill", "props": {"orientation": "horizontal", "padding": 0, "align": "center"},
+             "children": [
+               {"id": "lblSfx", "type": "Label", "w": 180, "props": {"text": "Effects"}},
+               {"id": "sfx", "type": "Slider", "weight": 1, "props": {"value": 0.4, "style": "game_bar"}}
+             ]},
+            {"id": "rowVib", "type": "Linear", "w": "fill", "props": {"orientation": "horizontal", "padding": 0, "align": "center", "gravity": "start"},
+             "children": [
+               {"id": "lblVib", "type": "Label", "w": 180, "props": {"text": "Vibration"}},
+               {"id": "vib", "type": "Switch", "props": {"checked": true, "style": "jelly"}}
+             ]},
+            {"id": "easy", "type": "Radio", "props": {"text": "Easy", "group": "diff", "checked": true, "style": "jelly"}},
+            {"id": "hard", "type": "Radio", "props": {"text": "Hard", "group": "diff", "style": "jelly"}},
+            {"id": "tips", "type": "Checkbox", "props": {"text": "Show tips", "checked": true, "style": "jelly"}},
+            {"id": "name", "type": "TextField", "w": "fill", "props": {"hint": "Player name", "style": "jelly"}}
+          ]},
+         {"id": "btnClose", "type": "Button", "anchor": "bottom", "w": 220, "h": 64, "props": {"text": "Close", "style": "success"}}
+       ]}
+    ]
+  }
+}
