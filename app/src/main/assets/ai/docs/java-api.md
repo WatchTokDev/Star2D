@@ -6,7 +6,7 @@ Blocks first. Raw Java is for: key polling, text alignment, arrays/lists, string
 2. `scripts/<scene>/<anything>.java`: members (fields and methods) pasted into the scene class. Write them with `files`.
 3. Real classes under `java/` (compiled with the game): element scripts and scene scripts (below), plus your own helper classes.
 
-**Java source level is 7**: no lambdas, no method references, no `var`, no streams. Anonymous classes and `Timer.Task` may only use `final` locals. libGDX and Box2D classes can be used by full name.
+**Java source level is 7**: no lambdas, no method references, no `var`, no streams. Anonymous classes and `Timer.Task` may only use `final` locals: write `final PlayerItem c = ...;` (in event code the editor also adds `final` by itself to locals that are never reassigned; scripts in java/ files are not changed). libGDX and Box2D classes can be used by full name.
 
 ## Names, files and packages
 

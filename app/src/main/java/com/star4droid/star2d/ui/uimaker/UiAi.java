@@ -44,11 +44,17 @@ public final class UiAi {
             case "describe": return describe(a);
             case "get": return get(projectPath, a);
             case "create": return create(projectPath, a, defaultOrientation);
+            case "build": return build(projectPath, a, defaultOrientation);
+            case "screens": case "kit": {
+                JsonObject o = UiKit.describe();
+                o.addProperty("how", BUILD_HOW);
+                return o.toString();
+            }
             case "set": return set(projectPath, a);
             case "check": return check(projectPath, a);
             case "event": return event(projectPath, a);
             case "delete": return delete(projectPath, a);
-            default: throw new Error("Unknown action '" + action + "'. Use list | describe | get | create | set | check | event | delete.");
+            default: throw new Error("Unknown action '" + action + "'. Use build (best: a whole professional screen in one call) | screens | list | describe | get | create | set | check | event | delete.");
         }
     }
 
@@ -153,13 +159,17 @@ public final class UiAi {
             tpl.add(tj);
         }
         o.add("templates", tpl);
+        JsonArray kit = new JsonArray();
+        for (java.util.Map.Entry<String, String[]> e : UiKit.SCREENS.entrySet()) kit.add(e.getKey() + ": " + e.getValue()[1] + " spec{" + e.getValue()[2] + "}");
+        o.add("build_screens", kit);
+        o.addProperty("build", BUILD_HOW);
         JsonArray types = new JsonArray();
         for (UIWidgetRegistry.Widget w : UIWidgetRegistry.all()) {
             types.add(w.type + (w.container ? " (container)" : "") + ": " + w.desc);
         }
         o.add("widgets", types);
         o.add("themes", toArray(UITheme.PRESETS));
-        o.addProperty("how", "ui create {name, template?, theme?:{preset}, tree?} makes UI/<name>.ui; ui get {name} shows the tree; ui set {name, ops:[{op:'add',parent,type,id,props}|{op:'set',id,props}|{op:'remove',id}|{op:'move',id,parent,index}]}; "
+        o.addProperty("how", "BEST: ui build {name, screen, spec?} (see build_screens). Lower level: ui create {name, template?, theme?:{preset}, tree?} makes UI/<name>.ui; ui get {name} shows the tree; ui set {name, ops:[{op:'add',parent,type,id,props}|{op:'set',id,props}|{op:'remove',id}|{op:'move',id,parent,index}]}; "
                 + "ui describe {type} lists the properties; ui check {name} finds overlaps / off-screen / small touch targets in portrait AND landscape. Show it in a scene with an UIHOLDER element (ui:'<name>'). read_docs ui.");
         return o.toString();
     }
@@ -321,6 +331,142 @@ public final class UiAi {
         return o.toString();
     }
 
+    // ------------------------------------------------------------------ build (UI skills)
+
+    /** Turns a library icon id into a project image path; set by the app (imports icons into images/). Null = no icons. */
+    public static volatile UiKit.Icons icons;
+
+    static final String BUILD_HOW = "ui build {name, screen, spec?, theme?, orientation?, replace?}: ONE call = a complete, polished screen that works in portrait and landscape "
+            + "(header, cards, scroll views, tabs, icons, consistent spacing). Leave spec out to get good defaults, or give only the texts / items you need, "
+            + "in the user's language. A screen without theme reuses the theme of the project's other UIs, so all screens match. Buttons work without code through "
+            + "built-in actions (tabs, Resume hides the pause card, OK/Cancel close the dialog, open:'otherUi', back). Then show it with an UIHOLDER and add game logic with ui event. "
+            + "Change texts later with ui set ops [{op:'set', id, props:{text}}]; add more blocks with ops [{op:'add_part', parent, part, spec}] or [{op:'add_screen', parent, screen, spec}].";
+
+    /** The theme of the newest other UI of the project (so a new screen matches the others), or null. */
+    private static UIDocument newestOther(String project, String except) {
+        UIDocument best = null;
+        long t = -1;
+        for (String n : names(project)) {
+            if (n.equals(except)) continue;
+            File f = fileOf(project, n);
+            if (f.lastModified() > t) {
+                try {
+                    UIDocument d = UIDocument.read(f);
+                    best = d;
+                    t = f.lastModified();
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+        return best;
+    }
+
+    static String build(String project, JsonObject a, String defaultOrientation) {
+        String name = nameOf(a);
+        File f = fileOf(project, name);
+        if (f.exists() && !bool(a, "replace", false)) throw new Error("UI/" + name + ".ui already exists. Pass replace:true to build it again, or edit it with ui set.");
+        String screen = s(a, "screen");
+        if (screen.isEmpty()) screen = s(a, "template");
+        if (screen.isEmpty()) screen = name;
+        if (!UiKit.isScreen(screen)) throw new Error("Unknown screen '" + screen + "'. Screens: " + String.join(", ", UiKit.SCREENS.keySet())
+                + ". Anything else: screen 'custom' with spec.sections:[{part:...}] (parts: " + String.join(", ", UiKit.PARTS) + ").");
+        float w = 1280, h = 720;
+        String ori = s(a, "orientation").toLowerCase(Locale.ROOT);
+        if (ori.isEmpty()) ori = defaultOrientation == null ? "landscape" : defaultOrientation.toLowerCase(Locale.ROOT);
+        if (ori.equals("portrait")) {
+            w = 720;
+            h = 1280;
+        }
+        if (a.has("design") && a.get("design").isJsonArray() && a.getAsJsonArray("design").size() >= 2) {
+            w = a.getAsJsonArray("design").get(0).getAsFloat();
+            h = a.getAsJsonArray("design").get(1).getAsFloat();
+        }
+        JsonObject spec = null;
+        if (a.has("spec")) {
+            JsonElement e = a.get("spec");
+            if (e.isJsonPrimitive()) {
+                try {
+                    e = JsonParser.parseString(e.getAsString());
+                } catch (Exception ex) {
+                    throw new Error("spec is not valid JSON: " + ex.getMessage());
+                }
+            }
+            if (e.isJsonObject()) spec = e.getAsJsonObject();
+        }
+        if (spec == null) {
+            // weak models put the spec keys at the top level: take them from there
+            spec = new JsonObject();
+            for (java.util.Map.Entry<String, JsonElement> en : a.entrySet()) {
+                String k = en.getKey();
+                if (!k.equals("action") && !k.equals("name") && !k.equals("screen") && !k.equals("theme") && !k.equals("orientation") && !k.equals("replace") && !k.equals("design"))
+                    spec.add(k, en.getValue());
+            }
+        }
+        ArrayList<String> notes = new ArrayList<>();
+        UIDocument d;
+        try {
+            d = UiKit.build(name, screen, spec, w, h, icons, notes);
+        } catch (IllegalArgumentException e) {
+            throw new Error(e.getMessage());
+        }
+        JsonObject theme = a.has("theme") && a.get("theme").isJsonObject() ? a.getAsJsonObject("theme") : null;
+        if (theme == null && !s(a, "theme").isEmpty()) {
+            theme = new JsonObject();
+            theme.addProperty("preset", s(a, "theme"));
+        }
+        if (theme != null) {
+            String err = UiOps.applyTheme(d, theme);
+            if (err != null) throw new Error(err);
+        } else {
+            UIDocument other = newestOther(project, name);
+            if (other != null) {
+                d.theme = other.theme;
+                notes.add("theme copied from your other UIs (" + other.theme.preset + ") so the screens match");
+            }
+        }
+        if (icons == null) notes.add("icons are not available here: buttons use text only");
+        boolean arabic = false;
+        for (UINode n : d.allNodes()) {
+            String t = n.str("text", "");
+            for (int i = 0; i < t.length() && !arabic; i++) if (t.charAt(i) >= 0x0600 && t.charAt(i) <= 0x06FF) arabic = true;
+        }
+        if (arabic && (d.theme.font == null || d.theme.font.isEmpty()))
+            notes.add("Arabic text: give the UI a right-to-left font so the letters join: fonts {action:'create', preset:'arabic_clean'} then ui set {name, theme:{preset:'" + d.theme.preset + "', font:'<the .s2df path>'}}.");
+        notes.addAll(d.validate());
+        write(project, name, d);
+        JsonObject o = JsonParser.parseString(summary(project, name, d, notes, false)).getAsJsonObject();
+        o.addProperty("screen", UiKit.norm(screen));
+        JsonArray ids = new JsonArray();
+        for (UINode n : d.allNodes()) {
+            if (UINode.BUTTON.equals(n.type) || UINode.SLIDER.equals(n.type) || UINode.SWITCH.equals(n.type) || UINode.TEXTFIELD.equals(n.type) || n.has("action") && !UINode.BUTTON.equals(n.type)) {
+                String act = n.str("action", "");
+                ids.add(n.id + (act.isEmpty() ? "" : " (does: " + act + ")"));
+            }
+        }
+        o.add("interactive", ids);
+        o.addProperty("outline", outline(d));
+        return o.toString();
+    }
+
+    /** ops 'add_part' / 'add_screen' of ui set (UI skills inside an existing document). Returns an error or null. */
+    static String kitOp(UIDocument d, JsonObject op, List<String> notes) {
+        String parentId = s(op, "parent");
+        UINode parent = parentId.isEmpty() ? d.root : d.find(parentId);
+        if (parent == null) return "no node '" + parentId + "' (parent)";
+        if (!parent.isContainer()) return "'" + parentId + "' is not a container";
+        JsonObject spec = op.has("spec") && op.get("spec").isJsonObject() ? op.getAsJsonObject("spec") : op;
+        if (s(op, "op").equals("add_screen")) {
+            UINode n = UiKit.insert(d, parent, s(op, "screen"), spec, icons, notes);
+            if (n == null) return "unknown screen '" + s(op, "screen") + "'. Screens: " + String.join(", ", UiKit.SCREENS.keySet());
+            notes.add("screen " + s(op, "screen") + " added as " + n.id);
+            return null;
+        }
+        UINode n = UiKit.addPart(d, parent, s(op, "part"), spec, icons, notes);
+        if (n == null) return "unknown part '" + s(op, "part") + "'. Parts: " + String.join(", ", UiKit.PARTS);
+        notes.add("part " + s(op, "part") + " added as " + n.id);
+        return null;
+    }
+
     // ------------------------------------------------------------------ create
 
     static String create(String project, JsonObject a, String defaultOrientation) {
@@ -455,7 +601,8 @@ public final class UiAi {
                 }
                 String err;
                 try {
-                    err = UiOps.apply(d, ops.get(i).getAsJsonObject(), notes);
+                    String opName = s(ops.get(i).getAsJsonObject(), "op");
+                    err = opName.equals("add_part") || opName.equals("add_screen") ? kitOp(d, ops.get(i).getAsJsonObject(), notes) : UiOps.apply(d, ops.get(i).getAsJsonObject(), notes);
                 } catch (RuntimeException e) {
                     err = String.valueOf(e.getMessage());
                 }

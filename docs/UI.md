@@ -300,6 +300,9 @@ All pure Java, safe on any thread (no GL) unless noted. Package `com.star4droid.
 | `tooltip` | props | text | `` |  | Text shown while the node is long pressed (optional). |
 | `clickSound` | props | sound | `` |  | Sound file of the project (sounds/ folder) played on click, e.g. "click.ogg". |
 | `pressScale` | props | bool | `` |  | Shrinks a little while pressed. Default true for Button, false for the others. |
+| `action` | props | text | `` |  | Built-in actions, ';' between several: show:id, hide:id, toggle:id, page:id (show it, hide its siblings), tab:id (page + mark this tab), select (mark this button in its row), open:uiName, back, set:id.key=value. |
+| `tabOn` | props | text | `` |  | Button style while this tab is selected (tab: action). Empty = primary. |
+| `tabOff` | props | text | `` |  | Button style while another tab is selected. Empty = ghost. |
 
 ### Panel  (`Panel`)
 

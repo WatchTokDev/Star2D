@@ -852,11 +852,12 @@ public class CodeGenerator {
                 }
             }
             SourceTrace.Segment seg = trace.add(base + ".java", visual, javaText, origin);
+            text = FinalLocals.apply(text, codeText);
             out.append(SourceTrace.wrap(seg, text)).append(body.equals("") ? "" : "\n");
         }
         if (codeText.length() > 0) {
             SourceTrace.Segment seg = trace.add(base + ".code", null, codeText, origin);
-            out.append(SourceTrace.wrap(seg, codeText));
+            out.append(SourceTrace.wrap(seg, FinalLocals.apply(codeText, javaText)));
         }
         return out.toString();
     }

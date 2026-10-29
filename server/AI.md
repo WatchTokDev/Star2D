@@ -19,7 +19,7 @@ Treat the URL like a password. Never print it back to other people.
 
 Before anything else read `status.frame` (orientation and size of the open scene, y is up) and design for exactly that frame. Pass `orientation:"portrait"` to `scenes create` for vertical games. Use `physics_info` before choosing jump power, gravity, speeds or platform gaps, and `layout_check` after building (it also finds a background covering other elements).
 
-Also: call `set_plan` before working, `update_task` as tasks start/finish, `finish_work` at the end. The server has a daily call budget shared by all users, so batch.
+Also: call `set_plan` before working (title and tasks in the user's language), `update_task` as tasks start/finish, `finish_work` at the end (summary in the user's language). For any menu, HUD, shop, settings or dialog use `ui {action:'build', name, screen, spec}`: one call gives a professional screen that matches the others. The server has a daily call budget shared by all users, so batch.
 
 ## Tools (names)
 

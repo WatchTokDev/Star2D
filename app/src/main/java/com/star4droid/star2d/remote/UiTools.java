@@ -16,6 +16,8 @@ final class UiTools {
         } catch (Throwable t) {
             orientation = "landscape";
         }
+        final java.io.File projectDir = new java.io.File(p.getPath());
+        UiAi.icons = com.star4droid.star2d.ui.uimaker.UiKitIcons.of(projectDir);
         try {
             String text = UiAi.run(p.getPath(), a, orientation);
             String action = CoreTools.s(a, "action");

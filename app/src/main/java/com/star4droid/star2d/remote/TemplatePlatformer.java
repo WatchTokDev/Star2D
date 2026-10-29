@@ -240,10 +240,10 @@ final class TemplatePlatformer extends Tpl {
                         showEnd(jstr(win), "\"Coins: \" + coins"))));
         String feetCond = "Player.getBodyY() - " + f(PH / 2.0 * WORLD_SCALE) + " >= o.getBodyY() + (o.getName().startsWith(\"Ground\") ? " + GH + " : " + PT + ") / 2f * " + f(WORLD_SCALE) + " - 0.75f";
         begin.add(ifThen(or(pairStarts("Player", "Ground"), pairStarts("Player", "Plat")),
-                code("PlayerItem o = body1.getName().equals(\"Player\") ? body2 : body1;"),
+                code("final PlayerItem o = body1.getName().equals(\"Player\") ? body2 : body1;"),
                 ifThen(feetCond, code("feet.add(o.getName());"))));
         p.on("onCollisionEnd").add(ifThen(or(pairStarts("Player", "Ground"), pairStarts("Player", "Plat")),
-                code("PlayerItem o = body1.getName().equals(\"Player\") ? body2 : body1;"), code("feet.remove(o.getName());")));
+                code("final PlayerItem o = body1.getName().equals(\"Player\") ? body2 : body1;"), code("feet.remove(o.getName());")));
 
         // controls
         p.onElement("LeftBtn", "onTouchStart", seq(setVar("dir", -1)));

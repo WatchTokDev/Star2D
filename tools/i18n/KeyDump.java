@@ -32,6 +32,7 @@ public class KeyDump {
         for (String r : UITheme.ROLES) UiTr.roleName(r);
         for (String p : UITheme.PRESETS) UiTr.presetName(p);
         for (String t : UiTemplates.names()) { UiTr.templateName(t); UiTr.templateDesc(t); }
+        for (String t : UiKit.SCREENS.keySet()) { UiTr.templateName(t); UiTr.templateDesc(t); }
         for (String e : new String[]{"the root cannot move","already first","already last","there is no node above to move into","already at the top level","cannot move a node into itself","the root cannot be wrapped","id cannot be empty","no parent"}) UiTr.err(e);
         // behaviors
         Set<String> types = new LinkedHashSet<String>(Arrays.asList("BOX","CIRCLE","CUSTOM","MAP","TEXT","PROGRESS","JOYSTICK","PARTICLE","UIHOLDER","GROUP","CAMERA"));

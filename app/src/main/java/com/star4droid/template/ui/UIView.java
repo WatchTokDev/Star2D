@@ -477,8 +477,110 @@ public class UIView extends ClipGroup {
         if (s != null) s.play(1f);
     }
 
+    // ------------------------------------------------------------------ built-in click actions
+
+    private final ArrayList<UIDocument> history = new ArrayList<>();
+
+    /**
+     * Runs the {@code action} prop of a clicked node, so menus, tabs and dialogs work without writing code. Several commands
+     * are separated by ';':
+     * <ul>
+     * <li>{@code show:id}, {@code hide:id}, {@code toggle:id} - visibility (hidden nodes take no room)</li>
+     * <li>{@code page:id} - shows {@code id} and hides its siblings (one visible page of a Stack: screens, wizard steps)</li>
+     * <li>{@code tab:id} - like page, and this button becomes the selected tab (its sibling buttons get props.tabOff, it gets props.tabOn)</li>
+     * <li>{@code select} - only marks this button as the selected one of its row (choice buttons)</li>
+     * <li>{@code open:uiName} - shows another .ui in this view ({@code back} returns), {@code back}</li>
+     * <li>{@code set:id.key=value} - sets any property (e.g. {@code set:title.text=Hello})</li>
+     * </ul>
+     * Unknown commands are ignored. The node's event code / listeners still run after the action.
+     */
+    public void runAction(String action, UINode source) {
+        if (action == null) return;
+        for (String part : action.split(";")) {
+            String p = part.trim();
+            if (p.isEmpty()) continue;
+            int c = p.indexOf(':');
+            String cmd = (c < 0 ? p : p.substring(0, c)).trim().toLowerCase();
+            String arg = c < 0 ? "" : p.substring(c + 1).trim();
+            try {
+                switch (cmd) {
+                    case "show": setVisible(arg, true); break;
+                    case "hide": setVisible(arg, false); break;
+                    case "toggle": setVisible(arg, !isVisible(arg)); break;
+                    case "page": showPage(arg); break;
+                    case "tab":
+                        showPage(arg);
+                        if (source != null) selectTab(source);
+                        break;
+                    case "select":
+                        if (source != null) selectTab(source);
+                        break;
+                    case "open":
+                        if (!arg.isEmpty()) {
+                            File f = uiFile(projectPath, arg);
+                            if (f.exists()) {
+                                history.add(doc);
+                                setDocument(UIDocument.read(f));
+                                created();
+                                return; // the old nodes are gone
+                            }
+                        }
+                        break;
+                    case "back":
+                        if (!history.isEmpty()) {
+                            setDocument(history.remove(history.size() - 1));
+                            created();
+                            return;
+                        }
+                        break;
+                    case "set": {
+                        int dot = arg.indexOf('.'), eq = arg.indexOf('=');
+                        if (dot > 0 && eq > dot) set(arg.substring(0, dot).trim(), arg.substring(dot + 1, eq).trim(), arg.substring(eq + 1).trim());
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            } catch (Throwable t) {
+                Gdx.app.error("star2d_ui", "ui action '" + p + "': " + t);
+            }
+        }
+    }
+
+    /** Shows the node and hides the other children of its parent. */
+    public UIView showPage(String id) {
+        UINode n = node(id);
+        if (n == null || n.parent == null) return this;
+        boolean changed = false;
+        for (UINode s : n.parent.children) {
+            boolean v = s == n;
+            if (s.visible != v) {
+                s.visible = v;
+                changed = true;
+            }
+        }
+        if (changed) relayout();
+        return this;
+    }
+
+    /** Marks a tab button as selected: its sibling buttons get their tabOff style, it gets tabOn (defaults primary / ghost). */
+    private void selectTab(UINode tab) {
+        if (tab.parent == null) return;
+        for (UINode s : tab.parent.children) {
+            if (!UINode.BUTTON.equals(s.type)) continue;
+            String want = s == tab ? s.str("tabOn", "primary") : s.str("tabOff", "ghost");
+            if (!want.equals(s.str("style", ""))) {
+                s.set("style", want);
+                UIActor a = actors.get(s.id);
+                if (a != null) a.refresh();
+            }
+        }
+        relayout();
+    }
+
     void fireClick(final UIActor a) {
         playClick(a.node);
+        if (a.node.has("action")) runAction(a.node.str("action", ""), a.node);
         if (events != null) safe(new Runnable() {
             @Override
             public void run() {

@@ -55,6 +55,10 @@ if not QUICK:
     r = run(["bash", "tools/uimaker/run_gl.sh", "/tmp/uimaker_out"])
     check("GL preview test: " + (r.stdout.strip().splitlines() or ["no output"])[-1], r.returncode == 0 and "ALL OK" in r.stdout, r.stdout[-500:] + r.stderr[-300:])
 
+if not QUICK:
+    r = run(["bash", "tools/uikit/run.sh", "/tmp/uikit_proj", "/tmp/uikit_out", "all", "jelly"])
+    check("UI skills (UiKit) render + actions: " + (r.stdout.strip().splitlines() or ["no output"])[-1], r.returncode == 0 and "ALL OK" in r.stdout, r.stdout[-800:] + r.stderr[-300:])
+
 # wiring
 def read(p):
     return open(os.path.join(ROOT, p), encoding="utf-8").read()

@@ -118,8 +118,8 @@ final class TemplateShooter extends Tpl {
                         showEnd("\"GAME OVER\"", endSub)));
         JsonArray begin = p.on("onCollisionStart");
         begin.add(ifThen(pairPrefixes("bullet", "alien"),
-                code("PlayerItem bl = body1.getName().startsWith(\"bullet\") ? body1 : body2;"),
-                code("PlayerItem al = bl == body1 ? body2 : body1;"),
+                code("final PlayerItem bl = body1.getName().startsWith(\"bullet\") ? body1 : body2;"),
+                code("final PlayerItem al = bl == body1 ? body2 : body1;"),
                 ifThen("bl.getActor().isVisible() && al.getActor().isVisible()", dispose("bl", 0.02), dispose("al", 0.02), addVar("score", 10),
                         setText("ScoreText", "\"Score: \" + score"), sound("explosion.wav"))));
         begin.add(ifThen(or(pairStarts("Ship", "alien"), pairStarts("Base", "alien")),

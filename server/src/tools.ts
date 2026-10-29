@@ -75,7 +75,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: "set_plan",
     description:
-      "Show your plan in the editor (a card with tasks and progress) and lock the user's editing while you work. Call once after reading the docs, then update_task as you go, then finish_work.",
+      "Show your plan in the editor (a card with tasks and progress) and lock the user's editing while you work. Call once after reading the docs, then update_task as you go, then finish_work. Write the title and every task in the SAME language the user writes to you (Arabic user = Arabic plan), never English by default.",
     inputSchema: obj(
       {
         title: str("short title of the job"),
@@ -101,7 +101,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: "finish_work",
     description: "End your work session: unlocks the editor for the user. Always call it when you are done (or give up).",
-    inputSchema: obj({ summary: str("what you did, one or two sentences, shown to the user") }),
+    inputSchema: obj({ summary: str("what you did, one or two sentences, shown to the user, in the user's language") }),
   },
 
   // ------------------------------------------------------------------ reading the project
@@ -351,20 +351,22 @@ export const TOOLS: ToolDef[] = [
   {
     name: "ui",
     description:
-      "Menus, HUDs and dialogs made as UI files (UI/<name>.ui, like the UI Maker): 15 widgets (Panel, Button, Label, Image, Slider, Switch, TextField, ScrollView, ...) laid out with anchors/margins/Linear/Grid, themed, resolution independent. Prefer it to building a menu from many BOX/TEXT elements. action 'list' = screens, templates (hud, pause_menu, settings_panel, dialog_box, controls, main_menu, game_over, level_select), widgets, themes; 'describe' {type?} = properties; 'create' {name, template?|templates?, theme?, tree?, orientation?, design?, replace?}; 'get' {name, size?, json?} = outline + warnings; 'set' {name, ops:[{op:'add',parent,type,id,props,children?}|{op:'set',id,props}|{op:'remove',id}|{op:'move',id,parent,index}|{op:'duplicate',id}|{op:'wrap',id,type}], theme?}; 'check' {name} = overlaps, off-screen, small touch targets in portrait and landscape; 'event' {scene, holder, node, event, code} = Java for a button/slider inside; 'delete' {name, confirm}. UI names may have a folder ('menus/pause'). One element can get its own look with props {theme:<preset>} (applies to it and its children); never set 'locked' (editor only). Show a UI in a scene with an UIHOLDER element (ui:'<name>'); scripts reach its inner nodes as <holder>_<nodeId> (UINodeRef). Details: read_docs ui.",
+      "Menus, HUDs and dialogs made as UI files (UI/<name>.ui, like the UI Maker). FASTEST AND BEST: action 'build' {name, screen, spec?} makes a complete professional screen in ONE call (consistent design, icons, cards, scroll views, tabs, works in portrait and landscape, buttons already work through built-in actions): screens main_menu, hud, pause, settings, dialog, game_over, level_select, shop, inventory, leaderboard, missions, daily_reward, character_select, loading, login, tabs, credits, custom (spec.sections:[{part:'header'|'title'|'text'|'buttons'|'icon_buttons'|'chips'|'tabs'|'grid'|'list'|'rows'|'stars'|'stat_bars'|'progress'|'fields'|'card'|'spacer'|'controls', ...}]). spec is optional (good defaults); put the user's texts / items in it, in the user's language; 'screens' lists every spec key. Without a theme a new screen copies the theme of the other UIs so all screens match. Lower level: 15 widgets (Panel, Button, Label, Image, Slider, Switch, TextField, ScrollView, ...) laid out with anchors/margins/Linear/Grid, themed, resolution independent. Prefer it to building a menu from many BOX/TEXT elements. action 'list' = screens, templates (hud, pause_menu, settings_panel, dialog_box, controls, main_menu, game_over, level_select), widgets, themes; 'describe' {type?} = properties; 'create' {name, template?|templates?, theme?, tree?, orientation?, design?, replace?}; 'get' {name, size?, json?} = outline + warnings; 'set' {name, ops:[{op:'add',parent,type,id,props,children?}|{op:'set',id,props}|{op:'remove',id}|{op:'move',id,parent,index}|{op:'duplicate',id}|{op:'wrap',id,type}], theme?}; 'check' {name} = overlaps, off-screen, small touch targets in portrait and landscape; 'event' {scene, holder, node, event, code} = Java for a button/slider inside; 'delete' {name, confirm}. UI names may have a folder ('menus/pause'). One element can get its own look with props {theme:<preset>} (applies to it and its children); never set 'locked' (editor only). Show a UI in a scene with an UIHOLDER element (ui:'<name>'); scripts reach its inner nodes as <holder>_<nodeId> (UINodeRef). Details: read_docs ui.",
     inputSchema: obj(
       {
-        action: str("list|describe|get|create|set|check|event|delete", { enum: ["list", "describe", "get", "create", "set", "check", "event", "delete"] }),
+        action: str("build|screens|list|describe|get|create|set|check|event|delete", { enum: ["build", "screens", "list", "describe", "get", "create", "set", "check", "event", "delete"] }),
         name: str("UI file name, letters/digits/_ (e.g. hud)"),
+        screen: str("build: main_menu|hud|pause|settings|dialog|game_over|level_select|shop|inventory|leaderboard|missions|daily_reward|character_select|loading|login|tabs|credits|custom"),
+        spec: anyObj("build: texts and content, e.g. {title:'Shop', currency:'1250', tabs:['Skins','Boosts'], items:[{name:'Red car', price:'300', icon:'car-sports'}]}; buttons:[{text, open?:'otherUi', show?/hide?:'nodeId'}]; optional"),
         type: str("describe: a widget type"),
         template: str("create: a template id from list"),
         templates: arr(str("template id"), "create: several templates added in order"),
         theme: anyObj("create/set: {preset: id from list, overrides:{role:'#RRGGBB'}, font?}"),
         tree: anyObj("create: nodes to add under the root: one node object or an array [{id,type,anchor,w,h,props,children}]"),
-        ops: arr(anyObj("operation"), "set: operations applied in order; failed ones are reported, the rest is saved"),
+        ops: arr(anyObj("operation"), "set: operations applied in order (also {op:'add_part', parent, part, spec} and {op:'add_screen', parent, screen, spec}); failed ones are reported, the rest is saved"),
         orientation: str("create: portrait|landscape (default = the project's)", { enum: ["portrait", "landscape"] }),
         design: arr(num("px"), "create/set: design size [width,height]"),
-        replace: bool("create: overwrite an existing UI"),
+        replace: bool("create/build: overwrite an existing UI"),
         size: arr(num("px"), "get/check: screen size [w,h] to compute positions for"),
         json: bool("get: also return the raw JSON"),
         outline: bool("set: also return the outline"),
@@ -625,7 +627,7 @@ export const TOOL_BY_NAME: Map<string, ToolDef> = new Map(TOOLS.map((t) => [t.na
 /** The rules every AI needs from the first message (also inserted into AI.md). Keep it short: it is paid for on every conversation. */
 export const CORE_RULES = `You control the user's Star2D game-engine editor on THEIR ANDROID PHONE through these tools. The engine exists only there: never compile, run or test the game in your own sandbox or server.
 
-Start: call status. If app_not_connected, tell the user in their language "Open the Star2D editor now and keep it open on screen, Claude works in the background", then wait_for_app. Next set_plan, work with update_task, end with finish_work. The user watches the plan and cannot edit meanwhile.
+Start: call status. If app_not_connected, tell the user in their language "Open the Star2D editor now and keep it open on screen, Claude works in the background", then wait_for_app. Next set_plan (title and tasks in the user's language), work with update_task, end with finish_work. The user watches the plan and cannot edit meanwhile.
 
 FIRST read status.frame (orientation + size, e.g. PORTRAIT 720 wide x 1280 tall). Design only for that frame, never assume 1280x720. A new scene copies the project orientation; pass scenes create orientation:portrait when the user wants a vertical game. For common game types call templates {action:'list'} first and apply one instead of building from scratch.
 
@@ -643,7 +645,7 @@ Rules:
 7f. Script variables: a field of a Body/Scene Script (public, package-private, static, @Expose private; List/ArrayList/T[] too) is a property the user tunes; read/set it with behaviors vars. Inner nodes of a UI holder are <holder>_<nodeId> fields (UINodeRef: setText, setVisible, onClick...), no findItem.
 7d. Movement, effects, shooting (platformer player, joystick movement, shooter, floating, spin, scale touch effect): behaviors {action:'list'} first and add one with behaviors add instead of hand-written logic.
 7e. Menus, HUD, pause/settings/game-over screens, dialogs: ui {action:'create', name, template:'pause_menu'} (then ui set / check) and show it with an UIHOLDER element, instead of many BOX/TEXT elements.
-8. UI: after building a screen run layout_check (it also checks draw order), then screenshot (target scene, region/camera) and fix what you see.
+8. UI: make menus/HUDs/shops/settings with ui {action:'build', screen} (one call, professional and consistent); after building a screen run layout_check (it also checks draw order), then screenshot (target scene, region/camera) and fix what you see.
 8b. Structure: put related elements under a GROUP (parent, read_docs groups); a repeated enemy/UI piece becomes a prefab (prefabs tool, read_docs prefabs), edit one instance then apply.
 9. Test: run_game compiles and starts in ONE call (never build first, that compiles twice); build only to check errors without opening the game. It returns when loaded (ready:true). game_input: tap, hold(ms), down (stays pressed until up/release), swipe, key, joystick, wait; real time, 45 s per call (run_test start:false continues). Verify with screenshot, game_state, game_logs before saying it works.
 

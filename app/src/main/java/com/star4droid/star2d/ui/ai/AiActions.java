@@ -144,7 +144,7 @@ public final class AiActions {
             case "physics_info": case "list_templates": case "apply_template": case "list_buttons": case "create_button":
             case "search_icons": case "import_icon": case "layout_check": case "create_scene":
             case "list_font_presets": case "create_font": case "list_behaviors": case "add_behavior":
-            case "list_ui": case "get_ui": case "check_ui": case "create_ui": case "edit_ui": case "describe_ui": case "ui_event":
+            case "list_ui": case "get_ui": case "check_ui": case "create_ui": case "edit_ui": case "describe_ui": case "ui_event": case "build_ui":
             case "behavior_info": case "set_behavior": case "remove_behavior": case "get_script_vars": case "set_script_vars":
                 return true;
         }
@@ -236,6 +236,10 @@ public final class AiActions {
                 o.addProperty("action", "add");
                 return AiBridge.runTool("behaviors", o);
             }
+            case "build_ui": {
+                o.addProperty("action", "build");
+                return AiBridge.runTool("ui", o);
+            }
             case "list_ui": case "get_ui": case "check_ui": case "create_ui": case "edit_ui": case "describe_ui": case "ui_event": {
                 o.addProperty("action", t.equals("list_ui") ? "list" : t.equals("get_ui") ? "get" : t.equals("check_ui") ? "check" : t.equals("create_ui") ? "create"
                         : t.equals("describe_ui") ? "describe" : t.equals("ui_event") ? "event" : "set");
@@ -282,6 +286,7 @@ public final class AiActions {
             case "list_ui": return (ar ? "🖼 قائمة الواجهات" : "🖼 List UIs");
             case "get_ui": return (ar ? "🖼 قراءة الواجهة " : "🖼 Read UI ") + s(a, "name");
             case "check_ui": return (ar ? "📏 فحص الواجهة " : "📏 Check UI ") + s(a, "name");
+            case "build_ui": return (ar ? "🖼 بناء شاشة احترافية " : "🖼 Build screen ") + s(a, "name") + " (" + s(a, "screen") + ")";
             case "create_ui": return (ar ? "🖼 إنشاء واجهة " : "🖼 Create UI ") + s(a, "name") + (s(a, "template").isEmpty() ? "" : " (" + s(a, "template") + ")");
             case "edit_ui": return (ar ? "🖼 تعديل الواجهة " : "🖼 Edit UI ") + s(a, "name");
             case "describe_ui": return (ar ? "🖼 خصائص عناصر الواجهة " : "🖼 UI widget properties ") + s(a, "type");

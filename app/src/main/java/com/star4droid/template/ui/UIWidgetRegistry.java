@@ -141,6 +141,9 @@ public final class UIWidgetRegistry {
         p(c, "tooltip", "Tooltip", Kind.TEXT, PROPS, "", G_ADV, "Text shown while the node is long pressed (optional).").adv();
         p(c, "clickSound", "Click sound", Kind.SOUND, PROPS, "", G_BEHAVIOR, "Sound file of the project (sounds/ folder) played on click, e.g. \"click.ogg\".").adv();
         p(c, "pressScale", "Press effect", Kind.BOOL, PROPS, "", G_BEHAVIOR, "Shrinks a little while pressed. Default true for Button, false for the others.");
+        p(c, "action", "On click (no code)", Kind.TEXT, PROPS, "", G_BEHAVIOR, "Built-in actions, ';' between several: show:id, hide:id, toggle:id, page:id (show it, hide its siblings), tab:id (page + mark this tab), select (mark this button in its row), open:uiName, back, set:id.key=value.");
+        p(c, "tabOn", "Selected tab style", Kind.TEXT, PROPS, "", G_ADV, "Button style while this tab is selected (tab: action). Empty = primary.").adv();
+        p(c, "tabOff", "Tab style", Kind.TEXT, PROPS, "", G_ADV, "Button style while another tab is selected. Empty = ghost.").adv();
 
         // ---------------------------------------------------------------- containers
         Widget panel = w(UINode.PANEL, "Panel", "square-rounded", "Layout", true, "Box with a background (card, glass, outline...) that holds children placed with anchors.", EV_TOUCH);

@@ -102,11 +102,15 @@ public final class UiTr {
     // ------------------------------------------------------------------ templates
 
     public static String templateName(String t) {
+        String[] kit = UiKit.SCREENS.get(t);
+        if (kit != null) return Tr.t("uim_kit_" + t, kit[0]);
         String[] info = UiTemplates.INFO.get(t);
         return Tr.t("uim_tpl_" + t, info == null ? t : info[0]);
     }
 
     public static String templateDesc(String t) {
+        String[] kit = UiKit.SCREENS.get(t);
+        if (kit != null) return Tr.t("uim_kit_" + t + "_d", kit[1]);
         String[] info = UiTemplates.INFO.get(t);
         return Tr.t("uim_tpl_" + t + "_d", info == null ? "" : info[1]);
     }

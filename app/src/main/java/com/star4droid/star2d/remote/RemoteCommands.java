@@ -43,17 +43,18 @@ public final class RemoteCommands {
      * (MCP instructions + tool descriptions), so no link is needed.
      */
     public static String workCommand(Context c, String repoUrl) {
-        return "Use the Star2D connector. My request: ";
+        return Tr.t("rc_work", "Use the Star2D connector. My request: ").trim() + " ";
     }
 
     /** The same request WITH the guide link, for chats where the connector is not attached (or an AI that ignores connector instructions). */
     public static String workCommandWithLink(Context c, String repoUrl) {
-        return "Star2D: " + RemoteSettings.guideUrl(c) + "\nMy request: ";
+        return "Star2D: " + RemoteSettings.guideUrl(c) + "\n" + Tr.t("rc_my_request", "My request:").trim() + " ";
     }
 
     /** The short one for any other AI. */
     public static String otherAiCommand(Context c) {
-        return "use this link to understand my project : " + RemoteSettings.guideUrl(c) + "\n"
-                + "(plain HTTP API, private, do not share: POST " + RemoteSettings.apiBase(c) + "/<tool> with the JSON arguments as the body)\n";
+        return Tr.t("rc_other_link", "Use this link to understand my project:") + " " + RemoteSettings.guideUrl(c) + "\n"
+                + "(" + Tr.t("rc_other_api", "plain HTTP API, private, do not share") + ": POST " + RemoteSettings.apiBase(c) + "/<tool> " + Tr.t("rc_other_body", "with the JSON arguments as the body") + ")\n"
+                + Tr.t("rc_my_request", "My request:").trim() + " ";
     }
 }

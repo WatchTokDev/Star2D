@@ -63,6 +63,9 @@ final class CoreTools {
         o.addProperty("connected", true);
         o.addProperty("app", "Star2D");
         o.addProperty("working", RemoteSession.isWorking());
+        // write the plan, task notes and finish_work summary in the language the user writes to you in (this is the app's language)
+        o.addProperty("app_language", com.star4droid.star2d.ui.Tr.lang());
+        o.addProperty("plan_language", "Write set_plan title/tasks, update_task notes and the finish_work summary in the language of the user's messages to you (app language: " + com.star4droid.star2d.ui.Tr.lang() + ").");
         boolean ready = Gl.run(() -> Bridge.ready());
         o.addProperty("project_open", ready);
         if (!ready) {

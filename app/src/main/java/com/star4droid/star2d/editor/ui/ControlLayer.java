@@ -543,10 +543,17 @@ public class ControlLayer extends Table {
 
 	private java.util.List<com.star4droid.star2d.CodeEditor.smart.BuildError> lastBuildErrors;
 
+	/** Time the running build started (0 = none). Two builds at once share bin/ and java/classes.dex and break each other. */
+	private static volatile long compilingSince;
+
 	/** Generate code, compile when needed, then run the current scene. */
 	public void actionPlay(){
 		if(app.getEditor() != null && app.getEditor().isLoading()){
 			app.toast("please wait, the scene is still loading...");
+			return;
+		}
+		if(compilingSince != 0 && System.currentTimeMillis() - compilingSince < 5 * 60 * 1000){
+			app.toast(com.star4droid.star2d.ui.Tr.t("build_running", "A build is already running, please wait..."));
 			return;
 		}
 		String path = app.getEditor().getProject().getPath();
@@ -573,6 +580,7 @@ public class ControlLayer extends Table {
 
 				@Override
 				public void onEnd(String message) {
+					compilingSince = 0;
 					Gdx.input.setInputProcessor(inputProcessor);
 					playStatus(2, message);
 				}
@@ -596,11 +604,21 @@ public class ControlLayer extends Table {
 					if(errorLog.exists()) errorLog.delete();
 					textShow.remove();
 					FileHandle fileHandle = new FileHandle(app.getEditor().getProject().getDex());
-					
-					if(fileHandle.exists())
-						fileHandle.file().setWritable(true);
-					fileHandle.writeString("", false);
-					Gdx.files.absolute(app.getEditor().getProject().getPath()+"/java/classes.dex").moveTo(fileHandle);
+					FileHandle built = Gdx.files.absolute(app.getEditor().getProject().getPath()+"/java/classes.dex");
+					if(!built.exists() || built.length() == 0){
+						// the dex is missing (another build moved it, or D8 wrote nothing): keep the previous game dex, ask for a new build
+						try { app.getEditor().getProject().get("java"); Gdx.files.absolute(app.getEditor().getProject().getChangesJson()).delete(); } catch(Throwable ignored){}
+						playStatus(1, com.star4droid.star2d.ui.Tr.t("build_no_dex", "The build finished but its output (classes.dex) is missing. Press Play again to rebuild."));
+						return;
+					}
+					try {
+						if(fileHandle.exists()) fileHandle.file().setWritable(true);
+						built.copyTo(fileHandle);
+						built.delete();
+					} catch(Throwable t){
+						playStatus(1, "Error : " + t);
+						return;
+					}
 					
 					playStatus(3, "");
 					if(!buildOnly) app.play(app.getEditor().getProject().getPath(),app.getEditor().getScene());
@@ -609,6 +627,7 @@ public class ControlLayer extends Table {
 			});
 			
 			if(anyChanged){
+			    compilingSince = System.currentTimeMillis();
 			    compileThread.start();
 			} else {
 				playStatus(0, getTrans("checkJavaFilesChanges"));

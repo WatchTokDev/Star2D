@@ -2,6 +2,19 @@
 
 A **UI** is one screen (HUD, pause menu, settings, dialog, game over...) stored in `UI/<name>.ui`. The user edits it in the **UI Maker** (Files panel > `UI/` > the file, or UIHOLDER Properties > Edit); you build and edit the same file with the `ui` tool. It is resolution independent (anchors, margins, Linear/Grid layouts, percentages) and themed, so prefer it to building menus from BOX + TEXT elements.
 
+## UI skills: `ui build` (use this first)
+One call makes a complete, professional screen: same spacing / type scale / card style on every screen, icons, scroll views, tabs, works in portrait AND landscape, colours from the theme roles. Buttons already work without code (built-in actions).
+```
+ui {action:'build', name:'shop', screen:'shop', spec:{title:'المتجر', currency:'1250', tabs:['سيارات','قوى'], items:[{name:'سيارة حمراء', price:'300', icon:'car-sports', tab:'سيارات'}]}}
+```
+- `screen`: `main_menu` (title, subtitle, buttons, currency, version), `hud` (score, coins, health 0..100, lives, timer, level, pause:true = pause button + hidden pause card, controls: none|platformer|shooter|dpad|racing), `pause`, `settings` (groups:[{title, rows:[{type:slider|switch|choice|button, label, id, icon, value, options}]}]), `dialog` (title, message, icon, ok, cancel), `game_over` (win, stars 0..3, score, best, reward, buttons), `level_select` (levels, unlocked, stars:[..], columns), `shop` (currency, tabs, items:[{name, price, icon|image, owned, tab, desc}]), `inventory` (items:[{name, icon|image, count}]), `leaderboard` (tabs, rows:[{name, score, me}]), `missions` (rows:[{title, desc, icon, progress, goal, reward}]), `daily_reward` (day, rewards), `character_select` (characters:[{name, icon|image, stats:{Speed:70}}]), `loading` (title, tip; bar id `progress`), `login` (fields:[{label, id, hint, password, numeric}], button, link), `tabs` (tabs:[{title, text|sections}]), `credits` (text), `custom` (title, back, currency, sections:[{part, ...}]).
+- Leave `spec` out for good defaults; give only what you need. **Texts in the user's language.** Icons are library ids (`icons search`), images are project paths.
+- Button entries: `"Play"` or `{text, id, icon, style: primary|secondary|accent|success|danger|ghost, open:'settings', show:'nodeId', hide:'nodeId', page:'nodeId', action:'...'}`.
+- Parts (for `custom`, and `ui set` ops `{op:'add_part', parent, part, spec}`): `header, title, text, buttons (row:true for side by side), icon_buttons, chips, tabs (tabs:[{title, sections}]), grid (items, columns), list (rows:[{title, subtitle, icon, value, open}]), rows (settings rows), stars, stat_bars (bars:[{label, value}]), progress, fields, card (title, text, sections), spacer, controls`. A whole screen into an existing UI: `{op:'add_screen', parent, screen, spec}`.
+- A new screen without `theme` copies the theme of the project's other UIs, so all screens match. Change the look of everything with `ui set {name, theme:{preset:'candy'}}`.
+- Built-in click actions (prop `action`, no code): `show:id`, `hide:id`, `toggle:id`, `page:id` (show it, hide its siblings), `tab:id` (page + highlight the tab button), `select` (highlight this button of its row), `open:otherUi`, `back`, `set:id.key=value`; `;` between several. Game logic (start the level, buy, pause the game) still goes in `ui event` code.
+- The reply lists `interactive` ids (and what their action does) for `ui event`.
+
 ## Workflow
 1. `ui {action:'list'}`: existing screens, templates, widgets, themes.
 2. `ui {action:'create', name:'pause', template:'pause_menu', theme:{preset:'candy'}}`: the reply has the outline, `warnings` and what to do next. Templates: `hud, pause_menu, settings_panel, dialog_box, controls` (joystick-style movement + action buttons), `main_menu, game_over, level_select`. `templates:[...]` adds several. `orientation` defaults to the project's (portrait 720x1280, landscape 1280x720 design size).

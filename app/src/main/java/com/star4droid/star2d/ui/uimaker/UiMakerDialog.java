@@ -785,7 +785,7 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         root.setPadding(Ui.dp(act, 12), Ui.dp(act, 8), Ui.dp(act, 12), Ui.dp(act, 24));
         root.addView(Ui.sectionLabel(act, Tr.t("uim_templates", "Ready-made screens")));
         LinearLayout tr = Ui.row(act);
-        for (final String t : UiTemplates.names()) {
+        for (final String t : kitScreens()) {
             LinearLayout card = Ui.column(act);
             card.setPadding(Ui.dp(act, 12), Ui.dp(act, 10), Ui.dp(act, 12), Ui.dp(act, 10));
             card.setBackground(Ui.rounded(Ui.SURFACE_2, Ui.dp(act, 10), Ui.BORDER, 1));
@@ -868,7 +868,8 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
     private void addTemplate(String t) {
         flushHistory();
         UINode parent = selected != null && selected.isContainer() ? selected : doc.root;
-        UINode n = UiTemplates.insert(doc, parent, t);
+        UINode n = UiKit.isScreen(t) ? UiKit.insert(doc, parent, t, null, UiKitIcons.of(new java.io.File(project)), new ArrayList<>()) : null;
+        if (n == null) n = UiTemplates.insert(doc, parent, t);
         if (n == null) return;
         selected = n;
         structural();
@@ -1795,13 +1796,20 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         });
     }
 
+    /** The UI skills screens (complete professional screens), shown as the ready-made screens. */
+    private static List<String> kitScreens() {
+        ArrayList<String> out = new ArrayList<>(UiKit.SCREENS.keySet());
+        out.remove("custom");
+        return out;
+    }
+
     private void askStart() {
         askTemplate(true);
     }
 
     /** New file: start blank or from a ready-made screen. */
     private void askTemplate(final boolean blankFirst) {
-        List<String> names = UiTemplates.names();
+        List<String> names = kitScreens();
         final ArrayList<String> labels = new ArrayList<>();
         final ArrayList<String> keys = new ArrayList<>();
         if (blankFirst) {
