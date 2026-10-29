@@ -437,9 +437,9 @@ public class FilesPanel implements PanelHost.Panel {
             shell.host().openJava(f.getAbsolutePath());
         } else if (FilePickerDialog.isImage(n)) {
             imagePreview(c, f);
-        } else if (f.length() < 400 * 1024) {
-            textEditor(c, f);
-        } else info(c, f);
+        } else if (com.star4droid.star2d.ui.PagedFileDialog.needsPaging(f)) {
+            com.star4droid.star2d.ui.PagedFileDialog.show(c, f, this::reload);
+        } else textEditor(c, f);
     }
 
     private void imagePreview(Context c, File f) {

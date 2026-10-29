@@ -283,6 +283,7 @@ public class BlockCreatorActivity extends AppCompatActivity {
             BlockCatalog.reload(this);
             Snack.show(t("saved", "Block saved. Find it in the palette under ★") + " " + s.category);
             editing = null;
+            openSection = s.category;
             showList();
         } catch (Exception e) {
             showError(e.toString());
@@ -468,8 +469,18 @@ public class BlockCreatorActivity extends AppCompatActivity {
         return top;
     }
 
+    /** null = the sections screen; a category name = that section's blocks; EXAMPLES = the example blocks. */
+    private String openSection;
+    private static final String EXAMPLES = "\u0001examples";
+
     private void showList() {
         editing = null;
+        if (openSection == null) showSections();
+        else showSection(openSection);
+    }
+
+    /** First screen: one card per section (category) with the number of blocks, plus the examples. */
+    private void showSections() {
         Context c = this;
         LinearLayout root = Ui.column(c);
         root.setBackgroundColor(Ui.BG);
@@ -480,25 +491,94 @@ public class BlockCreatorActivity extends AppCompatActivity {
         LinearLayout col = Ui.column(c);
         col.setPadding(Ui.dp(c, 12), Ui.dp(c, 8), Ui.dp(c, 12), Ui.dp(c, 24));
 
-        TextView intro = Ui.text(c, t("intro", "Make your own blocks: an action, a C-block that holds other blocks, or a value that goes inside fields. Your blocks appear in the palette under ★ and in every project."), 13, Ui.TEXT_2);
+        TextView intro = Ui.text(c, t("intro", "Make your own blocks: an action, a C-block that holds other blocks, or a value that goes inside fields. Your blocks appear in the palette under ★ "), 13, Ui.TEXT_2);
+        intro.setPadding(Ui.dp(c, 4), 0, Ui.dp(c, 4), Ui.dp(c, 6));
         col.addView(intro);
 
-        ArrayList<Spec> mine = loadAll();
-        col.addView(Ui.sectionLabel(c, t("mine", "My blocks")));
-        if (mine.isEmpty()) {
+        java.util.LinkedHashMap<String, ArrayList<Spec>> groups = new java.util.LinkedHashMap<>();
+        for (Spec s : loadAll()) {
+            ArrayList<Spec> g = groups.get(s.category);
+            if (g == null) groups.put(s.category, g = new ArrayList<>());
+            g.add(s);
+        }
+        col.addView(Ui.sectionLabel(c, t("sections", "Sections")));
+        if (groups.isEmpty()) {
             TextView e = Ui.text(c, t("none", "No blocks yet. Tap + or start from an example below."), 13, Ui.TEXT_3);
             e.setPadding(Ui.dp(c, 4), Ui.dp(c, 4), 0, Ui.dp(c, 8));
             col.addView(e);
         }
-        for (Spec s : mine) col.addView(card(s, false), Ui.margins(Ui.matchWrap(), c, 0, 4, 0, 4));
+        for (java.util.Map.Entry<String, ArrayList<Spec>> en : groups.entrySet())
+            col.addView(sectionCard(en.getKey(), "★ " + en.getKey(), en.getValue().size(), en.getValue().get(0).color), Ui.margins(Ui.matchWrap(), c, 0, 4, 0, 4));
 
         col.addView(Ui.sectionLabel(c, t("examples", "Examples (tap to start from one)")));
-        for (Spec s : examples()) col.addView(card(s, true), Ui.margins(Ui.matchWrap(), c, 0, 4, 0, 4));
+        ArrayList<Spec> ex = examples();
+        col.addView(sectionCard(EXAMPLES, t("examples_title", "Examples"), ex.size(), 0xFF455A64), Ui.margins(Ui.matchWrap(), c, 0, 4, 0, 4));
 
         ScrollView sv = new ScrollView(c);
         sv.addView(col);
         root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         setContentView(root);
+        Ui.insets(this, 0xFF181A1E);
+    }
+
+    private View sectionCard(String key, String title, int count, int color) {
+        Context c = this;
+        LinearLayout row = Ui.row(c);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setPadding(Ui.dp(c, 12), Ui.dp(c, 14), Ui.dp(c, 12), Ui.dp(c, 14));
+        row.setBackground(Ui.ripple(Ui.SURFACE_2, Ui.dp(c, 12)));
+        row.setForeground(Ui.rounded(0, Ui.dp(c, 12), (color & 0x00FFFFFF) | 0x88000000, Ui.dp(c, 1.5f)));
+        ImageView ic = Ui.smallIcon(c, R.drawable.ic_s2_blocks, 0xFFFFFFFF, 18);
+        ic.setScaleType(ImageView.ScaleType.CENTER);
+        ic.setBackground(Ui.rounded(color, Ui.dp(c, 10)));
+        row.addView(ic, new LinearLayout.LayoutParams(Ui.dp(c, 36), Ui.dp(c, 36)));
+        LinearLayout texts = Ui.column(c);
+        texts.setPadding(Ui.dp(c, 12), 0, Ui.dp(c, 6), 0);
+        TextView n = Ui.text(c, title, 15, Ui.TEXT);
+        n.setTypeface(Typeface.DEFAULT_BOLD);
+        n.setMaxLines(2);
+        texts.addView(n);
+        texts.addView(Ui.text(c, count + " " + t("blocks_n", "blocks"), 12, Ui.TEXT_3));
+        row.addView(texts, Ui.weight(1));
+        ImageView go = Ui.smallIcon(c, R.drawable.ic_s2_chevron_right, Ui.TEXT_3, 18);
+        if (rtl) go.setScaleX(-1f);
+        row.addView(go, new LinearLayout.LayoutParams(Ui.dp(c, 24), Ui.dp(c, 24)));
+        row.setOnClickListener(v -> { openSection = key; showList(); });
+        return row;
+    }
+
+    /** One section's blocks (or the examples). */
+    private void showSection(String key) {
+        editing = null;
+        Context c = this;
+        boolean examples = EXAMPLES.equals(key);
+        ArrayList<Spec> items = new ArrayList<>();
+        if (examples) items.addAll(examples());
+        else for (Spec s : loadAll()) if (s.category.equals(key)) items.add(s);
+        if (!examples && items.isEmpty()) { // the last block of the section was deleted
+            openSection = null;
+            showSections();
+            return;
+        }
+        LinearLayout root = Ui.column(c);
+        root.setBackgroundColor(Ui.BG);
+        root.setLayoutDirection(rtl ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
+        ImageView add = Ui.iconButton(c, R.drawable.ic_s2_add, t("new", "New block"), v -> chooseKind());
+        add.setBackground(Ui.ripple(Ui.ACCENT, Ui.dp(c, 10)));
+        root.addView(topBar(examples ? t("examples_title", "Examples") : "★ " + key, v -> { openSection = null; showList(); }, add), Ui.matchWrap());
+        LinearLayout col = Ui.column(c);
+        col.setPadding(Ui.dp(c, 12), Ui.dp(c, 8), Ui.dp(c, 12), Ui.dp(c, 24));
+        if (examples) {
+            TextView hint = Ui.text(c, t("examples", "Examples (tap to start from one)"), 13, Ui.TEXT_2);
+            hint.setPadding(Ui.dp(c, 4), 0, Ui.dp(c, 4), Ui.dp(c, 6));
+            col.addView(hint);
+        }
+        for (Spec s : items) col.addView(card(s, examples), Ui.margins(Ui.matchWrap(), c, 0, 4, 0, 4));
+        ScrollView sv = new ScrollView(c);
+        sv.addView(col);
+        root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        setContentView(root);
+        Ui.insets(this, 0xFF181A1E);
     }
 
     private int kindIcon(int k) {
@@ -838,6 +918,7 @@ public class BlockCreatorActivity extends AppCompatActivity {
             root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         }
         setContentView(root);
+        Ui.insets(this, 0xFF181A1E);
         refreshPreview(s);
     }
 
@@ -1037,6 +1118,7 @@ public class BlockCreatorActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         if (editing != null) confirmLeave();
+        else if (openSection != null) { openSection = null; showList(); }
         else super.onBackPressed();
     }
 

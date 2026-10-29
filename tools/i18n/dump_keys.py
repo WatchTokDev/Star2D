@@ -41,6 +41,23 @@ def static_keys():
         for k, d in pat.findall(txt):
             if k not in keys:
                 keys[k] = bytes(d, "utf-8").decode("unicode_escape").encode("latin-1", "ignore").decode("utf-8", "ignore") if "\\" in d and False else d.replace('\\"', '"').replace("\\n", "\\n")
+    # font editor: keys built as "font_p_" + field, "font_d_" + field, "font_o_" + value, "fontp_" + preset id
+    try:
+        form = open(ROOT + "/app/src/main/java/com/star4droid/star2d/editor/utils/FontMakerForm.java", encoding="utf-8").read()
+        pres = open(ROOT + "/app/src/main/java/com/star4droid/star2d/fonts/FontPresets.java", encoding="utf-8").read()
+        for k, d in re.findall(r'\{"(\w+)", "([^"]+)"\}', form[form.index("LABELS"):form.index("private static String labelOf")]):
+            keys.setdefault("font_p_" + k, d)
+        for k, d in re.findall(r'spec\("(\w+)", "\w+", "[^"]*", [^,]+, [^,]+, [^,]+, "([^"]+)"\)', pres):
+            for q in (["padTop", "padLeft", "padBottom", "padRight"] if k.startswith("pad") else [k]):
+                keys.setdefault("font_d_" + q, d)
+        for arr in re.findall(r'String\[\] (?:HINTING|FILTER) = \{([^}]*)\}', pres):
+            for v in re.findall(r'"(\w+)"', arr):
+                keys.setdefault("font_o_" + v, v)
+        import json
+        for pr in json.load(open(ROOT + "/app/src/main/assets/fonts/presets.json", encoding="utf-8"))["presets"]:
+            keys.setdefault("fontp_" + pr["id"], pr["name"])
+    except Exception as e:
+        print("font keys skipped:", e)
     return keys
 
 

@@ -83,7 +83,11 @@ public final class Dialogs {
 
     /** Scrollable, selectable monospace text with a Copy button. */
     public static AlertDialog longText(Context c, String title, String text) {
-        TextView t = Ui.text(c, text, 12.5f, Ui.TEXT);
+        // a huge text laid out in one TextView freezes the app (ANR): show the start, Copy still gives everything
+        final int cap = 20000;
+        String shown = text == null ? "" : text;
+        if (shown.length() > cap) shown = shown.substring(0, cap) + "\n\n… (" + (text.length() - cap) + " " + Tr.t("pg_more_chars", "more characters, tap Copy to get all of it") + ")";
+        TextView t = Ui.text(c, shown, 12.5f, Ui.TEXT);
         t.setTypeface(Typeface.MONOSPACE);
         t.setTextIsSelectable(true);
         t.setPadding(Ui.dp(c, 16), Ui.dp(c, 8), Ui.dp(c, 16), Ui.dp(c, 8));

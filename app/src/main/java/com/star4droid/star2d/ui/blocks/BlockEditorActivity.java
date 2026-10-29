@@ -429,6 +429,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         rootFrame.addView(ghost, new FrameLayout.LayoutParams(-2, -2));
 
         setContentView(rootFrame);
+        Ui.insets(this, 0xFF181A1E);
         refreshUndo();
         if (editField != null) showValuePane();
     }

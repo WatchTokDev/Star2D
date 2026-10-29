@@ -64,6 +64,15 @@ public class CodeEditorActivity extends AppCompatActivity {
 		save_info = findViewById(R.id.save_info);
 		path = getIntent().getStringExtra("path");
 		editor = findViewById(R.id.editor);
+		// a binary or huge file would freeze / crash the editor: show it by pages instead
+		try {
+			File big = new File(path);
+			if(big.isFile() && (com.star4droid.star2d.ui.PagedFileDialog.looksBinary(big) || big.length() > 1500 * 1024)){
+				androidx.appcompat.app.AlertDialog pd = com.star4droid.star2d.ui.PagedFileDialog.show(this, big, null);
+				if(pd != null) pd.setOnDismissListener(x -> finish()); else finish();
+				return;
+			}
+		} catch(Throwable ignored){}
 		// the bars (symbols + save) must stay above the keyboard (edge-to-edge ignores adjustResize)
 		androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content), (v, insets) -> {
 			androidx.core.graphics.Insets bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() | androidx.core.view.WindowInsetsCompat.Type.displayCutout());

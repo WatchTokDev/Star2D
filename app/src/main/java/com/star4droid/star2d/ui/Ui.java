@@ -250,6 +250,26 @@ public final class Ui {
         return b;
     }
 
+    /**
+     * Edge-to-edge screens (targetSdk 36): keeps the content below the status bar / cutout and above the navigation bar and the keyboard.
+     * The window shows {@code barColor} behind the system bars, so the top bar looks like it continues up under the clock.
+     * Call it after every setContentView of an activity that builds its own views.
+     */
+    public static void insets(final android.app.Activity a, int barColor) {
+        try {
+            a.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(barColor));
+            View content = a.findViewById(android.R.id.content);
+            if (content == null) return;
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(content, (v, insets) -> {
+                androidx.core.graphics.Insets bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() | androidx.core.view.WindowInsetsCompat.Type.displayCutout());
+                androidx.core.graphics.Insets ime = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime());
+                v.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, ime.bottom));
+                return androidx.core.view.WindowInsetsCompat.CONSUMED;
+            });
+            androidx.core.view.ViewCompat.requestApplyInsets(content);
+        } catch (Throwable ignored) {}
+    }
+
     public static EditText input(Context c, String value, String hint) {
         EditText e = new EditText(c);
         e.setText(value);

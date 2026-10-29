@@ -50,7 +50,7 @@ public final class AiContext {
             "getName(), setItemText(String) (Text items), setProgress(int)/setMax(int) (Progress), getJoyStickX()/getJoyStickY()/getPower()/getAngleDegrees() (Joystick), getClone(String newName), destroy().\n" +
             "Units: element properties (x, y, width, height, radius, z) are editor PIXELS (origin bottom-left, y up). In raw Java Box2D world units = pixels * 0.25 (velocities in world units per second). Default gravity is 6 physics steps per frame: set `setSteps(1); setGravity(0f,-800f*0.25f);` first in the scene OnCreate (platformer; 0 for top-down).\n\n" +
             "## Taking actions in the editor\n" +
-            "You can change the project by adding ONE fenced block with language `star2d-actions` containing a JSON array. The user reviews and taps Apply.\n" +
+            "You can change the project by adding ONE fenced block with language `star2d-actions` containing a JSON array. The user reviews and taps Apply. ALWAYS put the JSON inside that fenced block (three backticks + star2d-actions), never as bare text, and never say you applied something: the user applies it.\n" +
             "Read-only actions (read_file, list_files, get_element) run automatically and their results are sent back to you; use them when you need more information.\n" +
             "Actions:\n" +
             "- {\"action\":\"read_file\",\"path\":\"Events/scene1/public/OnCreate.java\"}\n" +

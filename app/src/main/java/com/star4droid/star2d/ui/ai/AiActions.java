@@ -38,17 +38,92 @@ public final class AiActions {
 
     public static final Pattern BLOCK = Pattern.compile("```star2d-actions\\s*\\n([\\s\\S]*?)```");
 
+    /** Any fenced block (```json, ```, ```star2d-actions ...). */
+    private static final Pattern FENCE = Pattern.compile("```[a-zA-Z0-9_-]*[ \\t]*\\r?\\n?([\\s\\S]*?)```");
+
+    /**
+     * Finds the actions in a reply. Strict `star2d-actions` blocks first; weaker models (free OpenRouter ones...) also answer with a
+     * ```json fence, a bare ``` fence, or just the raw JSON inside the text, so those are accepted too (only objects that
+     * carry an "action" key, or {"name":..,"arguments":..} tool-call shapes).
+     */
     public static JsonArray parse(String text) {
-        Matcher m = BLOCK.matcher(text);
         JsonArray all = new JsonArray();
-        while (m.find()) {
-            try {
-                JsonElement e = JsonParser.parseString(m.group(1).trim());
-                if (e.isJsonArray()) all.addAll(e.getAsJsonArray());
-                else if (e.isJsonObject()) all.add(e);
-            } catch (Exception ignored) {}
+        if (text == null || text.isEmpty()) return all;
+        Matcher m = BLOCK.matcher(text);
+        while (m.find()) collect(m.group(1), all, false);
+        if (all.size() > 0) return all;
+        m = FENCE.matcher(text);
+        while (m.find()) collect(m.group(1), all, true);
+        if (all.size() > 0) return all;
+        // raw JSON inside prose: scan for balanced {...} / [...] segments
+        int i = 0, n = text.length();
+        while (i < n) {
+            char ch = text.charAt(i);
+            if (ch == '{' || ch == '[') {
+                int end = balancedEnd(text, i);
+                if (end > i) {
+                    int before = all.size();
+                    collect(text.substring(i, end + 1), all, true);
+                    i = all.size() > before ? end + 1 : i + 1;
+                    continue;
+                }
+            }
+            i++;
         }
         return all;
+    }
+
+    /** Index of the bracket closing the one at `start` (strings and escapes respected), or -1. */
+    private static int balancedEnd(String t, int start) {
+        int depth = 0;
+        boolean str = false, esc = false;
+        for (int i = start; i < t.length(); i++) {
+            char c = t.charAt(i);
+            if (str) {
+                if (esc) esc = false;
+                else if (c == '\\') esc = true;
+                else if (c == '"') str = false;
+                continue;
+            }
+            if (c == '"') str = true;
+            else if (c == '{' || c == '[') depth++;
+            else if (c == '}' || c == ']') { depth--; if (depth == 0) return i; }
+        }
+        return -1;
+    }
+
+    private static void collect(String raw, JsonArray out, boolean needAction) {
+        try {
+            JsonElement e = JsonParser.parseString(raw.trim());
+            if (e.isJsonArray()) {
+                for (JsonElement x : e.getAsJsonArray()) addAction(x, out, needAction);
+            } else addAction(e, out, needAction);
+        } catch (Exception ignored) {}
+    }
+
+    private static void addAction(JsonElement e, JsonArray out, boolean needAction) {
+        if (e == null || !e.isJsonObject()) return;
+        JsonObject o = e.getAsJsonObject();
+        if (!o.has("action")) {
+            // tool-call shapes: {"name":"add_element","arguments":{...}} / {"tool":..,"args":..} / {"function":{...}}
+            JsonObject f = o.has("function") && o.get("function").isJsonObject() ? o.getAsJsonObject("function") : o;
+            String nm = f.has("name") && f.get("name").isJsonPrimitive() ? f.get("name").getAsString()
+                    : f.has("tool") && f.get("tool").isJsonPrimitive() ? f.get("tool").getAsString() : null;
+            JsonElement ar = f.has("arguments") ? f.get("arguments") : f.has("args") ? f.get("args") : f.has("parameters") ? f.get("parameters") : null;
+            if (nm != null && ar != null) {
+                try {
+                    if (ar.isJsonPrimitive()) ar = JsonParser.parseString(ar.getAsString());
+                    if (ar.isJsonObject()) {
+                        JsonObject c = ar.getAsJsonObject().deepCopy();
+                        c.addProperty("action", nm);
+                        out.add(c);
+                    }
+                } catch (Exception ignored) {}
+            }
+            if (!needAction && o.size() > 0) out.add(o);
+            return;
+        }
+        out.add(o);
     }
 
     public static boolean isReadOnly(JsonObject a) {

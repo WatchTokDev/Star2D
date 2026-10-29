@@ -126,6 +126,12 @@ public class FontMakerForm extends Table {
         return Tr.t(key);
     }
 
+    /** Display name of an enum value (hinting, texture filters): the stored value stays the raw token. */
+    private static String optionLabel(String v) {
+        if (v == null || v.isEmpty()) return "";
+        return Tr.t("font_o_" + v, v);
+    }
+
     private static boolean in(String[] arr, String k) {
         for (String s : arr) if (s.equals(k)) return true;
         return false;
@@ -671,18 +677,23 @@ public class FontMakerForm extends Table {
 
     // ----------------------------------------------------------------- settings
 
+    /**
+     * While a slider is held the list must not scroll. Disabling vertical scrolling would reset the scroll amount to 0 (the list
+     * jumped to the top the moment a slider was touched), so only the drag-to-scroll gesture is switched off.
+     */
     private void lockScroll() {
         if (settingsScroll == null) return;
         lockY = settingsScroll.getScrollY();
         settingsScroll.setCancelTouchFocus(false);
-        settingsScroll.setScrollingDisabled(true, true);
+        settingsScroll.setFlickScroll(false);
     }
 
     private void unlockScroll() {
         if (settingsScroll == null) return;
         settingsScroll.setCancelTouchFocus(true);
-        settingsScroll.setScrollingDisabled(true, false);
+        settingsScroll.setFlickScroll(true);
         settingsScroll.setScrollY(lockY);
+        settingsScroll.updateVisualScroll();
     }
 
     private ScrollPane buildSettings() {
@@ -710,7 +721,7 @@ public class FontMakerForm extends Table {
         FontUi.Panel c = card(Tr.t("font_sec_source", "Font"), null);
         addRow(c, nameRow());
         addRow(c, ttfRow());
-        addRow(c, switchRow(Tr.t("Support RTL"), "supportRtl", () -> rtlFont, v -> {
+        addRow(c, switchRow(Tr.t("supportRtl", "Support RTL"), "supportRtl", () -> rtlFont, v -> {
             rtlFont = v;
             touched(true);
         }));
@@ -958,7 +969,7 @@ public class FontMakerForm extends Table {
         final FontUi.Btn b = new FontUi.Btn(th, FontUi.SURFACE_3, 8, null);
         b.add(val).growX().minWidth(0).pad(0, th.dp(10), 0, th.dp(6));
         b.add(new FontUi.Chevron(th, false, FontUi.TEXT_2)).size(th.dp(16)).padRight(th.dp(8));
-        final Runnable sync = () -> val.setText(p.get(f.key));
+        final Runnable sync = () -> val.setText(optionLabel(p.get(f.key)));
         b.onClick(() -> showChoice(labelOf(f.key), f.options, p.get(f.key), v -> {
             put(f.key, v, true);
             sync.run();
@@ -1083,7 +1094,7 @@ public class FontMakerForm extends Table {
                 closePopup();
                 pick.accept(o);
             });
-            Label ol = th.label(o, false, on ? Color.WHITE : FontUi.TEXT);
+            Label ol = th.label(optionLabel(o), false, on ? Color.WHITE : FontUi.TEXT);
             ol.setAlignment(Align.center);
             ob.add(ol).growX().minWidth(0);
             list.add(ob).growX().height(bh).padBottom(th.dp(6)).row();
