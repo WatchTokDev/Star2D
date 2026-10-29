@@ -397,6 +397,11 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
         homeView = new ProjectsHomeView(this,this);
         ((ViewGroup) findViewById(R.id.frame)).addView(homeView,
                 new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // Occasional (rare, snoozable) support dialog, only while the projects screen is showing
+        homeView.postDelayed(() -> {
+            if (!isFinishing() && !isDestroyed() && homeView.isShown())
+                com.star4droid.star2d.ui.SupportPrompt.maybeShow(this, this::openDonate);
+        }, 3500);
     }
 	@Override
 	protected void onStart() {

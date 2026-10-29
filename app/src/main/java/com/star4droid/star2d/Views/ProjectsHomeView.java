@@ -389,14 +389,7 @@ public class ProjectsHomeView extends FrameLayout {
     private void setupCommunity() {
         LinearLayout list = findViewById(R.id.community_list);
         findViewById(R.id.btn_donate).setOnClickListener(v -> host.openDonate());
-        String[][] links = {
-                {"facebook", "Facebook Group", "Join the Star2D developers community on Facebook", "https://facebook.com/groups/995354408402399/"},
-                {"whatsapp", "WhatsApp Group", "Live chat with developers and get quick assistance", "https://chat.whatsapp.com/Bxu3kM0b1oE9UL0iZhti4E?mode=ems_copy_c"},
-                {"telegram", "Telegram Channel", "News, releases, asset packs, and updates", "https://t.me/+pE4VREnP04s5NDNk"},
-                {"discord", "Discord Community", "Discuss game dev, share scripts, and collaborate", "https://discord.gg/9gxPUTEP"},
-                {"github", "GitHub Repository", "Star2D Engine open source code and issue tracking", "https://github.com/star4droid/Star2D/"},
-                {"youtube", "YouTube Channel", "Game engine tutorials, guides, and feature showcases", "https://youtube.com/@star4droid?si=wNDqN_fbRIzf3KSQ"},
-        };
+        String[][] links = com.star4droid.star2d.ui.CommunityLinks.all();
         LayoutInflater inflater = LayoutInflater.from(activity);
         for (String[] link : links) {
             View row = inflater.inflate(R.layout.home_item_community, list, false);
