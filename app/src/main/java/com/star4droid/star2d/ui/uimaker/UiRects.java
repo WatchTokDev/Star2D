@@ -111,10 +111,19 @@ public final class UiRects {
 
     /** Deepest shown node at the point (children win over parents, later siblings over earlier ones), or null. Hidden / scrolled-out parts are respected. */
     public R hit(float px, float py) {
+        return hit(px, py, false);
+    }
+
+    /**
+     * Same as {@link #hit(float, float)}; with {@code includeLocked} the nodes locked in the editor ({@link UINode#locked}) can be hit too
+     * (test mode needs them, editing does not: a locked node cannot be selected by tapping, the node below it is hit instead).
+     */
+    public R hit(float px, float py, boolean includeLocked) {
         R best = null;
         for (R r : rects.values()) {
             if (!r.shown) continue;
             if (r.node.parent == null) continue; // the root fills everything: tapping empty space selects nothing
+            if (r.node.locked && !includeLocked) continue;
             if (!r.contains(px, py)) continue;
             if (!insideClips(r, px, py)) continue;
             best = r; // later in the walk = deeper / above

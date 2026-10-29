@@ -11,7 +11,11 @@ import android.graphics.RectF;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.graphics.drawable.Drawable;
 
+import androidx.core.content.ContextCompat;
+
+import com.star4droid.star2d.evo.R;
 import com.star4droid.star2d.ui.Ui;
 import com.star4droid.template.ui.UIDocument;
 import com.star4droid.template.ui.UINode;
@@ -53,7 +57,19 @@ final class UiPreviewView extends View {
         void testTouch(int type, float px, float py);
 
         void say(String msg);
+
+        /** The person starts dragging a handle of the phone frame (design size). */
+        void deviceResizeStart();
+
+        /** The logical size is now {@code w x h} (live while dragging; the view already shows it). Render again, do not refit. */
+        void deviceResized(int w, int h);
+
+        /** The size gesture is over: refit the view and refresh everything. */
+        void deviceResizeEnd();
     }
+
+    /** Limits of the phone size, logical px. */
+    static final int MIN_SIZE = 120, MAX_SIZE = 4096;
 
     private final Host host;
     private Bitmap bmp;
@@ -69,7 +85,7 @@ final class UiPreviewView extends View {
     private final float handleR;
 
     // gesture state
-    private static final int NONE = 0, PAN = 1, DRAG = 2, RESIZE = 3, PINCH = 4, TEST = 5, PENDING = 6;
+    private static final int NONE = 0, PAN = 1, DRAG = 2, RESIZE = 3, PINCH = 4, TEST = 5, PENDING = 6, DEVRESIZE = 7;
     private int mode = NONE;
     private float downX, downY, lastX, lastY;
     private UiRects.R startRect;
@@ -85,6 +101,13 @@ final class UiPreviewView extends View {
     private UINode dropParent;
     private RectF dropLine;
     private float dragDX, dragDY;
+    // phone frame resize: scale and origin are frozen during the gesture so the top-left corner stays where it is on screen
+    private boolean frozen;
+    private float fScale, fOx, fOy;
+    private int devHandle = -1, devStartW, devStartH;
+    private boolean devResizing;
+    private int bottomInset;
+    private Drawable lockIcon;
 
     UiPreviewView(Context c, Host host) {
         super(c);
@@ -159,24 +182,44 @@ final class UiPreviewView extends View {
         return Math.max(160, Math.min(w, Math.min(lw, 1600)));
     }
 
+    /** Space at the bottom that other views cover (the chips strip): the phone is centered in what is left. */
+    void setBottomInset(int px) {
+        px = Math.max(0, px);
+        if (px == bottomInset) return;
+        bottomInset = px;
+        clampPan();
+        invalidate();
+    }
+
     // ------------------------------------------------------------------ geometry
 
     private float fitScale() {
-        float pad = Ui.dp(getContext(), 18);
-        float aw = Math.max(10, getWidth() - 2 * pad), ah = Math.max(10, getHeight() - 2 * pad);
+        float pad = Ui.dp(getContext(), 26); // room for the size handles around the frame
+        float aw = Math.max(10, getWidth() - 2 * pad), ah = Math.max(10, getHeight() - bottomInset - 2 * pad);
         return Math.min(aw / lw, ah / lh);
     }
 
     float scale() {
-        return fitScale() * zoom;
+        return frozen ? fScale : fitScale() * zoom;
     }
 
     private float ox() {
-        return getWidth() / 2f + panX - lw * scale() / 2f;
+        return frozen ? fOx : getWidth() / 2f + panX - lw * scale() / 2f;
     }
 
     private float oy() {
-        return getHeight() / 2f + panY - lh * scale() / 2f;
+        return frozen ? fOy : (getHeight() - bottomInset) / 2f + panY - lh * scale() / 2f;
+    }
+
+    private void freeze() {
+        fScale = scale();
+        fOx = ox();
+        fOy = oy();
+        frozen = true;
+    }
+
+    private void unfreeze() {
+        frozen = false;
     }
 
     private float toViewX(float lx) {
@@ -197,7 +240,7 @@ final class UiPreviewView extends View {
 
     private void clampPan() {
         float s = scale();
-        float maxX = Math.max(0, (lw * s) / 2f + getWidth() / 4f), maxY = Math.max(0, (lh * s) / 2f + getHeight() / 4f);
+        float maxX = Math.max(0, (lw * s) / 2f + getWidth() / 4f), maxY = Math.max(0, (lh * s) / 2f + (getHeight() - bottomInset) / 4f);
         panX = Math.max(-maxX, Math.min(maxX, panX));
         panY = Math.max(-maxY, Math.min(maxY, panY));
     }
@@ -278,7 +321,7 @@ final class UiPreviewView extends View {
             String t = null;
             if (r.node.has("text")) t = r.node.str("text", "");
             else if (r.node.has("hint")) t = r.node.str("hint", "");
-            else if (!r.node.isContainer()) t = r.node.type;
+            else if (!r.node.isContainer()) t = UiTr.widgetName(r.node.type);
             if (t != null && !t.isEmpty()) {
                 text.setColor(0xFFFFFFFF);
                 text.setTextSize(Math.max(8f, Math.min(tmp.height() * 0.5f, 22f * s * 2)));
@@ -289,6 +332,7 @@ final class UiPreviewView extends View {
 
     private void drawOverlay(Canvas c, float s, float ox, float oy) {
         Context ctx = getContext();
+        drawDeviceHandles(c, new RectF(ox, oy, ox + lw * s, oy + lh * s));
         UINode sel = host.selected();
         UiRects.R r = rects == null || sel == null ? null : rects.get(sel.id);
         if (r != null && r.shown) {
@@ -307,24 +351,42 @@ final class UiPreviewView extends View {
             }
             tmp.set(ox + r.x * s + dx, oy + r.y * s + dy, ox + (r.x + r.w) * s + dx, oy + (r.y + r.h) * s + dy);
             p.setStyle(Paint.Style.FILL);
-            p.setColor(0x222196F3);
+            p.setColor(sel.locked ? 0x22FFB300 : 0x222196F3);
             c.drawRect(tmp, p);
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(Ui.dp(ctx, 2));
-            p.setColor(Ui.ACCENT);
+            p.setColor(sel.locked ? Ui.WARNING : Ui.ACCENT);
+            if (sel.locked) p.setPathEffect(new DashPathEffect(new float[]{Ui.dp(ctx, 7), Ui.dp(ctx, 4)}, 0));
             c.drawRect(tmp, p);
-            if (mode != DRAG || dropParent != null) drawHandles(c, sel, tmp);
-            // label chip
+            p.setPathEffect(null);
+            if (!sel.locked && (mode != DRAG || dropParent != null)) drawHandles(c, sel, tmp);
+            // label chip (a lock mark in front of the id when the element is locked)
             String t = sel.id + "  " + Math.round(r.w) + "x" + Math.round(r.h);
             text.setTextSize(Ui.dp(ctx, 11));
             text.setTextAlign(Paint.Align.LEFT);
-            float tw = text.measureText(t) + Ui.dp(ctx, 10), th = Ui.dp(ctx, 18);
+            float lockW = sel.locked ? Ui.dp(ctx, 14) : 0;
+            float tw = text.measureText(t) + Ui.dp(ctx, 10) + lockW, th = Ui.dp(ctx, 18);
             float cx = Math.max(2, Math.min(getWidth() - tw - 2, tmp.left)), cy = tmp.top - th - 2 < 0 ? tmp.bottom + 2 : tmp.top - th - 2;
             p.setStyle(Paint.Style.FILL);
             p.setColor(Ui.ACCENT_DARK);
             c.drawRoundRect(cx, cy, cx + tw, cy + th, th / 2, th / 2, p);
+            if (sel.locked) {
+                if (lockIcon == null) {
+                    Drawable d = ContextCompat.getDrawable(ctx, R.drawable.ic_s2_lock);
+                    if (d != null) {
+                        lockIcon = d.mutate();
+                        lockIcon.setTint(0xFFFFFFFF);
+                    }
+                }
+                if (lockIcon != null) {
+                    int ls = Ui.dp(ctx, 11);
+                    int lx = Math.round(cx + Ui.dp(ctx, 5)), ly = Math.round(cy + (th - ls) / 2f);
+                    lockIcon.setBounds(lx, ly, lx + ls, ly + ls);
+                    lockIcon.draw(c);
+                }
+            }
             text.setColor(0xFFFFFFFF);
-            c.drawText(t, cx + Ui.dp(ctx, 5), cy + th * 0.72f, text);
+            c.drawText(t, cx + Ui.dp(ctx, 5) + lockW, cy + th * 0.72f, text);
             text.setTextAlign(Paint.Align.CENTER);
         }
         if (mode == DRAG && dropLine != null) {
@@ -332,6 +394,75 @@ final class UiPreviewView extends View {
             p.setColor(Ui.WARNING);
             c.drawRect(ox + dropLine.left * s, oy + dropLine.top * s, ox + dropLine.right * s, oy + dropLine.bottom * s, p);
         }
+    }
+
+    // ---- phone frame handles: 0 = right edge, 1 = bottom edge, 2 = bottom-right corner
+
+    private float devOff() {
+        return Ui.dp(getContext(), 6) + Ui.dp(getContext(), 9);
+    }
+
+    private float[] devHandlePos(RectF dev, int i) {
+        float o = devOff();
+        switch (i) {
+            case 0: return new float[]{dev.right + o, dev.centerY()};
+            case 1: return new float[]{dev.centerX(), dev.bottom + o};
+            default: return new float[]{dev.right + o * 0.85f, dev.bottom + o * 0.85f};
+        }
+    }
+
+    private RectF deviceRect() {
+        float s = scale(), ox = ox(), oy = oy();
+        return new RectF(ox, oy, ox + lw * s, oy + lh * s);
+    }
+
+    private void drawDeviceHandles(Canvas c, RectF dev) {
+        Context ctx = getContext();
+        float long2 = Ui.dp(ctx, 15), thick = Ui.dp(ctx, 4);
+        for (int i = 0; i < 3; i++) {
+            if (devResizing && i != devHandle) continue;
+            float[] h = devHandlePos(dev, i);
+            boolean active = devResizing && i == devHandle;
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(active ? Ui.WARNING : Ui.ACCENT_DARK);
+            if (i == 2) c.drawCircle(h[0], h[1], Ui.dp(ctx, 8), p);
+            else if (i == 0) c.drawRoundRect(h[0] - thick, h[1] - long2, h[0] + thick, h[1] + long2, thick, thick, p);
+            else c.drawRoundRect(h[0] - long2, h[1] - thick, h[0] + long2, h[1] + thick, thick, thick, p);
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(Ui.dp(ctx, 1.5f));
+            p.setColor(0xFFFFFFFF);
+            if (i == 2) c.drawCircle(h[0], h[1], Ui.dp(ctx, 8), p);
+            else if (i == 0) c.drawRoundRect(h[0] - thick, h[1] - long2, h[0] + thick, h[1] + long2, thick, thick, p);
+            else c.drawRoundRect(h[0] - long2, h[1] - thick, h[0] + long2, h[1] + thick, thick, thick, p);
+        }
+        if (devResizing) {
+            String t = lw + " x " + lh;
+            text.setTextSize(Ui.dp(ctx, 15));
+            text.setTextAlign(Paint.Align.CENTER);
+            float tw = text.measureText(t) + Ui.dp(ctx, 20), th = Ui.dp(ctx, 28);
+            float cx = Math.max(tw / 2 + 2, Math.min(getWidth() - tw / 2 - 2, dev.centerX())), cy = Math.max(th, Math.min(getHeight() - bottomInset - th, dev.centerY()));
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(0xCC000000);
+            c.drawRoundRect(cx - tw / 2, cy - th / 2, cx + tw / 2, cy + th / 2, th / 2, th / 2, p);
+            text.setColor(0xFFFFFFFF);
+            c.drawText(t, cx, cy + th * 0.18f, text);
+        }
+    }
+
+    /** Index of the phone-frame handle near the point and its distance, or {-1, large}. */
+    private float[] deviceHandleAt(float x, float y) {
+        RectF dev = deviceRect();
+        float best = Ui.dp(getContext(), 24);
+        int hit = -1;
+        for (int i = 0; i < 3; i++) {
+            float[] h = devHandlePos(dev, i);
+            float d = (float) Math.hypot(h[0] - x, h[1] - y);
+            if (d < best) {
+                best = d;
+                hit = i;
+            }
+        }
+        return new float[]{hit, best};
     }
 
     /** Handle centers of the rectangle: index 0..7 = TL, T, TR, L, R, BL, B, BR. */
@@ -408,8 +539,9 @@ final class UiPreviewView extends View {
         }
         UINode sel = host.selected();
         UiRects.R sr = rects == null || sel == null ? null : rects.get(sel.id);
-        // resize handle of the selection
-        if (sr != null && sr.shown && sel.parent != null) {
+        float[] dh = deviceHandleAt(x, y);
+        // resize handle of the selection (not for locked elements)
+        if (sr != null && sr.shown && sel.parent != null && !sel.locked) {
             RectF r = new RectF(toViewX(sr.x), toViewY(sr.y), toViewX(sr.x + sr.w), toViewY(sr.y + sr.h));
             float best = handleR * 1.6f;
             int hit = -1;
@@ -422,12 +554,22 @@ final class UiPreviewView extends View {
                     hit = i;
                 }
             }
-            if (hit >= 0) {
+            // the closer one wins when a node handle and a phone handle overlap (the phone's gets a little help)
+            if (hit >= 0 && !(dh[0] >= 0 && dh[1] * 0.75f < best)) {
                 handle = hit;
                 beginEdit(sel, sr);
                 mode = RESIZE;
                 return true;
             }
+        }
+        if (dh[0] >= 0) {
+            devHandle = (int) dh[0];
+            devStartW = lw;
+            devStartH = lh;
+            devResizing = false;
+            freeze();
+            mode = DEVRESIZE;
+            return true;
         }
         UiRects.R hit = rects == null ? null : rects.hit(toLogX(x), toLogY(y));
         if (hit != null) {
@@ -480,7 +622,7 @@ final class UiPreviewView extends View {
             case PENDING:
                 if (moved) {
                     UINode n = host.selected();
-                    if (n == null || n.parent == null) {
+                    if (n == null || n.parent == null || n.locked) {
                         mode = NONE;
                         break;
                     }
@@ -491,6 +633,15 @@ final class UiPreviewView extends View {
                 break;
             case DRAG:
                 dragMove(x, y);
+                break;
+            case DEVRESIZE:
+                if (moved) {
+                    if (!devResizing) {
+                        devResizing = true;
+                        host.deviceResizeStart();
+                    }
+                    deviceResizeMove(x, y);
+                }
                 break;
             case RESIZE:
                 if (moved) {
@@ -541,6 +692,10 @@ final class UiPreviewView extends View {
             invalidate();
             return true;
         }
+        if (m == DEVRESIZE) {
+            finishDeviceResize(cancel);
+            return true;
+        }
         if (m == RESIZE) {
             if (resizing) {
                 resizing = false;
@@ -576,6 +731,34 @@ final class UiPreviewView extends View {
     private float snap(float v) {
         int g = host.grid();
         return g > 0 ? Math.round(v / g) * g : v;
+    }
+
+    private int snapSize(float v) {
+        int g = host.grid();
+        int r = Math.round(g > 0 ? Math.round(v / g) * (float) g : v);
+        return Math.max(MIN_SIZE, Math.min(MAX_SIZE, r));
+    }
+
+    private void deviceResizeMove(float x, float y) {
+        float s = fScale;
+        float dx = (x - downX) / s, dy = (y - downY) / s;
+        int nw = devHandle == 1 ? devStartW : snapSize(devStartW + dx);
+        int nh = devHandle == 0 ? devStartH : snapSize(devStartH + dy);
+        if (nw == lw && nh == lh) return;
+        setLogicalSize(nw, nh);
+        host.deviceResized(nw, nh);
+    }
+
+    private void finishDeviceResize(boolean cancel) {
+        boolean was = devResizing;
+        devResizing = false;
+        if (cancel && was && (lw != devStartW || lh != devStartH)) {
+            setLogicalSize(devStartW, devStartH);
+            host.deviceResized(devStartW, devStartH);
+        }
+        unfreeze();
+        if (was) host.deviceResizeEnd();
+        invalidate();
     }
 
     private void dragMove(float x, float y) {
@@ -706,6 +889,7 @@ final class UiPreviewView extends View {
                 host.gestureEnd(false);
             } else host.gestureEnd(false);
         }
+        if (mode == DEVRESIZE) finishDeviceResize(true);
         if (mode == TEST) sendTest(2, lastX, lastY);
         mode = PINCH;
         float cx = (e.getX(0) + e.getX(1)) / 2f, cy = (e.getY(0) + e.getY(1)) / 2f;

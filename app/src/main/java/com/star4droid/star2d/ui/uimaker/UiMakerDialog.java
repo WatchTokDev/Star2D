@@ -1,20 +1,29 @@
 package com.star4droid.star2d.ui.uimaker;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
@@ -29,6 +38,7 @@ import com.star4droid.star2d.evo.R;
 import com.star4droid.star2d.ui.ColorPickerDialog;
 import com.star4droid.star2d.ui.Dialogs;
 import com.star4droid.star2d.ui.NumberPad;
+import com.star4droid.star2d.ui.Snack;
 import com.star4droid.star2d.ui.Tr;
 import com.star4droid.star2d.ui.Ui;
 import com.star4droid.star2d.ui.UiMakerLauncher;
@@ -42,13 +52,16 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * UI Maker: full-screen editor of a project's {@code UI/<name>.ui} file.
+ * UI Maker: full-screen editor of a project's {@code UI/<name>.ui} file ({@code name} may contain folders: {@code menus/pause}).
  *
- * Top: live preview in a device frame (real renderer, tap to select, drag to move, handles to resize, pinch to zoom, test mode).
- * Bottom: tabs Elements (palette + templates) / Tree / Properties / Theme. Toolbar: undo, redo, warnings, more, save.
- * See docs/UI.md for the file format.
+ * Top: live preview in a device frame (real renderer, tap to select, drag to move, handles to resize, handles on the frame to resize the
+ * phone itself, pinch to zoom, test mode).
+ * Bottom: tabs Elements (palette + templates) / Tree / Properties / Theme; the panel can be dragged to any size and hidden.
+ * Toolbar: undo, redo, warnings, more, save. See docs/UI.md for the file format.
  */
 public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host, PreviewEngine.Listener {
     /** Entry used by {@link UiMakerLauncher}. */
@@ -58,7 +71,14 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
             Ui.toast(c, Tr.t("uim_need_activity", "Cannot open the UI Maker from here"));
             return;
         }
-        new UiMakerDialog(a, projectPath, uiName == null ? "" : uiName.replaceAll("(?i)\\.ui$", "").trim(), onSaved).show();
+        new UiMakerDialog(a, projectPath, cleanName(uiName), onSaved).show();
+    }
+
+    private static String cleanName(String n) {
+        String s = n == null ? "" : n.replace('\\', '/').replaceAll("(?i)\\.ui$", "").trim();
+        while (s.startsWith("/")) s = s.substring(1);
+        if (s.contains("..") || s.endsWith("/")) return "";
+        return s;
     }
 
     private static Activity unwrap(Context c) {
@@ -70,9 +90,13 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
     }
 
     // ------------------------------------------------------------------ state
-    private static final int[][] DEVICES = {{360, 640}, {480, 854}, {720, 1280}, {1080, 1920}, {800, 1280}};
+    /** Screen presets, portrait {short, long} in logical px. */
+    private static final int[][] PHONES = {{320, 480}, {360, 640}, {360, 720}, {360, 780}, {375, 667}, {390, 844}, {393, 852}, {412, 915}, {414, 896}, {430, 932},
+            {480, 854}, {540, 960}, {720, 1280}, {720, 1600}, {750, 1334}, {1080, 1920}, {1080, 2340}, {1080, 2400}, {1440, 2560}, {1440, 3120}};
+    private static final int[][] TABLETS = {{600, 1024}, {768, 1024}, {800, 1280}, {820, 1180}, {1200, 1920}, {1600, 2560}};
     private static final int[] GRIDS = {0, 8, 16, 32};
     private static final int[] BGS = {0xFF1C2230, 0xFF000000, 0xFFFFFFFF, 0xFF6C8FB8};
+    private static final Pattern SIZE_TEXT = Pattern.compile("^\\s*(\\d{1,5})\\s*[xX×*,\\s]\\s*(\\d{1,5})\\s*$");
 
     private final Activity act;
     private final String project;
@@ -84,17 +108,21 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
     private UINode selected;
     private boolean fileExists;
     private boolean testMode;
-    private boolean landscape = true;
-    private int device = 2;
+    /** Logical size of the phone in the preview (starts from the document's design size, changed by the chips and the frame handles). */
+    private int curW = 1280, curH = 720;
     private int gridIdx = 0;
     private int bgIdx = 0;
     private int tab = 0;
+    /** Theme tab: false = whole UI, true = the selected element only. */
+    private boolean themeScopeSel;
 
     private Dialog dialog;
+    private FrameLayout host;
     private UiPreviewView preview;
     private PreviewEngine engine;
     private FrameLayout body;
-    private TextView title, warnBadge, zoomText;
+    private View stripView;
+    private TextView title, warnBadge, zoomText, saveBtn;
     private ImageView undoBtn, redoBtn, testBtn;
     private TextView orientChip, deviceChip, gridChip, bgChip, modeChip;
     private final TextView[] tabs = new TextView[4];
@@ -118,13 +146,22 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
     private boolean warnedField;
     private boolean glOk = true;
 
+    // bottom panel (resizable / hideable)
+    private Split split;
+    private Grabber grabber;
+    private LinearLayout panel, panelContent;
+    private float fracP = 0.58f, fracL = 0.45f;
+    private boolean collapsed;
+    /** Panel size in px while it is dragged or animated; -1 = derived from the fraction / collapsed state. */
+    private float shownPx = -1;
+    private ValueAnimator panelAnim;
+
     private UiMakerDialog(Activity a, String project, String name, Runnable onSaved) {
         this.act = a;
         this.project = project;
         this.name = name.isEmpty() ? "ui" : name;
         this.onSaved = onSaved;
-        File f = UiMakerLauncher.uiDir(project);
-        File file = new File(f, this.name + ".ui");
+        File file = fileFor(this.name);
         fileExists = file.isFile();
         doc = fileExists ? UIDocument.read(file) : UiOps.newDocument(this.name, 1280, 720);
         if (doc.warnings.size() > 0 && fileExists) {
@@ -133,23 +170,29 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         }
         doc.name = this.name;
         hist = new UiHistory(doc);
-        landscape = doc.designWidth >= doc.designHeight;
-        int best = 2;
-        float bd = Float.MAX_VALUE;
-        float dl = Math.max(doc.designWidth, doc.designHeight);
-        for (int i = 0; i < DEVICES.length; i++) {
-            float d = Math.abs(DEVICES[i][1] - dl);
-            if (d < bd) {
-                bd = d;
-                best = i;
-            }
-        }
-        device = best;
+        sizeFromDoc();
         try {
             gridIdx = Math.min(GRIDS.length - 1, Ui.prefs(a).getInt("uim_grid", 0));
             bgIdx = Math.min(BGS.length - 1, Ui.prefs(a).getInt("uim_bg", 0));
+            fracP = clampFrac(Ui.prefs(a).getFloat("uim_split_p", fracP));
+            fracL = clampFrac(Ui.prefs(a).getFloat("uim_split_l", fracL));
+            collapsed = Ui.prefs(a).getBoolean("uim_split_collapsed", false);
         } catch (Throwable ignored) {
         }
+    }
+
+    private static float clampFrac(float f) {
+        return Float.isNaN(f) ? 0.5f : Math.max(0.2f, Math.min(0.8f, f));
+    }
+
+    private void sizeFromDoc() {
+        curW = clampSize(Math.round(doc.designWidth));
+        curH = clampSize(Math.round(doc.designHeight));
+    }
+
+    private static int clampSize(int v) {
+        if (v <= 0) return 720;
+        return Math.max(UiPreviewView.MIN_SIZE, Math.min(UiPreviewView.MAX_SIZE, v));
     }
 
     // ------------------------------------------------------------------ window
@@ -159,7 +202,11 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         dialog = new Dialog(act, android.R.style.Theme_Black_NoTitleBar);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setCancelable(false);
-        dialog.setContentView(buildRoot());
+        // the content sits in a FrameLayout that also hosts the snackbars (activity level ones would be hidden behind this window)
+        host = new FrameLayout(act);
+        host.setLayoutDirection(Ui.isRtl(act) ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
+        host.addView(buildRoot(), new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        dialog.setContentView(host);
         Window w = dialog.getWindow();
         if (w != null) {
             w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
@@ -176,8 +223,12 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         dialog.setOnDismissListener(d -> {
             main.removeCallbacks(testTick);
             main.removeCallbacks(historyFlush);
+            main.removeCallbacks(restoreSave);
+            if (panelAnim != null) panelAnim.cancel();
+            Snack.popHost(host);
             engine.dispose();
         });
+        Snack.pushHost(host);
         dialog.show();
         showTab(0);
         applyDevice();
@@ -190,47 +241,258 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
     }
 
     private void onClose() {
+        confirmUnsaved(this::close);
+    }
+
+    /** Runs {@code then} when there is nothing unsaved, or after the person saved or discarded the changes. */
+    private void confirmUnsaved(final Runnable then) {
         flushHistory();
         if (!hist.dirty()) {
-            close();
+            then.run();
             return;
         }
         new AlertDialog.Builder(act)
                 .setTitle(Tr.t("uim_unsaved", "Unsaved changes"))
                 .setMessage(Tr.t("uim_unsaved_msg", "Save the changes to this UI before closing?"))
                 .setPositiveButton(Tr.t("save", "Save"), (d, i) -> {
-                    if (save()) close();
+                    if (save()) then.run();
                 })
-                .setNegativeButton(Tr.t("uim_discard", "Discard"), (d, i) -> close())
+                .setNegativeButton(Tr.t("uim_discard", "Discard"), (d, i) -> then.run())
                 .setNeutralButton(Tr.t("cancel", "Cancel"), null)
                 .show();
     }
 
     // ------------------------------------------------------------------ layout
 
-    /** Portrait: preview on top, panel below. Landscape: side by side. */
+    /**
+     * Portrait: preview on top, panel below. Landscape: side by side. The panel has a fixed size in px (a fraction of the available
+     * space, or only its grabber when it is hidden); the preview takes what is left.
+     */
     private final class Split extends LinearLayout {
         private int lastLand = -1;
-        View a, b;
+        View a;
 
         Split(Context c) {
             super(c);
+        }
+
+        boolean land() {
+            return lastLand == 1;
+        }
+
+        int total() {
+            return land() ? getWidth() : getHeight();
+        }
+
+        int handlePx() {
+            return Ui.dp(act, 26);
+        }
+
+        int clampPx(float px, int total) {
+            int max = Math.max(handlePx(), Math.min(total - Ui.dp(act, 64), Math.round(total * 0.82f)));
+            return Math.round(Math.max(handlePx(), Math.min(max, px)));
+        }
+
+        float frac() {
+            return land() ? fracL : fracP;
+        }
+
+        int restingPx(int total) {
+            return collapsed ? handlePx() : clampPx(frac() * total, total);
+        }
+
+        int panelPx(int total) {
+            return shownPx >= 0 ? clampPx(shownPx, total) : restingPx(total);
         }
 
         @Override
         protected void onMeasure(int wSpec, int hSpec) {
             int w = MeasureSpec.getSize(wSpec), h = MeasureSpec.getSize(hSpec);
             int land = w > h ? 1 : 0;
-            if (land != lastLand && a != null && b != null) {
-                lastLand = land;
-                setOrientation(land == 1 ? HORIZONTAL : VERTICAL);
-                LayoutParams la = new LayoutParams(land == 1 ? 0 : ViewGroup.LayoutParams.MATCH_PARENT, land == 1 ? ViewGroup.LayoutParams.MATCH_PARENT : 0, land == 1 ? 0.55f : 0.42f);
-                LayoutParams lb = new LayoutParams(land == 1 ? 0 : ViewGroup.LayoutParams.MATCH_PARENT, land == 1 ? ViewGroup.LayoutParams.MATCH_PARENT : 0, land == 1 ? 0.45f : 0.58f);
-                a.setLayoutParams(la);
-                b.setLayoutParams(lb);
+            if (a != null && panel != null) {
+                if (land != lastLand) {
+                    lastLand = land;
+                    setOrientation(land == 1 ? HORIZONTAL : VERTICAL);
+                    panel.setOrientation(land == 1 ? HORIZONTAL : VERTICAL);
+                    grabber.setVertical(land == 1);
+                    grabber.setLayoutParams(new LinearLayout.LayoutParams(land == 1 ? handlePx() : ViewGroup.LayoutParams.MATCH_PARENT, land == 1 ? ViewGroup.LayoutParams.MATCH_PARENT : handlePx()));
+                    panelContent.setLayoutParams(new LinearLayout.LayoutParams(land == 1 ? 0 : ViewGroup.LayoutParams.MATCH_PARENT, land == 1 ? ViewGroup.LayoutParams.MATCH_PARENT : 0, 1));
+                }
+                int px = panelPx(land == 1 ? w : h);
+                LayoutParams la = (LayoutParams) a.getLayoutParams();
+                la.width = land == 1 ? 0 : ViewGroup.LayoutParams.MATCH_PARENT;
+                la.height = land == 1 ? ViewGroup.LayoutParams.MATCH_PARENT : 0;
+                la.weight = 1;
+                LayoutParams lb = (LayoutParams) panel.getLayoutParams();
+                lb.width = land == 1 ? px : ViewGroup.LayoutParams.MATCH_PARENT;
+                lb.height = land == 1 ? ViewGroup.LayoutParams.MATCH_PARENT : px;
+                lb.weight = 0;
+                int vis = px <= handlePx() + 2 ? View.GONE : View.VISIBLE;
+                if (panelContent.getVisibility() != vis) panelContent.setVisibility(vis);
             }
             super.onMeasure(wSpec, hSpec);
         }
+    }
+
+    /** The bar on the panel edge that faces the preview: drag it to resize the panel, tap it to hide / show the panel. */
+    private final class Grabber extends View {
+        private boolean vertical;
+        private boolean down, dragging;
+        private float downRaw, startPx, desired;
+        private int sign = -1;
+        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Path path = new Path();
+        private final int slop = ViewConfiguration.get(act).getScaledTouchSlop();
+
+        Grabber(Context c) {
+            super(c);
+            setBackgroundColor(Ui.SURFACE_2);
+            setContentDescription(Tr.t("uim_panel_toggle", "Resize or hide the panel"));
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeCap(Paint.Cap.ROUND);
+            p.setStrokeJoin(Paint.Join.ROUND);
+        }
+
+        void setVertical(boolean v) {
+            vertical = v;
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas c) {
+            float w = getWidth(), h = getHeight(), cx = w / 2f, cy = h / 2f;
+            float d = Ui.dp(act, 1);
+            boolean hidden = collapsed && !dragging && shownPx < 0;
+            p.setColor(down || dragging ? Ui.ACCENT : hidden ? Ui.TEXT_2 : Ui.TEXT_3);
+            p.setStrokeWidth(Ui.dp(act, hidden ? 2.5f : 4));
+            if (!hidden) {
+                float half = Ui.dp(act, 20);
+                if (vertical) c.drawLine(cx, cy - half, cx, cy + half, p);
+                else c.drawLine(cx - half, cy, cx + half, cy, p);
+                return;
+            }
+            // hidden: a chevron that points to where the panel will grow
+            path.reset();
+            if (vertical) {
+                boolean towardLeft = split != null && split.a != null && split.a.getLeft() < panel.getLeft();
+                float k = towardLeft ? 1 : -1;
+                path.moveTo(cx + 3 * d * k, cy - 7 * d);
+                path.lineTo(cx - 3 * d * k, cy);
+                path.lineTo(cx + 3 * d * k, cy + 7 * d);
+            } else {
+                path.moveTo(cx - 7 * d, cy + 3 * d);
+                path.lineTo(cx, cy - 3 * d);
+                path.lineTo(cx + 7 * d, cy + 3 * d);
+            }
+            c.drawPath(path, p);
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent e) {
+            switch (e.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    if (panelAnim != null) panelAnim.cancel();
+                    down = true;
+                    dragging = false;
+                    downRaw = vertical ? e.getRawX() : e.getRawY();
+                    startPx = vertical ? panel.getWidth() : panel.getHeight();
+                    boolean panelAfter = split.a != null && panel.getLeft() > split.a.getLeft();
+                    sign = vertical ? (panelAfter ? -1 : 1) : -1;
+                    getParent().requestDisallowInterceptTouchEvent(true);
+                    invalidate();
+                    return true;
+                case MotionEvent.ACTION_MOVE: {
+                    if (!down) return true;
+                    float delta = (vertical ? e.getRawX() : e.getRawY()) - downRaw;
+                    if (!dragging && Math.abs(delta) > slop) dragging = true;
+                    if (dragging) {
+                        desired = startPx + sign * delta;
+                        shownPx = split.clampPx(desired, split.total());
+                        split.requestLayout();
+                        invalidate();
+                    }
+                    return true;
+                }
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL: {
+                    boolean wasDragging = dragging;
+                    boolean cancel = e.getActionMasked() == MotionEvent.ACTION_CANCEL;
+                    down = false;
+                    dragging = false;
+                    if (wasDragging) releaseDrag(desired);
+                    else if (!cancel) setCollapsed(!collapsed, true);
+                    invalidate();
+                    return true;
+                }
+                default:
+                    return true;
+            }
+        }
+    }
+
+    /** A drag of the grabber ended with the panel at {@code desired} px: hide it when it is nearly closed, otherwise keep that size. */
+    private void releaseDrag(float desired) {
+        int total = split.total();
+        if (total <= 0) return;
+        float f = desired / total;
+        if (f < 0.12f) {
+            collapsed = true;
+        } else {
+            collapsed = false;
+            if (split.land()) fracL = clampFrac(f);
+            else fracP = clampFrac(f);
+        }
+        saveSplitPrefs();
+        animatePanel(split.restingPx(total));
+    }
+
+    private void setCollapsed(boolean c, boolean animate) {
+        collapsed = c;
+        saveSplitPrefs();
+        int total = split == null ? 0 : split.total();
+        if (!animate || total <= 0) {
+            shownPx = -1;
+            if (split != null) split.requestLayout();
+            return;
+        }
+        animatePanel(split.restingPx(total));
+    }
+
+    private void saveSplitPrefs() {
+        try {
+            Ui.prefs(act).edit().putFloat("uim_split_p", fracP).putFloat("uim_split_l", fracL).putBoolean("uim_split_collapsed", collapsed).apply();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** Moves the panel from where it is now to {@code to} px with a short ease; afterwards the size is derived from the state again. */
+    private void animatePanel(float to) {
+        if (panelAnim != null) panelAnim.cancel();
+        float from = shownPx >= 0 ? shownPx : (split.land() ? panel.getWidth() : panel.getHeight());
+        final boolean[] cancelled = new boolean[1];
+        panelAnim = ValueAnimator.ofFloat(from, to);
+        panelAnim.setDuration(220);
+        panelAnim.setInterpolator(new DecelerateInterpolator());
+        panelAnim.addUpdateListener(a -> {
+            shownPx = (float) a.getAnimatedValue();
+            split.requestLayout();
+            grabber.invalidate();
+        });
+        panelAnim.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationCancel(Animator animation) {
+                cancelled[0] = true;
+            }
+
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                if (cancelled[0]) return;
+                shownPx = -1;
+                split.requestLayout();
+                grabber.invalidate();
+            }
+        });
+        panelAnim.start();
     }
 
     private View buildRoot() {
@@ -238,7 +500,7 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         root.setBackgroundColor(Ui.BG);
         root.addView(buildToolbar(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(act, 52)));
         root.addView(Ui.divider(act));
-        Split split = new Split(act);
+        split = new Split(act);
         FrameLayout pv = new FrameLayout(act);
         preview = new UiPreviewView(act, this);
         preview.setOnZoom(() -> {
@@ -250,17 +512,24 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
             if (r - l != or - ol || b - t != ob - ot) render(false, 0f);
         });
         FrameLayout.LayoutParams sl = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
-        pv.addView(buildPreviewStrip(), sl);
-        LinearLayout panel = Ui.column(act);
+        stripView = buildPreviewStrip();
+        pv.addView(stripView, sl);
+        // the phone is centered above the chips, not behind them
+        stripView.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> preview.setBottomInset(b - t));
+
+        panel = Ui.column(act);
         panel.setBackgroundColor(Ui.SURFACE);
-        panel.addView(buildTabBar(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(act, 48)));
-        panel.addView(Ui.divider(act));
+        grabber = new Grabber(act);
+        panel.addView(grabber, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(act, 26)));
+        panelContent = Ui.column(act);
+        panelContent.addView(buildTabBar(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(act, 48)));
+        panelContent.addView(Ui.divider(act));
         body = new FrameLayout(act);
-        panel.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        panelContent.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        panel.addView(panelContent, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         split.a = pv;
-        split.b = panel;
-        split.addView(pv);
-        split.addView(panel);
+        split.addView(pv, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1));
+        split.addView(panel, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(act, 200)));
         root.addView(split, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         return root;
     }
@@ -274,6 +543,7 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         title = Ui.text(act, "", 15, Ui.TEXT);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setMaxLines(1);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.START);
         title.setPadding(Ui.dp(act, 6), 0, Ui.dp(act, 6), 0);
         title.setGravity(Gravity.CENTER_VERTICAL);
         title.setOnClickListener(v -> saveAs());
@@ -295,17 +565,35 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         warn.addView(warnBadge, bl);
         bar.addView(warn);
         bar.addView(Ui.iconButton(act, R.drawable.ic_s2_more, Tr.t("more", "More"), v -> moreMenu()));
-        TextView save = Ui.text(act, Tr.t("save", "Save"), 14, 0xFFFFFFFF);
-        save.setTypeface(Typeface.DEFAULT_BOLD);
-        save.setGravity(Gravity.CENTER);
-        save.setPadding(Ui.dp(act, 14), 0, Ui.dp(act, 14), 0);
-        save.setBackground(Ui.rounded(Ui.ACCENT, Ui.dp(act, 8)));
-        save.setOnClickListener(v -> save());
+        saveBtn = Ui.text(act, Tr.t("save", "Save"), 14, 0xFFFFFFFF);
+        saveBtn.setTypeface(Typeface.DEFAULT_BOLD);
+        saveBtn.setGravity(Gravity.CENTER);
+        saveBtn.setPadding(Ui.dp(act, 14), 0, Ui.dp(act, 14), 0);
+        saveBtn.setBackground(Ui.rounded(Ui.ACCENT, Ui.dp(act, 8)));
+        saveBtn.setOnClickListener(v -> save());
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Ui.dp(act, 38));
         sp.setMarginStart(Ui.dp(act, 4));
-        bar.addView(save, sp);
+        bar.addView(saveBtn, sp);
         return bar;
     }
+
+    /** The Save button turns green and reads "Saved" for a moment (next to the snackbar, so a save is never missed). */
+    private void flashSaved() {
+        if (saveBtn == null) return;
+        main.removeCallbacks(restoreSave);
+        saveBtn.setText("✓ " + Tr.t("uim_saved_short", "Saved"));
+        saveBtn.setBackground(Ui.rounded(Ui.SUCCESS, Ui.dp(act, 8)));
+        main.postDelayed(restoreSave, 1600);
+    }
+
+    private final Runnable restoreSave = new Runnable() {
+        @Override
+        public void run() {
+            if (saveBtn == null) return;
+            saveBtn.setText(Tr.t("save", "Save"));
+            saveBtn.setBackground(Ui.rounded(Ui.ACCENT, Ui.dp(act, 8)));
+        }
+    };
 
     private TextView stripChip(String t, View.OnClickListener l) {
         TextView v = Ui.text(act, t, 12, Ui.TEXT);
@@ -324,17 +612,12 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         row.setPadding(Ui.dp(act, 8), Ui.dp(act, 4), Ui.dp(act, 8), Ui.dp(act, 8));
         modeChip = stripChip("", v -> setTestMode(!testMode));
         orientChip = stripChip("", v -> {
-            landscape = !landscape;
+            int t = curW;
+            curW = curH;
+            curH = t;
             applyDevice();
         });
-        deviceChip = stripChip("", v -> {
-            String[] items = new String[DEVICES.length];
-            for (int i = 0; i < items.length; i++) items[i] = DEVICES[i][0] + " x " + DEVICES[i][1];
-            Dialogs.choose(act, Tr.t("uim_device", "Screen size"), items, i -> {
-                device = i;
-                applyDevice();
-            });
-        });
+        deviceChip = stripChip("", v -> showSizePicker());
         gridChip = stripChip("", v -> {
             gridIdx = (gridIdx + 1) % GRIDS.length;
             try {
@@ -397,7 +680,11 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
                 d.setBounds(0, 0, Ui.dp(act, 20), Ui.dp(act, 20));
                 t.setCompoundDrawables(null, d, null, null);
             }
-            t.setOnClickListener(v -> showTab(idx));
+            t.setOnClickListener(v -> {
+                // choosing a tab while the panel is hidden shows it again
+                if (collapsed) setCollapsed(false, true);
+                showTab(idx);
+            });
             tabs[i] = t;
             bar.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1));
         }
@@ -444,14 +731,13 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         root.addView(Ui.sectionLabel(act, Tr.t("uim_templates", "Ready-made screens")));
         LinearLayout tr = Ui.row(act);
         for (final String t : UiTemplates.names()) {
-            String[] info = UiTemplates.INFO.get(t);
             LinearLayout card = Ui.column(act);
             card.setPadding(Ui.dp(act, 12), Ui.dp(act, 10), Ui.dp(act, 12), Ui.dp(act, 10));
             card.setBackground(Ui.rounded(Ui.SURFACE_2, Ui.dp(act, 10), Ui.BORDER, 1));
-            TextView n = Ui.text(act, Tr.t("uim_tpl_" + t, info[0]), 14, Ui.TEXT);
+            TextView n = Ui.text(act, UiTr.templateName(t), 14, Ui.TEXT);
             n.setTypeface(Typeface.DEFAULT_BOLD);
             card.addView(n);
-            TextView d = Ui.text(act, Tr.t("uim_tpl_" + t + "_d", info[1]), 11.5f, Ui.TEXT_3);
+            TextView d = Ui.text(act, UiTr.templateDesc(t), 11.5f, Ui.TEXT_3);
             d.setMaxLines(3);
             card.addView(d);
             card.setOnClickListener(v -> addTemplate(t));
@@ -470,7 +756,7 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         hint.setPadding(0, Ui.dp(act, 12), 0, 0);
         root.addView(hint);
         for (String cat : UIWidgetRegistry.categories()) {
-            root.addView(Ui.sectionLabel(act, categoryTitle(cat)));
+            root.addView(Ui.sectionLabel(act, UiTr.categoryTitle(cat)));
             LinearLayout rowL = null;
             int k = 0;
             for (UIWidgetRegistry.Widget w : UIWidgetRegistry.all()) {
@@ -492,14 +778,6 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         return root;
     }
 
-    private String categoryTitle(String c) {
-        switch (c) {
-            case "Layout": return Tr.t("uim_cat_layout", "Layout");
-            case "Display": return Tr.t("uim_cat_display", "Display");
-            default: return Tr.t("uim_cat_input", "Input");
-        }
-    }
-
     private View widgetCard(final UIWidgetRegistry.Widget w) {
         LinearLayout card = Ui.row(act);
         card.setGravity(Gravity.CENTER_VERTICAL);
@@ -508,10 +786,10 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         card.addView(Ui.smallIcon(act, UiIcons.forType(w.type), Ui.ACCENT, 26));
         LinearLayout col = Ui.column(act);
         col.setPadding(Ui.dp(act, 10), 0, 0, 0);
-        TextView n = Ui.text(act, Tr.t("uim_w_" + w.type.toLowerCase(Locale.ROOT), w.name), 14, Ui.TEXT);
+        TextView n = Ui.text(act, UiTr.widgetName(w.type, w.name), 14, Ui.TEXT);
         n.setTypeface(Typeface.DEFAULT_BOLD);
         col.addView(n);
-        TextView d = Ui.text(act, Tr.t("uim_w_" + w.type.toLowerCase(Locale.ROOT) + "_d", w.desc), 11, Ui.TEXT_3);
+        TextView d = Ui.text(act, UiTr.widgetDesc(w.type, w.desc), 11, Ui.TEXT_3);
         d.setMaxLines(3);
         col.addView(d);
         card.addView(col, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
@@ -524,7 +802,7 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         String[] err = new String[1];
         UINode n = UiOps.addSmart(doc, selected, type, err);
         if (n == null) {
-            Ui.toast(act, err[0]);
+            Ui.toast(act, UiTr.err(err[0]));
             return;
         }
         selected = n;
@@ -544,6 +822,10 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
 
     // ---- tree
 
+    private void unlockFirst() {
+        Ui.toast(act, Tr.t("uim_unlock_first", "This element is locked. Unlock it first."));
+    }
+
     private View buildTree() {
         LinearLayout root = Ui.column(act);
         // actions on the selected node
@@ -556,7 +838,7 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         for (int i = 0; i < ic.length; i++) {
             final int k = i;
             ImageView b = Ui.iconButton(act, ic[i], tips[i], v -> treeAction(k));
-            if (selected == null || selected.parent == null) b.setAlpha(0.35f);
+            if (selected == null || selected.parent == null || (selected.locked && i != 4)) b.setAlpha(0.35f);
             acts.addView(b);
         }
         HorizontalScrollView hs = new HorizontalScrollView(act);
@@ -586,13 +868,33 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         TextView id = Ui.text(act, n.id, 14, n.visible ? Ui.TEXT : Ui.TEXT_3);
         id.setMaxLines(1);
         col.addView(id);
-        String extra = n.has("text") ? n.str("text", "") : n.type;
+        String extra = n.has("text") ? n.str("text", "") : UiTr.widgetName(n.type);
         if (extra.length() > 28) extra = extra.substring(0, 27) + "…";
         TextView sub = Ui.text(act, extra.replace('\n', ' '), 11, Ui.TEXT_3);
         sub.setMaxLines(1);
         col.addView(sub);
         row.addView(col, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        // own theme: a dot in the preset's main color
+        String own = n.has("theme") ? n.str("theme", "").trim() : "";
+        if (!own.isEmpty() && UITheme.isPreset(own)) {
+            View dot = new View(act);
+            dot.setBackground(Ui.rounded(UiPropsView.toArgb(UITheme.look(own).primary), Ui.dp(act, 6), 0xFFFFFFFF, Ui.dp(act, 1)));
+            dot.setContentDescription(UiTr.presetName(own));
+            LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(Ui.dp(act, 12), Ui.dp(act, 12));
+            dl.setMarginEnd(Ui.dp(act, 4));
+            dot.setOnClickListener(v -> Ui.toast(act, id.getText() + ": " + UiTr.presetName(own)));
+            row.addView(dot, dl);
+        }
         if (n.parent != null) {
+            ImageView lock = Ui.smallIcon(act, n.locked ? R.drawable.ic_s2_lock : R.drawable.ic_s2_lock_open, n.locked ? Ui.WARNING : Ui.TEXT_3, 20);
+            lock.setPadding(Ui.dp(act, 6), Ui.dp(act, 6), Ui.dp(act, 6), Ui.dp(act, 6));
+            lock.setContentDescription(n.locked ? Tr.t("uim_unlock", "Unlock") : Tr.t("uim_lock", "Lock (cannot be selected or moved in the preview)"));
+            lock.setOnClickListener(v -> {
+                flushHistory();
+                n.locked = !n.locked;
+                structural();
+            });
+            row.addView(lock, new LinearLayout.LayoutParams(Ui.dp(act, 36), Ui.dp(act, 36)));
             ImageView eye = Ui.smallIcon(act, n.visible ? R.drawable.ic_s2_visible : R.drawable.ic_s2_visible_off, n.visible ? Ui.TEXT_2 : Ui.TEXT_3, 22);
             eye.setPadding(Ui.dp(act, 4), Ui.dp(act, 4), Ui.dp(act, 4), Ui.dp(act, 4));
             eye.setOnClickListener(v -> {
@@ -617,6 +919,10 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
             Ui.toast(act, Tr.t("uim_nothing_selected_short", "Select an element first"));
             return;
         }
+        if (n.locked && n.parent != null && k != 4) {
+            unlockFirst();
+            return;
+        }
         flushHistory();
         String err = null;
         switch (k) {
@@ -626,16 +932,18 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
             case 3: err = UiOps.outdent(n); break;
             case 4: {
                 UINode c = doc.duplicate(n.id);
-                if (c == null) err = Tr.t("uim_root_fixed", "The root cannot be duplicated");
+                if (c == null) err = Tr.t("uim_root_fixed_dup", "The root cannot be duplicated");
                 else selected = c;
                 break;
             }
             case 5: {
                 final String[] types = {UINode.PANEL, UINode.STACK, UINode.LINEAR, UINode.GRID, UINode.SCROLL};
-                Dialogs.choose(act, Tr.t("uim_wrap", "Wrap in a container"), types, i -> {
+                String[] labels = new String[types.length];
+                for (int i = 0; i < types.length; i++) labels[i] = UiTr.widgetName(types[i]);
+                Dialogs.choose(act, Tr.t("uim_wrap", "Wrap in a container"), labels, i -> {
                     String[] e = new String[1];
                     UINode box = UiOps.wrap(doc, n, types[i], e);
-                    if (box == null) Ui.toast(act, e[0]);
+                    if (box == null) Ui.toast(act, UiTr.err(e[0]));
                     else {
                         selected = box;
                         structural();
@@ -659,39 +967,90 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
                 return;
             }
         }
-        if (err != null) Ui.toast(act, err);
+        if (err != null) Ui.toast(act, UiTr.err(err));
         else structural();
     }
 
     // ---- theme
 
+    /** Two-way switch of the Theme tab. */
+    private View segment(String text, boolean on, boolean enabled, View.OnClickListener l) {
+        TextView t = Ui.text(act, text, 13, on ? 0xFFFFFFFF : Ui.TEXT_2);
+        t.setGravity(Gravity.CENTER);
+        t.setMaxLines(1);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        t.setPadding(Ui.dp(act, 12), Ui.dp(act, 9), Ui.dp(act, 12), Ui.dp(act, 9));
+        t.setBackground(Ui.rounded(on ? Ui.ACCENT : Ui.SURFACE_3, Ui.dp(act, 10)));
+        t.setAlpha(enabled ? 1f : 0.4f);
+        if (enabled) t.setOnClickListener(l);
+        return t;
+    }
+
     private View buildTheme() {
         LinearLayout root = Ui.column(act);
         root.setPadding(Ui.dp(act, 12), Ui.dp(act, 8), Ui.dp(act, 12), Ui.dp(act, 24));
+        final UINode sel = selected != null && selected.parent != null ? selected : null;
+        if (sel == null) themeScopeSel = false;
+        // scope: the whole UI, or only the selected element (and what is inside it)
+        LinearLayout scope = Ui.row(act);
+        LinearLayout.LayoutParams sw = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+        sw.setMarginEnd(Ui.dp(act, 6));
+        scope.addView(segment(Tr.t("uim_scope_all", "Whole UI"), !themeScopeSel, true, v -> {
+            themeScopeSel = false;
+            refreshTab();
+        }), sw);
+        scope.addView(segment(sel == null ? Tr.t("uim_scope_sel_none", "Selected element") : String.format(Tr.t("uim_scope_sel", "Selected: %s"), sel.id), themeScopeSel, sel != null, v -> {
+            themeScopeSel = true;
+            refreshTab();
+        }), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        root.addView(scope, Ui.matchWrap());
+
+        if (themeScopeSel && sel != null) {
+            root.addView(Ui.sectionLabel(act, String.format(Tr.t("uim_theme_of", "Look of %s"), sel.id)));
+            final String own = sel.has("theme") ? sel.str("theme", "").trim() : "";
+            LinearLayout chips = Ui.row(act);
+            for (final String p : withEmpty(UITheme.PRESETS)) {
+                chips.addView(UiPropsView.presetChip(act, p, p.equalsIgnoreCase(own), true, v -> {
+                    flushHistory();
+                    String err = UIWidgetRegistry.set(sel, "theme", p);
+                    if (err != null) Ui.toast(act, UiTr.err(err));
+                    edited();
+                    refreshTab();
+                }));
+            }
+            HorizontalScrollView hs = new HorizontalScrollView(act);
+            hs.setHorizontalScrollBarEnabled(false);
+            hs.addView(chips);
+            root.addView(hs, Ui.matchWrap());
+            TextView note = Ui.text(act, Tr.t("uim_theme_sel_note", "Only this element and everything inside it. It uses the chosen preset as it is, so the colors and shape set for the whole UI do not apply to it."), 12, Ui.TEXT_3);
+            note.setPadding(0, Ui.dp(act, 8), 0, 0);
+            root.addView(note);
+        } else {
+            addDocTheme(root);
+        }
+        addDesignSize(root);
+        return root;
+    }
+
+    private static String[] withEmpty(String[] a) {
+        String[] r = new String[a.length + 1];
+        r[0] = "";
+        System.arraycopy(a, 0, r, 1, a.length);
+        return r;
+    }
+
+    /** Preset, colors and numbers of the document theme. */
+    private void addDocTheme(LinearLayout root) {
         root.addView(Ui.sectionLabel(act, Tr.t("uim_theme_preset", "Look of the whole UI")));
         LinearLayout chips = Ui.row(act);
         for (final String p : UITheme.PRESETS) {
             boolean on = p.equalsIgnoreCase(doc.theme.preset);
-            LinearLayout chip = Ui.row(act);
-            chip.setGravity(Gravity.CENTER_VERTICAL);
-            chip.setPadding(Ui.dp(act, 10), Ui.dp(act, 8), Ui.dp(act, 14), Ui.dp(act, 8));
-            chip.setBackground(Ui.rounded(on ? Ui.ACCENT : Ui.SURFACE_3, Ui.dp(act, 18)));
-            View dot = new View(act);
-            UITheme.Look look = UITheme.look(p);
-            dot.setBackground(Ui.rounded(look == null ? Color.GRAY : UiPropsView.toArgb(look.primary), Ui.dp(act, 8), 0xFFFFFFFF, Ui.dp(act, 1)));
-            LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(Ui.dp(act, 16), Ui.dp(act, 16));
-            dl.setMarginEnd(Ui.dp(act, 8));
-            chip.addView(dot, dl);
-            chip.addView(Ui.text(act, p.replace('_', ' '), 13, on ? 0xFFFFFFFF : Ui.TEXT_2));
-            chip.setOnClickListener(v -> {
+            chips.addView(UiPropsView.presetChip(act, p, on, true, v -> {
                 flushHistory();
                 doc.theme.preset = p;
                 edited();
                 refreshTab();
-            });
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            lp.setMarginEnd(Ui.dp(act, 6));
-            chips.addView(chip, lp);
+            }));
         }
         HorizontalScrollView hs = new HorizontalScrollView(act);
         hs.setHorizontalScrollBarEnabled(false);
@@ -707,12 +1066,13 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
             View sw = new View(act);
             sw.setBackground(Ui.rounded(UiPropsView.toArgb(doc.theme.color(role)), Ui.dp(act, 8), Ui.BORDER, Ui.dp(act, 1)));
             r.addView(sw, new LinearLayout.LayoutParams(Ui.dp(act, 44), Ui.dp(act, 34)));
-            TextView t = Ui.text(act, role + (ov == null ? "" : "  " + ov), 14, ov == null ? Ui.TEXT_2 : Ui.TEXT);
+            TextView t = Ui.text(act, UiTr.roleName(role) + (ov == null ? "" : "  " + ov), 14, ov == null ? Ui.TEXT_2 : Ui.TEXT);
             t.setPadding(Ui.dp(act, 10), 0, 0, 0);
             r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
             if (ov != null) {
                 ImageView reset = Ui.smallIcon(act, R.drawable.ic_s2_refresh, Ui.TEXT_3, 20);
                 reset.setPadding(Ui.dp(act, 4), Ui.dp(act, 4), Ui.dp(act, 4), Ui.dp(act, 4));
+                reset.setContentDescription(Tr.t("uim_reset", "Reset"));
                 reset.setOnClickListener(v -> {
                     flushHistory();
                     doc.theme.colors.remove(role);
@@ -721,7 +1081,7 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
                 });
                 r.addView(reset);
             }
-            r.setOnClickListener(v -> ColorPickerDialog.show(act, role, ColorPickerDialog.toHex(UiPropsView.toArgb(doc.theme.color(role))), null, hex -> {
+            r.setOnClickListener(v -> ColorPickerDialog.show(act, UiTr.roleName(role), ColorPickerDialog.toHex(UiPropsView.toArgb(doc.theme.color(role))), null, hex -> {
                 if (hex == null) return;
                 flushHistory();
                 doc.theme.colors.put(role, "#" + hex.toLowerCase(Locale.ROOT));
@@ -755,6 +1115,7 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
             if (has) {
                 ImageView reset = Ui.smallIcon(act, R.drawable.ic_s2_refresh, Ui.TEXT_3, 20);
                 reset.setPadding(Ui.dp(act, 4), Ui.dp(act, 4), Ui.dp(act, 4), Ui.dp(act, 4));
+                reset.setContentDescription(Tr.t("uim_reset", "Reset"));
                 reset.setOnClickListener(v -> {
                     flushHistory();
                     doc.theme.numbers.remove(nm[0]);
@@ -765,7 +1126,9 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
             }
             root.addView(r, Ui.matchWrap());
         }
+    }
 
+    private void addDesignSize(LinearLayout root) {
         root.addView(Ui.sectionLabel(act, Tr.t("uim_design_size", "Design size (used by fit contain / cover)")));
         LinearLayout ds = Ui.row(act);
         ds.setGravity(Gravity.CENTER_VERTICAL);
@@ -783,7 +1146,6 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         });
         ds.addView(use);
         root.addView(ds, Ui.matchWrap());
-        return root;
     }
 
     private static String fmt(float v) {
@@ -793,13 +1155,15 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
     // ------------------------------------------------------------------ device / strip state
 
     private int lw() {
-        int s = DEVICES[device][0], l = DEVICES[device][1];
-        return landscape ? l : s;
+        return curW;
     }
 
     private int lh() {
-        int s = DEVICES[device][0], l = DEVICES[device][1];
-        return landscape ? s : l;
+        return curH;
+    }
+
+    private boolean landscape() {
+        return curW >= curH;
     }
 
     private void applyDevice() {
@@ -809,8 +1173,98 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         render(false, 0f);
     }
 
+    private void setSize(int w, int h) {
+        curW = clampSize(w);
+        curH = clampSize(h);
+        applyDevice();
+    }
+
+    private View sizeSection(String text) {
+        TextView t = Ui.sectionLabel(act, text);
+        return t;
+    }
+
+    private View sizeRow(final String label, final int w, final int h, final AlertDialog[] dlg) {
+        boolean on = w == curW && h == curH;
+        LinearLayout r = Ui.row(act);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setMinimumHeight(Ui.dp(act, 44));
+        r.setPadding(Ui.dp(act, 14), 0, Ui.dp(act, 14), 0);
+        r.setBackgroundColor(on ? Ui.ACCENT_SOFT : Color.TRANSPARENT);
+        TextView t = Ui.text(act, label, 14, on ? Ui.ACCENT : Ui.TEXT);
+        if (on) t.setTypeface(Typeface.DEFAULT_BOLD);
+        r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        if (on) r.addView(Ui.smallIcon(act, R.drawable.ic_s2_check, Ui.ACCENT, 20));
+        r.setOnClickListener(v -> {
+            if (dlg[0] != null) dlg[0].dismiss();
+            setSize(w, h);
+        });
+        return r;
+    }
+
+    /** Screen size picker: phones, tablets and ratio helpers in the current orientation, plus a custom size. */
+    private void showSizePicker() {
+        final boolean land = landscape();
+        final AlertDialog[] dlg = new AlertDialog[1];
+        ScrollView sv = new ScrollView(act);
+        LinearLayout col = Ui.column(act);
+        sv.addView(col);
+        col.addView(sizeSection(Tr.t("uim_size_phones", "Phones")));
+        for (int[] d : PHONES) col.addView(sizeRow(d[land ? 1 : 0] + " x " + d[land ? 0 : 1], d[land ? 1 : 0], d[land ? 0 : 1], dlg), Ui.matchWrap());
+        col.addView(sizeSection(Tr.t("uim_size_tablets", "Tablets")));
+        for (int[] d : TABLETS) col.addView(sizeRow(d[land ? 1 : 0] + " x " + d[land ? 0 : 1], d[land ? 1 : 0], d[land ? 0 : 1], dlg), Ui.matchWrap());
+        col.addView(sizeSection(Tr.t("uim_size_ratios", "Ratios (keeps the long side)")));
+        int longSide = Math.max(curW, curH);
+        int[][] ratios = {{16, 9}, {4, 3}};
+        for (int[] r : ratios) {
+            int shortSide = clampSize(Math.round(longSide * r[1] / (float) r[0]));
+            col.addView(sizeRow(r[0] + ":" + r[1] + "   " + (land ? longSide : shortSide) + " x " + (land ? shortSide : longSide), land ? longSide : shortSide, land ? shortSide : longSide, dlg), Ui.matchWrap());
+        }
+        LinearLayout custom = Ui.row(act);
+        custom.setGravity(Gravity.CENTER_VERTICAL);
+        custom.setMinimumHeight(Ui.dp(act, 48));
+        custom.setPadding(Ui.dp(act, 14), 0, Ui.dp(act, 14), 0);
+        custom.addView(Ui.smallIcon(act, R.drawable.ic_s2_edit, Ui.ACCENT, 20));
+        TextView ct = Ui.text(act, Tr.t("uim_size_custom", "Custom..."), 14, Ui.ACCENT);
+        ct.setPadding(Ui.dp(act, 10), 0, 0, 0);
+        custom.addView(ct);
+        custom.setOnClickListener(v -> {
+            if (dlg[0] != null) dlg[0].dismiss();
+            askCustomSize();
+        });
+        col.addView(custom, Ui.matchWrap());
+        LinearLayout box = Ui.column(act);
+        box.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(act, 380)));
+        dlg[0] = new AlertDialog.Builder(act).setTitle(Tr.t("uim_device", "Screen size")).setView(box)
+                .setNegativeButton(Tr.t("close", "Close"), null).create();
+        dlg[0].show();
+    }
+
+    private static String checkSizeText(String v) {
+        Matcher m = SIZE_TEXT.matcher(v == null ? "" : v);
+        if (!m.matches()) return Tr.t("uim_size_bad", "Write it like 1280x720");
+        int w = Integer.parseInt(m.group(1)), h = Integer.parseInt(m.group(2));
+        if (w < UiPreviewView.MIN_SIZE || h < UiPreviewView.MIN_SIZE || w > UiPreviewView.MAX_SIZE || h > UiPreviewView.MAX_SIZE)
+            return String.format(Tr.t("uim_size_range", "Each side must be between %1$d and %2$d"), UiPreviewView.MIN_SIZE, UiPreviewView.MAX_SIZE);
+        return null;
+    }
+
+    private void askCustomSize() {
+        Dialogs.input(act, Tr.t("uim_size_custom_title", "Custom size"), Tr.t("uim_size_custom_msg", "Width x height in logical pixels, e.g. 1280x720"), curW + "x" + curH,
+                UiMakerDialog::checkSizeText, value -> {
+                    Matcher m = SIZE_TEXT.matcher(value);
+                    if (m.matches()) setSize(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)));
+                });
+    }
+
     private void updateZoomText() {
         zoomText.setText(Math.round(preview.zoom() * 100) + "%");
+    }
+
+    /** Chips that show the size (cheap: used while the phone frame is dragged). */
+    private void updateSizeChips() {
+        orientChip.setText(landscape() ? Tr.t("uim_landscape", "Landscape") : Tr.t("uim_portrait", "Portrait"));
+        deviceChip.setText(lw() + "x" + lh());
     }
 
     private void updateBars() {
@@ -820,8 +1274,7 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         redoBtn.setAlpha(hist.canRedo() ? 1f : 0.35f);
         modeChip.setText(testMode ? Tr.t("uim_mode_test", "Test") + " ▶" : Tr.t("uim_mode_edit", "Edit") + " ✎");
         modeChip.setTextColor(testMode ? Ui.SUCCESS : Ui.TEXT);
-        orientChip.setText(landscape ? Tr.t("uim_landscape", "Landscape") : Tr.t("uim_portrait", "Portrait"));
-        deviceChip.setText(lw() + "x" + lh());
+        updateSizeChips();
         gridChip.setText(GRIDS[gridIdx] == 0 ? Tr.t("uim_grid_off", "Grid off") : Tr.t("uim_grid", "Grid") + " " + GRIDS[gridIdx]);
         bgChip.setText(Tr.t("uim_bg", "Background"));
         updateZoomText();
@@ -997,7 +1450,7 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
         if (type == 0) {
             float k = lastPw / (float) lw();
             UiRects r = preview.rects();
-            UiRects.R hit = r == null ? null : r.hit(px / k, py / k);
+            UiRects.R hit = r == null ? null : r.hit(px / k, py / k, true); // locked elements still work in test mode
             warnedFieldTouch = hit != null && hit.node.type.equals(UINode.TEXTFIELD);
             if (warnedFieldTouch) Ui.toast(act, Tr.t("uim_field_hint", "Typing is not available in the preview: set the field's text in Properties"));
         }
@@ -1011,6 +1464,29 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
     @Override
     public void say(String msg) {
         Ui.toast(act, msg);
+    }
+
+    @Override
+    public void deviceResizeStart() {
+        flushHistory();
+    }
+
+    @Override
+    public void deviceResized(int w, int h) {
+        curW = clampSize(w);
+        curH = clampSize(h);
+        try {
+            // layout of the new size right away, so the selection outline follows while the real picture is being drawn
+            preview.setRects(UiRects.compute(doc, curW, curH, UILayout.APPROX));
+        } catch (Throwable ignored) {
+        }
+        render(false, 0f);
+        updateSizeChips();
+    }
+
+    @Override
+    public void deviceResizeEnd() {
+        applyDevice();
     }
 
     // ---- UiPropsView.Host
@@ -1031,6 +1507,12 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
     }
 
     @Override
+    public void structureChanged() {
+        flushHistory();
+        structural();
+    }
+
+    @Override
     public UiRects.R rectOf(String id) {
         UiRects r = preview == null ? null : preview.rects();
         return r == null ? null : r.get(id);
@@ -1038,6 +1520,7 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
 
     // ------------------------------------------------------------------ save and menus
 
+    /** {@code UI/<n>.ui}; {@code n} may contain folders ("menus/pause"). */
     private File fileFor(String n) {
         return new File(UiMakerLauncher.uiDir(project), n + ".ui");
     }
@@ -1045,12 +1528,16 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
     private boolean save() {
         flushHistory();
         try {
+            File f = fileFor(name);
+            File dir = f.getParentFile();
+            if (dir != null && !dir.isDirectory() && !dir.mkdirs()) throw new java.io.IOException(Tr.t("ui_folder_failed", "Could not create the folder"));
             doc.name = name;
             doc.validate();
-            doc.write(fileFor(name));
+            doc.write(f);
             hist.markSaved();
             fileExists = true;
             updateBars();
+            flashSaved();
             Ui.toast(act, String.format(Tr.t("uim_saved", "Saved %s.ui"), name));
             if (onSaved != null) onSaved.run();
             return true;
@@ -1061,33 +1548,72 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
     }
 
     private void saveAs() {
-        Dialogs.input(act, Tr.t("uim_save_as", "Save as"), Tr.t("uim_save_as_msg", "Name of the UI file (letters, digits, _)"), name, Dialogs::checkName, value -> {
-            final String n = value.trim();
-            if (n.equals(name)) {
+        flushHistory();
+        UiFolders.newUiDialog(act, project, Tr.t("uim_save_as", "Save as"), UiFolders.baseOf(name), UiFolders.folderOf(name), full -> {
+            if (full.equals(name)) {
                 save();
                 return;
             }
-            if (fileFor(n).exists()) {
-                Dialogs.confirm(act, Tr.t("uim_overwrite", "Replace?"), String.format(Tr.t("uim_overwrite_msg", "%s.ui already exists. Replace it?"), n), Tr.t("uim_replace", "Replace"), () -> {
-                    name = n;
+            if (fileFor(full).exists()) {
+                Dialogs.confirm(act, Tr.t("uim_overwrite", "Replace?"), String.format(Tr.t("uim_overwrite_msg", "%s.ui already exists. Replace it?"), full), Tr.t("uim_replace", "Replace"), () -> {
+                    name = full;
                     save();
                 });
             } else {
-                name = n;
+                name = full;
                 save();
             }
         });
     }
 
+    /** "Open another UI...": pick a file (folder by folder), ask about unsaved changes, then load it into this editor. */
+    private void openOther() {
+        UiFolders.pickUi(act, project, name, picked -> {
+            if (picked.equals(name)) {
+                Ui.toast(act, Tr.t("uim_already_open", "This UI is already open"));
+                return;
+            }
+            confirmUnsaved(() -> loadDoc(picked));
+        });
+    }
+
+    private void loadDoc(String newName) {
+        File f = fileFor(newName);
+        if (!f.isFile()) {
+            Ui.toast(act, Tr.t("uim_not_found", "File not found: ") + newName + ".ui");
+            return;
+        }
+        UIDocument d = UIDocument.read(f);
+        main.removeCallbacks(historyFlush);
+        historyPending = false;
+        if (testMode) {
+            testMode = false;
+            main.removeCallbacks(testTick);
+        }
+        doc = d;
+        name = newName;
+        doc.name = name;
+        fileExists = true;
+        hist = new UiHistory(doc);
+        selected = null;
+        lastFrameAt = 0;
+        sizeFromDoc();
+        if (d.warnings.size() > 0) Ui.toast(act, d.warnings.get(0));
+        applyDevice();
+        updateBars();
+        showTab(doc.root.children.isEmpty() ? 0 : 1);
+    }
+
     private void moreMenu() {
-        final String[] items = {Tr.t("uim_save_as", "Save as"), Tr.t("uim_use_template", "Insert a ready-made screen"), Tr.t("uim_json", "Show / copy JSON"),
-                Tr.t("uim_clear", "Clear everything"), Tr.t("uim_warnings", "Layout warnings")};
+        final String[] items = {Tr.t("uim_save_as", "Save as"), Tr.t("uim_open_other", "Open another UI..."), Tr.t("uim_use_template", "Insert a ready-made screen"),
+                Tr.t("uim_json", "Show / copy JSON"), Tr.t("uim_clear", "Clear everything"), Tr.t("uim_warnings", "Layout warnings")};
         Dialogs.choose(act, Tr.t("more", "More"), items, i -> {
             switch (i) {
                 case 0: saveAs(); break;
-                case 1: askTemplate(false); break;
-                case 2: Dialogs.longText(act, name + ".ui", doc.toJsonString()); break;
-                case 3:
+                case 1: openOther(); break;
+                case 2: askTemplate(false); break;
+                case 3: Dialogs.longText(act, name + ".ui", doc.toJsonString()); break;
+                case 4:
                     Dialogs.confirm(act, Tr.t("uim_clear", "Clear everything"), Tr.t("uim_clear_q", "Remove all elements? (undo brings them back)"), Tr.t("uim_clear", "Clear"), () -> {
                         flushHistory();
                         doc.root.children.clear();
@@ -1114,7 +1640,7 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
             keys.add("");
         }
         for (String t : names) {
-            labels.add(Tr.t("uim_tpl_" + t, UiTemplates.INFO.get(t)[0]));
+            labels.add(UiTr.templateName(t));
             keys.add(t);
         }
         Dialogs.choose(act, blankFirst ? Tr.t("uim_start_from", "Start from") : Tr.t("uim_use_template", "Insert a ready-made screen"), labels.toArray(new String[0]), i -> {
@@ -1126,7 +1652,7 @@ public final class UiMakerDialog implements UiPreviewView.Host, UiPropsView.Host
 
     private void showWarnings() {
         int a = Math.max(lw(), lh()), b = Math.min(lw(), lh());
-        List<String> w = UiLint.checkBoth(doc, a, b, UILayout.APPROX);
+        List<String> w = UiLint.checkBoth(doc, a, b, UILayout.APPROX, Tr::t);
         if (w.isEmpty()) {
             Ui.toast(act, Tr.t("uim_no_warnings", "No layout problems found (text sizes are approximate)"));
             return;

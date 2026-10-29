@@ -27,8 +27,27 @@ public final class UiLint {
         }
     }
 
+    /** Gives the sentences of the warnings a translation: {@code t(key, englishFormat)}. The UI Maker passes its own; the AI tool uses English. */
+    public interface Translator {
+        String t(String key, String englishFormat);
+    }
+
+    private static String msg(Translator tr, String key, String english, Object... args) {
+        String f = tr == null ? english : tr.t(key, english);
+        try {
+            return String.format(Locale.ROOT, f, args);
+        } catch (RuntimeException e) {
+            return String.format(Locale.ROOT, english, args); // a broken translation must not break the list
+        }
+    }
+
     /** Checks the document in the given screen size. */
     public static List<String> check(UIDocument doc, float w, float h, UILayout.Measurer m) {
+        return check(doc, w, h, m, null);
+    }
+
+    /** Checks the document in the given screen size, with the sentences in the language of {@code tr} (null = English). */
+    public static List<String> check(UIDocument doc, float w, float h, UILayout.Measurer m, Translator tr) {
         ArrayList<String> out = new ArrayList<>();
         UiRects rects = UiRects.compute(doc, w, h, m);
         String tag = (int) w + "x" + (int) h;
@@ -38,37 +57,41 @@ public final class UiLint {
             if (!r.scrolled && !insideScroll(n)) {
                 float over = Math.max(Math.max(-r.x, r.x + r.w - w), Math.max(-r.y, r.y + r.h - h));
                 if (over > 8 && r.w > 0 && r.h > 0)
-                    out.add("[" + tag + "] '" + n.id + "' (" + n.type + ") leaves the screen by " + Math.round(over) + " px. Use an anchor + margin instead of a big x/y offset, or make it smaller.");
+                    out.add(msg(tr, "uim_lint_offscreen", "[%1$s] '%2$s' (%3$s) leaves the screen by %4$d px. Use an anchor + margin instead of a big x/y offset, or make it smaller.", tag, n.id, n.type, Math.round(over)));
             }
             if (interactive(n) && n.enabled && !(n.type.equals(UINode.SLIDER) && n.bool("vertical", false))) {
                 float minDim = Math.min(r.w, r.h);
                 float need = n.type.equals(UINode.BUTTON) || n.type.equals(UINode.TEXTFIELD) ? MIN_TOUCH : 36f;
                 if (n.type.equals(UINode.SLIDER)) minDim = r.h;
                 if (r.w > 0 && r.h > 0 && minDim < need)
-                    out.add("[" + tag + "] touch target '" + n.id + "' is only " + Math.round(minDim) + " px thick (" + Math.round(need) + " px or more is easy to hit).");
+                    out.add(msg(tr, "uim_lint_touch", "[%1$s] touch target '%2$s' is only %3$d px thick (%4$d px or more is easy to hit).", tag, n.id, Math.round(minDim), Math.round(need)));
             }
             if (n.type.equals(UINode.LABEL) && !n.bool("wrap", false) && n.w != null && n.width().kind == UINode.PX) {
                 float fs = n.num("fontSize", doc.theme.number("fontSize"));
                 float[] tw = (m == null ? UILayout.APPROX : m).text(n.str("text", ""), fs, 0, n);
                 if (tw != null && tw[0] > n.width().v * 1.15f)
-                    out.add("[" + tag + "] label '" + n.id + "' text is wider than its width (" + Math.round(tw[0]) + " > " + Math.round(n.width().v) + " px): set wrap=true, a bigger width or a smaller fontSize.");
+                    out.add(msg(tr, "uim_lint_label", "[%1$s] label '%2$s' text is wider than its width (%3$d > %4$d px): set wrap=true, a bigger width or a smaller fontSize.", tag, n.id, Math.round(tw[0]), Math.round(n.width().v)));
             }
             if (n.type.equals(UINode.BUTTON) && n.has("text") && n.w != null && n.width().kind == UINode.PX) {
                 float fs = n.num("fontSize", doc.theme.number("fontSize"));
                 float[] tw = (m == null ? UILayout.APPROX : m).text(n.str("text", ""), fs, 0, n);
                 if (tw != null && tw[0] > n.width().v - 8)
-                    out.add("[" + tag + "] button '" + n.id + "' text may not fit (" + Math.round(tw[0]) + " px of text in " + Math.round(n.width().v) + " px).");
+                    out.add(msg(tr, "uim_lint_button", "[%1$s] button '%2$s' text may not fit (%3$d px of text in %4$d px).", tag, n.id, Math.round(tw[0]), Math.round(n.width().v)));
             }
         }
-        overlaps(rects, out, tag);
+        overlaps(rects, out, tag, tr);
         return dedupe(out);
     }
 
     /** Portrait and landscape of the same screen size. {@code long}/{@code short} are the sides, e.g. 1280 and 720. */
     public static List<String> checkBoth(UIDocument doc, float longSide, float shortSide, UILayout.Measurer m) {
+        return checkBoth(doc, longSide, shortSide, m, null);
+    }
+
+    public static List<String> checkBoth(UIDocument doc, float longSide, float shortSide, UILayout.Measurer m, Translator tr) {
         ArrayList<String> out = new ArrayList<>();
-        out.addAll(check(doc, shortSide, longSide, m));
-        out.addAll(check(doc, longSide, shortSide, m));
+        out.addAll(check(doc, shortSide, longSide, m, tr));
+        out.addAll(check(doc, longSide, shortSide, m, tr));
         return out;
     }
 
@@ -77,7 +100,7 @@ public final class UiLint {
         return false;
     }
 
-    private static void overlaps(UiRects rects, ArrayList<String> out, String tag) {
+    private static void overlaps(UiRects rects, ArrayList<String> out, String tag, Translator tr) {
         ArrayList<UiRects.R> list = new ArrayList<>();
         for (UiRects.R r : rects.rects.values()) if (r.shown && r.node.parent != null && interactive(r.node) && r.node.enabled) list.add(r);
         for (int i = 0; i < list.size(); i++) {
@@ -89,7 +112,7 @@ public final class UiLint {
                 if (ox <= 2 || oy <= 2) continue;
                 float ov = ox * oy, small = Math.min(a.area(), b.area());
                 if (small > 0 && ov / small > 0.25f)
-                    out.add("[" + tag + "] '" + a.node.id + "' and '" + b.node.id + "' overlap (" + Math.round(100 * ov / small) + "% of the smaller). Put them in a Linear/Grid or give them different anchors.");
+                    out.add(msg(tr, "uim_lint_overlap", "[%1$s] '%2$s' and '%3$s' overlap (%4$d%% of the smaller). Put them in a Linear/Grid or give them different anchors.", tag, a.node.id, b.node.id, Math.round(100 * ov / small)));
             }
         }
     }
