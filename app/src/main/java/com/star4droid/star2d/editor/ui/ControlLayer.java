@@ -732,7 +732,15 @@ public class ControlLayer extends Table {
 				java.lang.reflect.Method method = item.getClass().getMethod("setDefault");
 				Object[] objs = null;
 				method.invoke(item,objs);
-			} catch(Exception e){}
+			} catch(Exception e){
+				Throwable c = e.getCause() != null ? e.getCause() : e;
+				Gdx.files.external("logs/add_body.error.txt").writeString(Utils.getStackTraceString(c)+"\n",true);
+			}
+			if(item.getPropertySet()==null){
+				((Actor)item).remove();
+				app.toast("Error : could not create the default properties of "+item.getClass().getSimpleName()+" (see logs/add_body.error.txt)");
+				return;
+			}
 			item.getPropertySet().put("z",pos == 10 ? Math.max(100, app.getEditor().getActors().size) : app.getEditor().getActors().size);
 			app.getEditor().selectActor((Actor)item);
 			EditorAction.itemAdded(app.getEditor(),(Actor)item);

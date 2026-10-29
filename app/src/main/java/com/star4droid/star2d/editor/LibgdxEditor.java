@@ -156,6 +156,10 @@ public class LibgdxEditor extends Stage {
 	}
 	
 	public void toast(String message,int duration){
+		if(com.star4droid.star2d.ui.Snack.isError(message) && com.star4droid.star2d.ui.Snack.activity()!=null){
+			com.star4droid.star2d.ui.Snack.show(message);
+			return;
+		}
 	    if(toastManager==null) return;
 		toastManager.toFront();
 		toastManager.show(message,duration);

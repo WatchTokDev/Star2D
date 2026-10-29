@@ -49,16 +49,35 @@ public final class Snack {
         show(text, null, null);
     }
 
+    /** Error-looking texts always get a Copy button and stay longer, so they can be reported. */
+    public static boolean isError(String text) {
+        if (text == null) return false;
+        String l = text.toLowerCase(java.util.Locale.ROOT);
+        return l.contains("error") || l.contains("exception") || l.contains("failed") || l.contains("failure")
+                || l.contains("\u062E\u0637\u0623") || l.contains("\u0641\u0634\u0644");
+    }
+
     public static void show(String text, String action, Runnable onAction) {
+        final boolean err = isError(text);
+        if (err && action == null) {
+            action = Tr.t("copy", "Copy");
+            final String full = text;
+            onAction = () -> {
+                Activity a = current.get();
+                if (a != null) Dialogs.copy(a, full);
+            };
+        }
+        final String act = action;
+        final Runnable onAct = onAction;
         H.post(() -> {
             Activity a = current.get();
             if (a == null || a.isFinishing()) return;
-            showIn(a, text, action, onAction);
+            showIn(a, text, act, onAct, err);
         });
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private static void showIn(Activity a, String text, String action, Runnable onAction) {
+    private static void showIn(Activity a, String text, String action, Runnable onAction, boolean err) {
         ViewGroup content = a.findViewById(android.R.id.content);
         if (content == null) return;
         View old = shown.get();
@@ -71,7 +90,8 @@ public final class Snack {
         bar.setPadding(Ui.dp(a, 16), Ui.dp(a, 11), Ui.dp(a, 10), Ui.dp(a, 11));
         bar.setMinimumHeight(Ui.dp(a, 48));
         TextView t = Ui.text(a, text, 14, Ui.TEXT);
-        t.setMaxLines(4);
+        t.setMaxLines(err ? 8 : 4);
+        if (err) t.setTextIsSelectable(false);
         bar.addView(t, Ui.weight(1));
         if (action != null) {
             TextView b = Ui.text(a, action, 14, 0xFF64B5F6);
@@ -116,12 +136,14 @@ public final class Snack {
         bar.setTranslationY(Ui.dp(a, 40));
         bar.setAlpha(0);
         bar.animate().translationY(0).alpha(1).setDuration(180).start();
-        scheduleHide(bar);
+        scheduleHide(bar, err ? 9000 : 3200);
     }
 
-    private static void scheduleHide(View v) {
+    private static void scheduleHide(View v) { scheduleHide(v, 3200); }
+
+    private static void scheduleHide(View v, long ms) {
         hideTask = () -> dismiss(v, 0);
-        H.postDelayed(hideTask, 3200);
+        H.postDelayed(hideTask, ms);
     }
 
     private static void dismiss(View v, int dir) {

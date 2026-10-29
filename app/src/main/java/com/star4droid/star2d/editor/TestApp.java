@@ -737,6 +737,11 @@ public class TestApp implements ApplicationListener {
 	}
 	
 	public void toast(String message,int duration){
+		// errors go to the Android snackbar (with a Copy button)
+		if(com.star4droid.star2d.ui.Snack.isError(message) && com.star4droid.star2d.ui.Snack.activity()!=null){
+			com.star4droid.star2d.ui.Snack.show(message);
+			return;
+		}
 		//if(toastManager==null) return;
 		ToastManager currentManager = (editors.size == 0 && projectAssetLoader == null) ? mainToastManager : toastManager;
 		currentManager.toFront();
