@@ -92,6 +92,11 @@ public class UIView extends ClipGroup {
         return doc.theme;
     }
 
+    /** Theme of one node: its own "theme" setting (or the nearest parent's), else the document theme. */
+    public UITheme theme(UINode n) {
+        return UITheme.forNode(n, doc.theme);
+    }
+
     public UIView setEvents(UIEvents e) {
         this.events = e;
         return this;

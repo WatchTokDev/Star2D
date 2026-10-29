@@ -98,6 +98,41 @@ public class UITheme {
         return look(preset);
     }
 
+    // ------------------------------------------------------------------ per-node theme
+
+    private transient java.util.HashMap<String, UITheme> variants;
+
+    /** A theme that uses another preset but keeps this one's font (one is made per preset and reused). */
+    public UITheme variant(String presetName) {
+        if (presetName == null || presetName.isEmpty() || !isPreset(presetName) || presetName.equalsIgnoreCase(preset) && colors.isEmpty() && numbers.isEmpty() && images.isEmpty())
+            return this;
+        if (variants == null) variants = new java.util.HashMap<>();
+        String key = presetName.toLowerCase(Locale.ROOT) + "|" + font;
+        UITheme v = variants.get(key);
+        if (v == null) {
+            v = new UITheme();
+            v.preset = presetName;
+            v.font = font;
+            variants.put(key, v);
+        }
+        return v;
+    }
+
+    /**
+     * The theme to use for a node: the {@code theme} setting of the node (a preset name) or of its nearest parent that has one,
+     * otherwise {@code base} (the whole document's theme). A node with its own theme ignores the document's color / number overrides.
+     */
+    public static UITheme forNode(UINode n, UITheme base) {
+        if (base == null) base = new UITheme();
+        for (UINode p = n; p != null; p = p.parent) {
+            if (p.has("theme")) {
+                String t = p.str("theme", "").trim();
+                if (!t.isEmpty() && isPreset(t)) return base.variant(t);
+            }
+        }
+        return base;
+    }
+
     // ------------------------------------------------------------------ resolved values
 
     /** RGBA8888 color of a role ("primary", "text", ...) honouring overrides. Unknown roles return the text color. */

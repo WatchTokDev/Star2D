@@ -66,6 +66,8 @@ public class UINode {
     /** "120", "50%", "wrap", "fill" or null (type default). */
     public String w, h;
     public boolean visible = true, enabled = true;
+    /** Editor only: a locked node cannot be selected / moved / resized in the UI Maker preview. The game ignores it. */
+    public boolean locked = false;
     public float alpha = 1f;
     /** Share of the free space in a Linear parent (0 = none). */
     public float weight = 0f;
@@ -372,6 +374,7 @@ public class UINode {
         if (h != null) o.add("h", sizeJson(h));
         if (!visible) o.addProperty("visible", false);
         if (!enabled) o.addProperty("enabled", false);
+        if (locked) o.addProperty("locked", true);
         if (alpha != 1f) o.addProperty("alpha", alpha);
         if (weight != 0f) o.addProperty("weight", weight);
         if (touchable != null) o.addProperty("touchable", touchable);
@@ -406,6 +409,7 @@ public class UINode {
         else if (o.has("height")) n.h = sizeStr(o.get("height"));
         n.visible = bool(o, "visible", true);
         n.enabled = bool(o, "enabled", true);
+        n.locked = bool(o, "locked", false);
         n.alpha = number(o, "alpha", 1);
         n.weight = number(o, "weight", 0);
         if (o.has("touchable") && !o.get("touchable").isJsonNull()) n.touchable = o.get("touchable").getAsString();
@@ -497,6 +501,7 @@ public class UINode {
         h = o.h;
         visible = o.visible;
         enabled = o.enabled;
+        locked = o.locked;
         alpha = o.alpha;
         weight = o.weight;
         touchable = o.touchable;

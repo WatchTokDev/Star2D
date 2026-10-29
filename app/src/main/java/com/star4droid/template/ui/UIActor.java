@@ -46,7 +46,7 @@ public class UIActor extends ClipGroup {
         boolean needTransform = sc != 1f || node.num("rotation", 0f) != 0f || wantsTransform();
         setTransform(needTransform);
         getColor().a = node.alpha;
-        if (node.has("tint")) setTintColor(UIParts.color(view.theme().resolveColor(node.str("tint", ""), 0xffffffff)));
+        if (node.has("tint")) setTintColor(UIParts.color(view.theme(node).resolveColor(node.str("tint", ""), 0xffffffff)));
         else tint = null;
         setVisible(node.visible);
         applyTouch();

@@ -427,10 +427,9 @@ public class FilesPanel implements PanelHost.Panel {
                 && f.getParentFile().getParentFile().getAbsolutePath().equals(rootDir.getAbsolutePath())) {
             shell.panels.hide();
             com.star4droid.star2d.ui.AnimationEditorActivity.open(shell.activity(), f.getAbsolutePath(), new File(rootDir, "images").getAbsolutePath());
-        } else if (n.endsWith(".ui") && parent.equals("ui") && f.getParentFile().getParentFile() != null
-                && f.getParentFile().getParentFile().getAbsolutePath().equals(rootDir.getAbsolutePath())) {
+        } else if (n.endsWith(".ui") && uiName(f) != null) {
             shell.panels.hide();
-            com.star4droid.star2d.ui.UiMakerLauncher.open(shell.activity(), rootDir.getAbsolutePath(), f.getName().substring(0, f.getName().length() - 3), this::reload);
+            com.star4droid.star2d.ui.UiMakerLauncher.open(shell.activity(), rootDir.getAbsolutePath(), uiName(f), this::reload);
         } else if (n.endsWith(".s2df")) {
             shell.panels.hide();
             Bridge.gl(() -> Bridge.app().getFileBrowser().openFontEditor(Gdx.files.absolute(f.getParent()), Gdx.files.absolute(f.getAbsolutePath())));
@@ -631,14 +630,18 @@ public class FilesPanel implements PanelHost.Panel {
         shell.panels.show(new ButtonMakerPanel(shell, images, spec, name, null));
     }
 
-    /** Asks for a name and opens the UI Maker on a new {@code UI/<name>.ui}. */
+    /** "folder/name" of a .ui file anywhere under the project's UI folder, or null when the file is not inside it. */
+    private String uiName(File f) {
+        String root = new File(rootDir, "UI").getAbsolutePath() + File.separator;
+        String p = f.getAbsolutePath();
+        if (!p.startsWith(root) || !p.toLowerCase(Locale.ROOT).endsWith(".ui")) return null;
+        return p.substring(root.length(), p.length() - 3).replace(File.separatorChar, '/');
+    }
+
+    /** Asks for a name (and a folder) and opens the UI Maker on a new {@code UI/<folder>/<name>.ui}. */
     private void newUi(Context c) {
-        Dialogs.input(c, Tr.t("ui_new_title", "New UI"), Tr.t("ui_new_msg", "Name (A-Z a-z 0-9 _)"), "", name -> {
-            String err = Dialogs.checkName(name);
-            if (err != null) return err;
-            if (new File(rootDir, "UI/" + name.trim() + ".ui").exists()) return Tr.t("ui_name_used", "A UI with this name already exists");
-            return null;
-        }, name -> com.star4droid.star2d.ui.UiMakerLauncher.open(shell.activity(), rootDir.getAbsolutePath(), name.trim(), this::reload));
+        com.star4droid.star2d.ui.uimaker.UiFolders.newUiDialog(c, rootDir.getAbsolutePath(), Tr.t("ui_new_title", "New UI"), "", "",
+                full -> com.star4droid.star2d.ui.UiMakerLauncher.open(shell.activity(), rootDir.getAbsolutePath(), full, this::reload));
     }
 
     private void createMenu(Context c, View anchor) {

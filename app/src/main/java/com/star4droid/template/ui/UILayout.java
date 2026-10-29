@@ -102,7 +102,7 @@ public final class UILayout {
 
     private static UINode.Size hSpec(UINode n, Ctx c) {
         UINode.Size s = n.height();
-        return s.kind == UINode.AUTO ? defaultHeight(n, c.theme) : s;
+        return s.kind == UINode.AUTO ? defaultHeight(n, UITheme.forNode(n, c.theme)) : s;
     }
 
     // ------------------------------------------------------------------ internals
@@ -137,7 +137,7 @@ public final class UILayout {
     }
 
     static float fontSize(UINode n, Ctx c) {
-        return n.num("fontSize", c.theme.number("fontSize"));
+        return n.num("fontSize", UITheme.forNode(n, c.theme).number("fontSize"));
     }
 
     /** Visible nodes only: invisible nodes take no room (like "gone"). */

@@ -27,6 +27,27 @@ public final class Snack {
     private static WeakReference<View> shown = new WeakReference<>(null);
     private static final Handler H = new Handler(Looper.getMainLooper());
     private static Runnable hideTask;
+    /** Windows of their own (the UI Maker dialog) cover the activity: snackbars go into the top-most registered host instead. */
+    private static final java.util.ArrayList<WeakReference<FrameLayout>> HOSTS = new java.util.ArrayList<>();
+
+    public static void pushHost(FrameLayout host) {
+        HOSTS.add(new WeakReference<>(host));
+    }
+
+    public static void popHost(FrameLayout host) {
+        for (int i = HOSTS.size() - 1; i >= 0; i--) {
+            FrameLayout f = HOSTS.get(i).get();
+            if (f == null || f == host) HOSTS.remove(i);
+        }
+    }
+
+    private static ViewGroup topHost(Activity a) {
+        for (int i = HOSTS.size() - 1; i >= 0; i--) {
+            FrameLayout f = HOSTS.get(i).get();
+            if (f != null && f.isAttachedToWindow()) return f;
+        }
+        return a.findViewById(android.R.id.content);
+    }
 
     /** Track the resumed activity (call once from Application.onCreate). */
     public static void install(Application app) {
@@ -78,7 +99,7 @@ public final class Snack {
 
     @SuppressLint("ClickableViewAccessibility")
     private static void showIn(Activity a, String text, String action, Runnable onAction, boolean err) {
-        ViewGroup content = a.findViewById(android.R.id.content);
+        ViewGroup content = topHost(a);
         if (content == null) return;
         View old = shown.get();
         if (old != null && old.getParent() instanceof ViewGroup) ((ViewGroup) old.getParent()).removeView(old);

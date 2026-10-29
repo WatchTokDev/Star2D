@@ -32,15 +32,21 @@ public final class UiMakerLauncher {
         return new java.io.File(projectPath, "UI");
     }
 
-    /** Names (without .ui) of the UI files in the project, sorted. */
+    /** Names (without .ui) of the UI files in the project, sorted. Files in sub folders are "folder/name". */
     public static java.util.ArrayList<String> list(String projectPath) {
         java.util.ArrayList<String> out = new java.util.ArrayList<>();
-        java.io.File[] fs = uiDir(projectPath).listFiles();
-        if (fs != null)
-            for (java.io.File f : fs)
-                if (f.isFile() && f.getName().toLowerCase().endsWith(".ui"))
-                    out.add(f.getName().substring(0, f.getName().length() - 3));
+        collect(uiDir(projectPath), "", out, 0);
         java.util.Collections.sort(out);
         return out;
+    }
+
+    private static void collect(java.io.File dir, String prefix, java.util.ArrayList<String> out, int depth) {
+        java.io.File[] fs = dir.listFiles();
+        if (fs == null || depth > 6) return;
+        for (java.io.File f : fs) {
+            if (f.isDirectory()) collect(f, prefix + f.getName() + "/", out, depth + 1);
+            else if (f.isFile() && f.getName().toLowerCase().endsWith(".ui"))
+                out.add(prefix + f.getName().substring(0, f.getName().length() - 3));
+        }
     }
 }

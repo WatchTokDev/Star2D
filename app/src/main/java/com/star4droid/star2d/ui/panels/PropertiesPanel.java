@@ -558,41 +558,33 @@ public class PropertiesPanel implements PanelHost.Panel {
                 LinearLayout r = Ui.row(c);
                 r.addView(Ui.button(c, R.drawable.ic_s2_edit, Tr.t("ui_edit", "Edit"), true, v ->
                         Bridge.query(() -> Bridge.editor().getProject().getPath(), path -> {
-                            java.util.ArrayList<String> names = UiMakerLauncher.list(path);
                             String cur = values.get(f) == null ? "" : values.get(f);
-                            if (names.remove(cur)) names.add(0, cur);
-                            if (names.isEmpty()) {
+                            if (UiMakerLauncher.list(path).isEmpty()) {
                                 Ui.toast(c, Tr.t("ui_none_yet", "No UI files yet - press New"));
                                 return;
                             }
-                            Dialogs.choose(c, Tr.t("ui_choose", "Choose UI"), names.toArray(new String[0]), i -> {
-                                String nv = names.get(i);
+                            // browse UI/ folder by folder
+                            com.star4droid.star2d.ui.uimaker.UiFolders.pickUi(c, path, cur, nv -> {
                                 if (!nv.equals(cur)) setUi.accept(nv);
                                 openMaker.accept(nv);
                             });
                         })), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
                 r.addView(Ui.button(c, R.drawable.ic_s2_add, Tr.t("ui_new", "New"), false, v ->
-                        Bridge.query(() -> Bridge.editor().getProject().getPath(), path ->
-                                Dialogs.input(c, Tr.t("ui_new_title", "New UI"), Tr.t("ui_new_msg", "Name (A-Z a-z 0-9 _)"), "", name -> {
-                                    if (name == null || name.trim().isEmpty()) return Tr.t("ui_name_empty", "Enter a name");
-                                    for (char ch : name.toCharArray())
-                                        if (!Character.isLetterOrDigit(ch) && ch != '_') return Tr.t("ui_name_chars", "Use A-Z a-z 0-9 or _");
-                                    if (new java.io.File(UiMakerLauncher.uiDir(path), name + ".ui").exists())
-                                        return Tr.t("ui_name_used", "A UI with this name already exists");
-                                    return null;
-                                }, name -> {
-                                    java.io.File dir = UiMakerLauncher.uiDir(path);
-                                    dir.mkdirs();
-                                    java.io.File file = new java.io.File(dir, name + ".ui");
-                                    try {
-                                        com.star4droid.star2d.ui.uimaker.UiOps.newDocument(name, 360, 640).write(file);
-                                    } catch (Exception e) {
-                                        Ui.toast(c, String.valueOf(e.getMessage()));
-                                        return;
-                                    }
-                                    setUi.accept(name);
-                                    openMaker.accept(name);
-                                }))), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+                        Bridge.query(() -> Bridge.editor().getProject().getPath(), path -> {
+                            String cur = values.get(f) == null ? "" : values.get(f);
+                            com.star4droid.star2d.ui.uimaker.UiFolders.newUiDialog(c, path, Tr.t("ui_new_title", "New UI"), "",
+                                    com.star4droid.star2d.ui.uimaker.UiFolders.folderOf(cur), full -> {
+                                        java.io.File file = new java.io.File(UiMakerLauncher.uiDir(path), full + ".ui");
+                                        try {
+                                            com.star4droid.star2d.ui.uimaker.UiOps.newDocument(full, 360, 640).write(file);
+                                        } catch (Exception e) {
+                                            Ui.toast(c, String.valueOf(e.getMessage()));
+                                            return;
+                                        }
+                                        setUi.accept(full);
+                                        openMaker.accept(full);
+                                    });
+                        })), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
                 box.addView(t, Ui.matchWrap());
                 box.addView(r, Ui.matchWrap());
                 editors.put(f, t);
@@ -724,11 +716,8 @@ public class PropertiesPanel implements PanelHost.Panel {
         if (pid.isEmpty()) {
             instKey = "";
             overridden.clear();
-            if ("Group".equals(type)) showGroupBar(name);
-            else {
-                instanceBar.removeAllViews();
-                instanceBar.setVisibility(View.GONE);
-            }
+            // any element can become a prefab (a Group is wrapped around a plain element); only a Group can also be linked
+            showGroupBar(name, "Group".equals(type));
             return;
         }
         String key = name + "|" + pid + "|" + (v.get("prefab") == null ? "" : v.get("prefab"));
@@ -829,14 +818,14 @@ public class PropertiesPanel implements PanelHost.Panel {
         instanceBar.addView(card, Ui.margins(Ui.matchWrap(), c, 0, 2, 0, 4));
     }
 
-    private void showGroupBar(String name) {
+    private void showGroupBar(String name, boolean group) {
         Context c = instanceBar.getContext();
         instanceBar.removeAllViews();
         instanceBar.setVisibility(View.VISIBLE);
         LinearLayout card = barCard(c);
         LinearLayout btns = Ui.row(c);
         btns.addView(barButton(c, com.star4droid.star2d.ui.PrefabUi.ICON, Tr.t("prefab_save_as", "Save as prefab"), false, v -> com.star4droid.star2d.ui.PrefabUi.saveAsPrefab(shell, name)));
-        btns.addView(barButton(c, R.drawable.ic_s2_link, Tr.t("prefab_link", "Link to prefab…"), false, v -> com.star4droid.star2d.ui.PrefabUi.link(shell, name)));
+        if (group) btns.addView(barButton(c, R.drawable.ic_s2_link, Tr.t("prefab_link", "Link to prefab…"), false, v -> com.star4droid.star2d.ui.PrefabUi.link(shell, name)));
         card.addView(btns, Ui.matchWrap());
         instanceBar.addView(card, Ui.margins(Ui.matchWrap(), c, 0, 2, 0, 4));
     }

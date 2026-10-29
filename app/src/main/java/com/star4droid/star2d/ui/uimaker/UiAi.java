@@ -69,10 +69,13 @@ public final class UiAi {
     }
 
     private static String nameOf(JsonObject a) {
-        String n = s(a, "name").replaceAll("(?i)\\.ui$", "");
-        if (n.isEmpty()) throw new Error("name is required (the UI file name without .ui, letters/digits/_, e.g. hud)");
-        for (char c : n.toCharArray())
-            if (!(Character.isLetterOrDigit(c) && c < 128) && c != '_') throw new Error("name '" + n + "' must use letters, digits and _ only");
+        String n = s(a, "name").replaceAll("(?i)\\.ui$", "").replace('\\', '/');
+        if (n.isEmpty()) throw new Error("name is required (the UI file name without .ui, letters/digits/_, e.g. hud; a folder is allowed: menus/pause)");
+        for (String part : n.split("/", -1)) {
+            if (part.isEmpty()) throw new Error("name '" + n + "' has an empty folder or file part");
+            for (char c : part.toCharArray())
+                if (!(Character.isLetterOrDigit(c) && c < 128) && c != '_') throw new Error("name '" + n + "' must use letters, digits and _ only (folders separated with /)");
+        }
         return n;
     }
 
@@ -109,10 +112,18 @@ public final class UiAi {
 
     static ArrayList<String> names(String project) {
         ArrayList<String> out = new ArrayList<>();
-        File[] fs = new File(project, "UI").listFiles();
-        if (fs != null) for (File f : fs) if (f.isFile() && f.getName().toLowerCase(Locale.ROOT).endsWith(".ui")) out.add(f.getName().substring(0, f.getName().length() - 3));
+        collect(new File(project, "UI"), "", out, 0);
         java.util.Collections.sort(out);
         return out;
+    }
+
+    private static void collect(File dir, String prefix, ArrayList<String> out, int depth) {
+        File[] fs = dir.listFiles();
+        if (fs == null || depth > 6) return;
+        for (File f : fs) {
+            if (f.isDirectory()) collect(f, prefix + f.getName() + "/", out, depth + 1);
+            else if (f.isFile() && f.getName().toLowerCase(Locale.ROOT).endsWith(".ui")) out.add(prefix + f.getName().substring(0, f.getName().length() - 3));
+        }
     }
 
     // ------------------------------------------------------------------ list / describe

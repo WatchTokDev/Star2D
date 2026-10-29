@@ -25,15 +25,15 @@ final class UIWidgets {
     // ------------------------------------------------------------------ helpers
 
     static BitmapFont fontOf(UIView v, UINode n) {
-        return UIAssets.font(v.projectPath(), n.has("font") ? n.str("font", "") : v.theme().font);
+        return UIAssets.font(v.projectPath(), n.has("font") ? n.str("font", "") : v.theme(n).font);
     }
 
     static float sizeOf(UIView v, UINode n) {
-        return n.num("fontSize", v.theme().number("fontSize"));
+        return n.num("fontSize", v.theme(n).number("fontSize"));
     }
 
     static int textColor(UIView v, UINode n) {
-        return v.theme().resolveColor(n.str("color", ""), v.theme().color("text"));
+        return v.theme(n).resolveColor(n.str("color", ""), v.theme(n).color("text"));
     }
 
     static UIParts.Text label(UIView v, UINode n, String text, int color) {
@@ -79,7 +79,7 @@ final class UIWidgets {
         protected void onLayout() {
             if (bg != null) bg.remove();
             bg = null;
-            UITheme th = view.theme();
+            UITheme th = view.theme(node);
             Drawable img = project(view, node, "image");
             if (img != null) {
                 bg = new UIParts.Pic(img);
@@ -152,7 +152,7 @@ final class UIWidgets {
             pic.setOrigin(node.rw / 2f, node.rh / 2f);
             pic.setScale(node.bool("flipX", false) ? -1 : 1, node.bool("flipY", false) ? -1 : 1);
             pic.setTouchable(Touchable.disabled);
-            if (node.type.equals(UINode.ICON)) pic.setColor(UIParts.color(view.theme().resolveColor(node.str("color", "text"), view.theme().color("text"))));
+            if (node.type.equals(UINode.ICON)) pic.setColor(UIParts.color(view.theme(node).resolveColor(node.str("color", "text"), view.theme(node).color("text"))));
             addActor(pic);
             setClip(sc.equals("fill"));
         }
@@ -173,7 +173,7 @@ final class UIWidgets {
 
         ButtonW(UIView v, UINode n) {
             super(v, n);
-            text = label(v, n, n.str("text", ""), UIArt.buttonTextColor(n, v.theme()));
+            text = label(v, n, n.str("text", ""), UIArt.buttonTextColor(n, v.theme(n)));
             addActor(text);
             click = new ClickListener() {
                 @Override
@@ -223,7 +223,7 @@ final class UIWidgets {
 
         void updateVisual() {
             if (bg == null) return;
-            UITheme th = view.theme();
+            UITheme th = view.theme(node);
             Drawable img = project(view, node, "image");
             if (img != null) {
                 Drawable pr = pressed ? project(view, node, "pressedImage") : null;
@@ -244,12 +244,12 @@ final class UIWidgets {
         @Override
         protected void onLayout() {
             if (bg == null) {
-                bg = new UIParts.Pic(UIAssets.art(UIArt.button(node, view.theme(), Math.max(4, node.rw), Math.max(4, node.rh), false)));
+                bg = new UIParts.Pic(UIAssets.art(UIArt.button(node, view.theme(node), Math.max(4, node.rw), Math.max(4, node.rh), false)));
                 bg.setTouchable(Touchable.disabled);
                 addActorAt(0, bg);
             }
             updateVisual();
-            UITheme th = view.theme();
+            UITheme th = view.theme(node);
             float w = node.rw, h = node.rh, fs = sizeOf(view, node);
             BitmapFont f = fontOf(view, node);
             text.setFontScale(UIAssets.fontScale(f, fs));
@@ -377,7 +377,7 @@ final class UIWidgets {
             float f = fraction(shown);
             float w = node.rw, h = node.rh;
             float tx = vertical ? (w - thick) / 2f : 0, ty = vertical ? 0 : (h - thick) / 2f;
-            UIStyles.Spec sp = UIStyles.spec(node, view.theme());
+            UIStyles.Spec sp = UIStyles.spec(node, view.theme(node));
             float bw = sp.f("trackBorder", 0);
             if (slider) {
                 float c = vertical ? kh / 2f + (len - kh) * f : kw / 2f + (len - kw) * f; // distance of the knob center from the start
@@ -418,7 +418,7 @@ final class UIWidgets {
 
         @Override
         protected void onLayout() {
-            UITheme th = view.theme();
+            UITheme th = view.theme(node);
             vertical = node.bool("vertical", false);
             min = node.num("min", 0);
             max = node.num("max", slider ? 1 : 100);
@@ -561,7 +561,7 @@ final class UIWidgets {
         protected void onLayout() {
             float bs = boxSize();
             if (box != null) box.remove();
-            UIArt.Art a = UIArt.check(node, view.theme(), bs, checked);
+            UIArt.Art a = UIArt.check(node, view.theme(node), bs, checked);
             box = pic(a);
             box.setPosition(-a.margin, (node.rh - bs) / 2f - a.margin);
             addActorAt(0, box);
@@ -605,7 +605,7 @@ final class UIWidgets {
             if (c == on) return;
             on = c;
             node.set("checked", c);
-            UIArt.Art a = UIArt.switchTrack(node, view.theme(), node.rw, node.rh, on);
+            UIArt.Art a = UIArt.switchTrack(node, view.theme(node), node.rw, node.rh, on);
             setArt(track, a);
             if (fire) view.fireChange(this, c);
         }
@@ -614,8 +614,8 @@ final class UIWidgets {
         protected void onLayout() {
             if (track != null) track.remove();
             if (knob != null) knob.remove();
-            track = pic(UIArt.switchTrack(node, view.theme(), node.rw, node.rh, on));
-            UIArt.Art ka = UIArt.switchKnob(node, view.theme(), node.rh);
+            track = pic(UIArt.switchTrack(node, view.theme(node), node.rw, node.rh, on));
+            UIArt.Art ka = UIArt.switchKnob(node, view.theme(node), node.rh);
             knob = new UIParts.Pic(UIAssets.art(ka));
             knob.setSize(ka.drawW, ka.drawH);
             knob.setTouchable(Touchable.disabled);
@@ -663,7 +663,7 @@ final class UIWidgets {
 
         @Override
         protected void onLayout() {
-            UITheme th = view.theme();
+            UITheme th = view.theme(node);
             String keep = field != null ? field.getText() : node.str("text", "");
             if (field != null) field.remove();
             if (bg != null) bg.remove();
@@ -720,7 +720,7 @@ final class UIWidgets {
                 @Override
                 public void keyboardFocusChanged(FocusEvent event, Actor actor, boolean f) {
                     focused = f;
-                    setArt(bg, UIArt.textField(node, view.theme(), node.rw, node.rh, f));
+                    setArt(bg, UIArt.textField(node, view.theme(node), node.rw, node.rh, f));
                 }
             });
             addActor(field);
@@ -759,7 +759,7 @@ final class UIWidgets {
 
         @Override
         protected void onLayout() {
-            UITheme th = view.theme();
+            UITheme th = view.theme(node);
             if (bg != null) bg.remove();
             bg = null;
             if (node.has("bgColor")) {

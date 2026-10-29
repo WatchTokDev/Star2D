@@ -34,6 +34,8 @@ public final class UIWidgetRegistry {
         public String[] options = new String[0];
         /** True when a value is only shown/needed if another property is set (for editors that hide advanced fields). */
         public boolean advanced;
+        /** True for the properties every widget type has (so translations can share one key per property). */
+        public boolean common;
 
         Prop(String key, String label, Kind kind, boolean where, String def, String group, String desc) {
             this.key = key;
@@ -80,8 +82,16 @@ public final class UIWidgetRegistry {
 
     public static final String G_LAYOUT = "Layout", G_LOOK = "Appearance", G_BEHAVIOR = "Behavior", G_TEXT = "Text", G_VALUE = "Value", G_ADV = "Advanced";
 
+    private static String[] withEmpty(String[] a) {
+        String[] r = new String[a.length + 1];
+        r[0] = "";
+        System.arraycopy(a, 0, r, 1, a.length);
+        return r;
+    }
+
     private static Prop p(ArrayList<Prop> l, String key, String label, Kind k, boolean where, String def, String group, String desc) {
         Prop pr = new Prop(key, label, k, where, def, group, desc);
+        pr.common = l == COMMON;
         l.add(pr);
         return pr;
     }
@@ -118,6 +128,8 @@ public final class UIWidgetRegistry {
         p(c, "enabled", "Enabled", Kind.BOOL, NODE, "true", G_BEHAVIOR, "false: no events and drawn dimmed. Change at run time with ui.setEnabled(id, v).");
         p(c, "interactable", "Interactable", Kind.BOOL, PROPS, "true", G_BEHAVIOR, "false: visible but ignores touch and is dimmed (design time switch, same effect as enabled=false).");
         p(c, "alpha", "Opacity", Kind.NUMBER, NODE, "1", G_LOOK, "0 transparent .. 1 opaque (applies to the children too).").range(0, 1, 0.05f);
+        p(c, "theme", "Theme", Kind.ENUM, PROPS, "", G_LOOK, "Look of this element and everything inside it. Empty = the theme of the whole UI (Theme tab).")
+                .opts(withEmpty(UITheme.PRESETS));
         p(c, "tint", "Tint", Kind.COLOR, PROPS, "", G_LOOK, "Color multiplied over the whole node. Empty = none.").adv();
         p(c, "rotation", "Rotation", Kind.NUMBER, PROPS, "0", G_LOOK, "Degrees, counter-clockwise, around the pivot. Does not change the layout.").range(-360, 360, 1).adv();
         p(c, "scale", "Scale", Kind.NUMBER, PROPS, "1", G_LOOK, "Scale around the pivot. Does not change the layout.").range(0.1f, 5, 0.05f).adv();
