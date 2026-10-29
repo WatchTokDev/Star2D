@@ -113,20 +113,22 @@ public class ButtonMakerPanel implements PanelHost.Panel {
         LinearLayout col = Ui.column(c);
         col.setPadding(Ui.dp(c, 10), Ui.dp(c, 4), Ui.dp(c, 10), 0);
 
-        // ---- preview (fixed at the top)
-        FrameLayout card = new FrameLayout(c);
-        card.setBackground(Ui.rounded(0xFF101214, Ui.dp(c, 10), Ui.BORDER, 1));
-        preview = new PreviewView(c);
-        card.addView(preview, Ui.match());
+        // ---- preview (fixed at the top): the Normal / Pressed captions live in their own row ABOVE the picture,
+        // so they never cover the button, its shadow, bevel or the 9-patch stretch area
         LinearLayout toggles = Ui.row(c);
+        toggles.setGravity(Gravity.CENTER_VERTICAL);
+        toggles.setPadding(Ui.dp(c, 2), 0, Ui.dp(c, 2), Ui.dp(c, 4));
         normalChip = chip(c, t("bm_normal", "Normal"), true, v -> setPressedPreview(false));
         pressedChip = chip(c, t("bm_pressed", "Pressed"), false, v -> setPressedPreview(true));
         toggles.addView(normalChip);
         toggles.addView(pressedChip);
-        FrameLayout.LayoutParams tl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
-        tl.setMargins(Ui.dp(c, 6), Ui.dp(c, 6), Ui.dp(c, 6), 0);
-        card.addView(toggles, tl);
-        col.addView(card, new LinearLayout.LayoutParams(-1, Ui.dp(c, Ui.isLandscape(c) ? 120 : 150)));
+        col.addView(toggles, Ui.matchWrap());
+
+        FrameLayout card = new FrameLayout(c);
+        card.setBackground(Ui.rounded(0xFF101214, Ui.dp(c, 10), Ui.BORDER, 1));
+        preview = new PreviewView(c);
+        card.addView(preview, Ui.match());
+        col.addView(card, new LinearLayout.LayoutParams(-1, Ui.dp(c, Ui.isLandscape(c) ? 104 : 150)));
 
         // preview size sliders (do not change the saved image: they show how the 9-patch stretches)
         LinearLayout sizes = Ui.row(c);
@@ -641,7 +643,7 @@ public class ButtonMakerPanel implements PanelHost.Panel {
                 totalW = Math.max(totalW, res.minW + 2);
                 totalH = Math.max(totalH, res.minH + 2);
             }
-            float k = Math.min((w - Ui.dp(getContext(), 24)) / totalW, (h - Ui.dp(getContext(), 24)) / totalH);
+            float k = Math.min((w - Ui.dp(getContext(), 32)) / totalW, (h - Ui.dp(getContext(), 32)) / totalH);
             k = Math.min(k, getResources().getDisplayMetrics().density * 2f);
             if (k <= 0) return;
             float dw = totalW * k, dh = totalH * k;

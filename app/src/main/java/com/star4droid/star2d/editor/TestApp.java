@@ -65,6 +65,11 @@ public class TestApp implements ApplicationListener {
 		void onBackKey();
 		/** Scene loading progress of the current editor: 0..1, or a negative value when finished. GL thread. */
 		void onSceneLoading(float progress);
+		/**
+		 * A full-screen LibGDX tool (the font editor) opened (true) or closed (false): the native chrome should hide itself while it is open.
+		 * {@code closer} (only when opening) closes the tool on the GL thread; the Back key calls it. GL thread.
+		 */
+		default void onFullscreenTool(boolean open, Runnable closer) {}
 	}
 	public static NativeHooks nativeHooks;
 
