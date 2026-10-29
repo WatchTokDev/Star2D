@@ -84,4 +84,5 @@ lint/tmp/
 .gradle/buildOutputCleanup/buildOutputCleanup.lock
 .gradle/buildOutputCleanup/cache.properties
 #AndroidIDE
-.androidide/.claude/
+.androidide/
+.claude/
