@@ -53,9 +53,10 @@ public final class SceneScriptVars implements VarEditors.Host {
 
 	private void build() {
 		if (env == null || env.sceneScriptFile == null) return;
-		SourceScanner.Result r = SourceScanner.scan(BehaviorCatalog.readFile(new File(env.sceneScriptFile)));
-		if (r.vars.isEmpty()) return;
+		SourceScanner.Result r = SourceScanner.scanScript(BehaviorCatalog.readFile(new File(env.sceneScriptFile)));
 		file = storage(env.projectPath, env.scene).getPath();
+		if (r.complete) ScriptVarWatcher.syncSceneFile(new File(file), r.vars); // drops values of fields that are gone
+		if (r.vars.isEmpty()) return;
 		values = BehaviorData.parseVars(BehaviorCatalog.readFile(new File(file)));
 		LinearLayout card = Ui.column(ctx);
 		card.setBackground(Ui.rounded(Ui.SURFACE_2, Ui.dp(ctx, 10), Ui.BORDER, 1));

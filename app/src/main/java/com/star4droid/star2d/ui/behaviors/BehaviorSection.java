@@ -16,6 +16,7 @@ import com.star4droid.star2d.Helpers.PropertySet;
 import com.star4droid.star2d.behaviors.BehaviorCatalog;
 import com.star4droid.star2d.behaviors.BehaviorData;
 import com.star4droid.star2d.behaviors.BehaviorMeta;
+import com.star4droid.star2d.behaviors.ScriptVarSync;
 import com.star4droid.star2d.behaviors.SourceScanner;
 import com.star4droid.star2d.behaviors.VarSpec;
 import com.star4droid.star2d.editor.ui.sub.PropertyEditing;
@@ -69,6 +70,15 @@ public final class BehaviorSection implements VarEditors.Host {
 	@Override public Context ctx() { return ctx; }
 
 	@Override public BehaviorEnv env() { return env; }
+
+	/** The script's code changed (code editor closed): scan it again and redraw. */
+	public void rescan() {
+		Bridge.query(() -> new Object[] {BehaviorEnv.collect(element), ScriptVarWatcher.readVars(element)}, r -> {
+			env = (BehaviorEnv) r[0];
+			if (r[1] != null) vjson = (String) r[1];
+			rebuild();
+		});
+	}
 
 	/** The property changed behind our back (undo, AI...). */
 	public void externalChange(String key, String value) {
@@ -152,7 +162,14 @@ public final class BehaviorSection implements VarEditors.Host {
 
 	private void buildScriptVars() {
 		if (env.scriptFile == null) return;
-		SourceScanner.Result r = SourceScanner.scan(BehaviorCatalog.readFile(new File(env.scriptFile)));
+		SourceScanner.Result r = SourceScanner.scanScript(BehaviorCatalog.readFile(new File(env.scriptFile)));
+		if (r.complete) { // bring the stored list of code-declared fields up to date (old projects, edits made outside the code editor)
+			String synced = ScriptVarSync.sync(vjson, r.vars);
+			if (!ScriptVarSync.canonical(vjson).equals(synced)) {
+				vjson = synced;
+				ScriptVarWatcher.store(element, synced);
+			}
+		}
 		if (r.vars.isEmpty()) return;
 		Map<String, Object> ov = BehaviorData.parseVars(vjson);
 		ImageView info = Ui.iconButton(ctx, R.drawable.ic_s2_info, Tr.t("bhv_vars_info", "About"), v ->

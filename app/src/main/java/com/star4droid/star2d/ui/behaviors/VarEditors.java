@@ -69,6 +69,7 @@ public final class VarEditors {
 		TextView lt = Ui.text(c, label, 13, Ui.TEXT_2);
 		lt.setPadding(Ui.dp(c, 2), Ui.dp(c, 8), 0, Ui.dp(c, 2));
 		head.addView(lt, Ui.weight(1));
+		if (s.auto) head.addView(autoBadge(c, s));
 		boolean inlineBool = s.kind == VarSpec.Kind.BOOL && !s.list;
 		Object effective = override != null ? override : s.def;
 		if (inlineBool) {
@@ -95,6 +96,20 @@ public final class VarEditors {
 		return box;
 	}
 
+	/** "auto" chip: the variable was found in the script's code (a tap says how). */
+	private static View autoBadge(Context c, VarSpec s) {
+		TextView b = Ui.text(c, Tr.t("sv_badge_auto", "auto"), 10, Ui.ACCENT);
+		b.setPadding(Ui.dp(c, 6), Ui.dp(c, 1), Ui.dp(c, 6), Ui.dp(c, 1));
+		b.setBackground(Ui.rounded(Ui.ACCENT_SOFT, Ui.dp(c, 8)));
+		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
+		lp.setMarginEnd(Ui.dp(c, 4));
+		b.setLayoutParams(lp);
+		b.setOnClickListener(v -> Dialogs.longText(c, Tr.t("sv_badge_auto", "auto"), Tr.t("sv_badge_help",
+				"Found in the script's code: this variable is declared in Java (public, package-private, static, or private with @Expose). The initializer is the default; a value set here replaces it. Delete or rename the field in the code and it disappears here.")
+				+ "\n\n" + s.access + (s.isStatic ? " static " : " ") + s.signature() + " " + s.name));
+		return b;
+	}
+
 	// ------------------------------------------------------------------------------------------------ lists
 
 	private static View listEditor(Host h, VarSpec s, Object override, Change change) {
@@ -115,6 +130,18 @@ public final class VarEditors {
 				n.set(idx, v);
 				change.on(n);
 			}), Ui.weight(1));
+			if (items.size() > 1) { // reorder
+				if (i > 0) row.addView(Ui.iconButton(c, R.drawable.ic_s2_arrow_up, Tr.t("sv_item_up", "Move up"), v -> {
+					List<Object> n = new ArrayList<>(items);
+					n.add(idx - 1, n.remove(idx));
+					change.on(n);
+				}));
+				if (i < items.size() - 1) row.addView(Ui.iconButton(c, R.drawable.ic_s2_arrow_down, Tr.t("sv_item_down", "Move down"), v -> {
+					List<Object> n = new ArrayList<>(items);
+					n.add(idx + 1, n.remove(idx));
+					change.on(n);
+				}));
+			}
 			row.addView(Ui.iconButton(c, R.drawable.ic_s2_delete, Tr.t("bhv_remove_item", "Remove"), v -> {
 				List<Object> n = new ArrayList<>(items);
 				n.remove(idx);

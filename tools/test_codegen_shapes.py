@@ -168,6 +168,8 @@ def main():
     jars = [j for j in jars if "sources" not in j]
     jars += [j for j in glob.glob(os.path.expanduser("~/.gradle/caches/modules-2/files-2.1/com.badlogicgames.gdx/gdx-box2d/*/*/gdx-box2d-1*.jar")) if "sources" not in j]
     jars.append(os.path.join(ROOT, "app/libs/box2dlights-1.5.jar"))
+    # gson: refsFor() reads the .ui files of UI holders (UIDocument) to generate the <holder>_<node> fields
+    jars += [j for j in sorted(glob.glob(os.path.expanduser("~/.gradle/caches/modules-2/files-2.1/com.google.code.gson/gson/*/*/gson-2*.jar"))) if "sources" not in j][-1:]
     cp_engine = classes_dirs[0] + ":" + ":".join(jars)
     check(os.path.exists(os.path.join(classes_dirs[0], "com/star4droid/star2d/ElementDefs/ElementEventAdapter.class")),
           "ElementEventAdapter is part of the compiled template classes")
@@ -225,6 +227,10 @@ def main():
     for bad in ("body", "stage", "actor", "playerItem", "class", "my-item"):
         check(not re.search(r"\b" + re.escape(bad) + r"\b\s*[,;=]", text.split("bindRefs")[0].split("public abstract class")[1]), "no field " + bad)
     check("->" not in text and "<>" not in text, "Refs source uses no Java 8 syntax (the game compiles at source level 7)")
+    check("public UIHolder hud;" in text and "hud" not in text.split("public PlayerItem")[1].split(";")[0], "a UI holder is a typed UIHolder field, not a PlayerItem")
+    check("public UINodeRef hud_root, hud_btnPlay, hud_score, hud_player;" in text, "inner nodes of the holder (file in a sub folder) become <holder>_<id> fields; invalid ids are skipped")
+    check('hud_btnPlay = hud == null ? null : hud.node("btnPlay");' in text and 'hud = (UIHolder) items.get("hud");' in text, "holder and node fields are bound")
+    check("hud_bad" not in text.split("bindRefs")[0].split("public abstract class")[1], "no field for the id 'bad-id'")
 
     # ---- 2. scene sources in the NEW shape, scripts extending Refs ----------------------------------------------------------
     scripts = os.path.join(java_dir, "com/star4droid/Game/Scripts/scene1")
@@ -238,6 +244,10 @@ def main():
         "        body.setActive(true);                       // ItemScript.body (not hidden by an element called body)\n"
         "        stage.toast(\"x\");\n"
         "        ground.getBody().setGravityScale(1f);\n"
+        "        hud_btnPlay.setText(\"Go\").setVisible(true);          // generated typed accessor of an inner UI element\n"
+        "        hud.node(\"score\").setText(\"0\");\n"
+        "        hud.onClick(\"btnPlay\", new Runnable(){ public void run(){ coin1.destroy(); } });\n"
+        "        hud_score.onChange(new com.star4droid.template.ui.UIListeners.OnValue(){ public void on(Object v){} });\n"
         "    }\n"
         "    public void onCollisionBegin(PlayerItem other){ if (other == player) findItem(\"ground\"); }\n"
         "}\n")

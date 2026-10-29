@@ -228,6 +228,16 @@ public class GdxUiTest extends ApplicationAdapter {
             log.clear();
             view.click("btnShoot");
             expect("ui.click(id) " + log, logged("click:btnShoot"));
+            // listeners registered from code (UIHolder.onClick("id", runnable)): run after the events object, only for their node
+            final int[] n = {0};
+            view.listeners().onClick("btnShoot", new Runnable() { public void run() { n[0]++; } })
+                    .onClick("btnShoot", new Runnable() { public void run() { n[0]++; } })
+                    .onClick("other", new Runnable() { public void run() { n[0] += 100; } });
+            view.click("btnShoot");
+            expect("code listeners of a node run (and only that node's) " + n[0], n[0] == 2);
+            view.listeners().remove("btnShoot", "onClick");
+            view.click("btnShoot");
+            expect("listeners can be removed " + n[0], n[0] == 2);
         }
         // set by key through the registry
         if (view.has("btnClose")) {

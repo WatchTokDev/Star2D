@@ -51,7 +51,7 @@ public final class UiEventsGen {
         if (uiName == null || uiName.isEmpty()) return "";
         UIDocument doc;
         try {
-            File f = new File(project.getPath(), "UI/" + uiName + ".ui");
+            File f = com.star4droid.template.ui.UIView.uiFile(project.getPath(), uiName); // "folder/name" and a trailing ".ui" are fine
             if (!f.exists()) return "";
             doc = UIDocument.read(f);
         } catch (Throwable t) {

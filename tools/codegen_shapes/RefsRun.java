@@ -28,6 +28,15 @@ public class RefsRun {
             {"class", "BOX"}, {"my-item", "BOX"}, {"player", "BOX"}
         };
         for (String[] it : items) props.add(ps(it[0], it[1]));
+        // a UI holder showing UI/menus/hud.ui (sub folder, ".ui" added): its nodes become <holder>_<id> fields
+        PropertySet<String, Object> hud = ps("hud", "UIHOLDER");
+        hud.put("ui", "menus/hud");
+        props.add(hud);
+        File uiFile = new File(out, "UI/menus/hud.ui");
+        uiFile.getParentFile().mkdirs();
+        Files.write(uiFile.toPath(), ("{\"version\":1,\"name\":\"hud\",\"designWidth\":1280,\"designHeight\":720,\"root\":{\"id\":\"root\",\"type\":\"Stack\",\"children\":["
+                + "{\"id\":\"btnPlay\",\"type\":\"Button\",\"props\":{\"text\":\"Play\"}},{\"id\":\"score\",\"type\":\"Label\",\"props\":{\"text\":\"0\"}},"
+                + "{\"id\":\"bad-id\",\"type\":\"Label\"},{\"id\":\"player\",\"type\":\"Label\"}]}}").getBytes(StandardCharsets.UTF_8));
         for (String scene : new String[]{"scene1", "Level2", "__prefab_x", "1bad"}) {
             ArrayList<RefsGenHarness.SceneCode> r = RefsGenHarness.refsFor(project, scene, props);
             System.out.println(scene + " -> " + r.size() + " files");

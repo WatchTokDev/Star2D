@@ -28,6 +28,14 @@ public final class VarSpec {
 	public double min = -1e9, max = 1e9, step = 0;
 	/** Default of the code (shown as placeholder / used by reset). null = unknown (no initializer or not understood). */
 	public Object def;
+	/** Scripts only: a static field (assigned on the class). */
+	public boolean isStatic;
+	/** Scripts only: "public", "package" (no modifier), or "private" / "protected" (only with @Expose). Not public = set through ScriptVars (reflection). */
+	public String access = "public";
+	/** Scripts only: the collection written in the code (List, ArrayList, LinkedList, Collection); "" for arrays and scalars. */
+	public String container = "";
+	/** true when found by scanning the user's own script (Properties shows the "auto" badge). */
+	public boolean auto;
 
 	public VarSpec(String name, Kind kind) {
 		this.name = name;
@@ -40,6 +48,17 @@ public final class VarSpec {
 
 	public boolean isNumber() {
 		return isInteger() || kind == Kind.FLOAT || kind == Kind.DOUBLE;
+	}
+
+	/** Assigned with a plain field access from the generated code (public instance / public static)? */
+	public boolean direct() {
+		return "public".equals(access);
+	}
+
+	/** Type as written in the code ("float", "List&lt;PlayerItem&gt;", "int[]"): used to notice type changes. */
+	public String signature() {
+		String e = (kind == Kind.ENUM || kind == Kind.REF) ? elemType : javaType();
+		return list ? (array ? e + "[]" : "List<" + e + ">") : e;
 	}
 
 	/** "speed" -> "Speed", "jumpSpeed" -> "Jump speed", "bullet_size" -> "Bullet size". */

@@ -11,6 +11,8 @@ public final class ElementTypes {
 	private static final LinkedHashMap<String, String[]> CLASSES = new LinkedHashMap<String, String[]>();
 	/** editor TYPE -> short title for the picker. */
 	public static final HashMap<String, String> TITLES = new HashMap<String, String>();
+	/** Class of the inner elements of a UIHolder, and the pseudo editor TYPE the element picker gives them. */
+	public static final String UI_NODE = "UINodeRef", UI_NODE_TYPE = "UINODE";
 
 	/** Editor TYPE values that can be a physical element (they own a Box2D body when their "type" is DYNAMIC / KINEMATIC / STATIC). */
 	public static final String[] PHYSICAL_TYPES = {"BOX", "CIRCLE", "CUSTOM", "MAP"};
@@ -30,6 +32,8 @@ public final class ElementTypes {
 		CLASSES.put("CameraItem", new String[] {"CAMERA"});
 		CLASSES.put("MapItem", new String[] {"MAP"});
 		CLASSES.put("UIHolder", new String[] {"UIHOLDER"});
+		// an inner element of a UIHolder ("hud/btnPlay"), see com.star4droid.template.ui.UINodeRef
+		CLASSES.put(UI_NODE, new String[] {UI_NODE_TYPE});
 	}
 
 	public static boolean isElementClass(String simple) {
@@ -43,13 +47,14 @@ public final class ElementTypes {
 
 	public static boolean accepts(String simple, String editorType) {
 		String[] t = CLASSES.get(simple);
-		if (t == null) return !"LIGHT".equals(editorType);
+		if (t == null) return !"LIGHT".equals(editorType) && !UI_NODE_TYPE.equals(editorType);
 		for (String s : t) if (s.equals(editorType)) return true;
 		return false;
 	}
 
 	/** Fully qualified runtime class (used by the generated code). */
 	public static String fqn(String simple) {
+		if (simple.equals(UI_NODE)) return "com.star4droid.template.ui.UINodeRef";
 		if (simple.equals("PlayerItem")) return "com.star4droid.template.Utils.PlayerItem";
 		return "com.star4droid.template.Items." + simple;
 	}
