@@ -155,6 +155,62 @@ public class UiMakerTest {
         check("delete", !new File(p, "UI/custom.ui").exists());
         check("unknown action", fail(p, "{action:'zork'}") != null);
 
+        // ---------- lock: locked nodes are skipped by tapping (hit) but test mode can still reach them
+        UIDocument lk = UiOps.newDocument("lk", 720, 1280);
+        UINode lb = UINode.create("Button", "lockedbtn");
+        lb.anchor = "center"; lb.w = "200"; lb.h = "100";
+        lk.root.addChild(lb);
+        UiRects lr = UiRects.compute(lk, 720, 1280, UILayout.APPROX);
+        UiRects.R lbr = lr.get("lockedbtn");
+        float lx = lbr.x + lbr.w / 2, ly = lbr.y + lbr.h / 2;
+        check("hit finds an unlocked node", lr.hit(lx, ly) != null && lr.hit(lx, ly).node == lb);
+        lb.locked = true;
+        check("hit skips a locked node", lr.hit(lx, ly) == null);
+        check("hit can include locked nodes (test mode)", lr.hit(lx, ly, true) != null && lr.hit(lx, ly, true).node == lb);
+        check("locked survives a round trip", UIDocument.parse(lk.toJsonString()).find("lockedbtn").locked);
+        UiHistory lh = new UiHistory(lk);
+        UIDocument lk2 = UIDocument.parse(lk.toJsonString());
+        lk2.find("lockedbtn").locked = false;
+        check("lock change is recorded by the history", lh.record(lk2) && lh.dirty());
+        // ---------- parent change rules (the Parent chooser uses UINode.moveTo)
+        UIDocument pd = UiOps.newDocument("pd", 720, 1280);
+        UINode pa = UINode.create("Panel", "pa"), pb = UINode.create("Panel", "pb"), pl = UINode.create("Label", "pl");
+        pd.root.addChild(pa);
+        pa.addChild(pb);
+        pb.addChild(pl);
+        check("move into a descendant is refused", pa.moveTo(pb, 0) != null);
+        check("move into itself is refused", pa.moveTo(pa, 0) != null);
+        check("move into a non container is refused", pb.moveTo(pl, 0) != null);
+        check("move to the root works", pl.moveTo(pd.root, pd.root.children.size()) == null && pl.parent == pd.root);
+        // ---------- per node theme
+        UINode th = UINode.create("Button", "themed");
+        check("theme prop is an enum with the presets", UIWidgetRegistry.find("Button", "theme") != null
+                && Arrays.asList(UIWidgetRegistry.find("Button", "theme").options).contains("candy"));
+        check("set per node theme", UIWidgetRegistry.set(th, "theme", "candy") == null && "candy".equals(UIWidgetRegistry.get(th, "theme")));
+        check("clear per node theme", UIWidgetRegistry.set(th, "theme", "") == null && !th.has("theme"));
+        // ---------- lint translator
+        UIDocument tl = UiOps.newDocument("tl", 720, 1280);
+        UINode tb = UINode.create("Button", "tinyb");
+        tb.w = "20"; tb.h = "20";
+        tl.root.addChild(tb);
+        final ArrayList<String> askedKeys = new ArrayList<>();
+        List<String> tw = UiLint.check(tl, 720, 1280, UILayout.APPROX, (k, def) -> { askedKeys.add(k); return "T:" + def; });
+        check("lint asks the translator", askedKeys.contains("uim_lint_touch") && tw.toString().contains("T:"), askedKeys + " " + tw);
+        check("lint without translator is English as before", UiLint.check(tl, 720, 1280, UILayout.APPROX).toString().contains("touch target 'tinyb' is only 20 px thick"));
+
+        // ---------- UiTr: English defaults come back when nothing is translated (Tr has no strings loaded here)
+        try {
+            check("UiTr option", "center".equals(UiTr.optionLabel("center")) && "default".equals(UiTr.optionLabel("")));
+            check("UiTr preset", "glass neon".equals(UiTr.presetName("glass_neon")) && "primary".equals(UiTr.roleName("primary")));
+            check("UiTr widget", "Button".equals(UiTr.widgetName("Button")) && !UiTr.widgetDesc("Button", "x").isEmpty());
+            UIWidgetRegistry.Prop alpha = UIWidgetRegistry.find("Label", "alpha");
+            UIWidgetRegistry.Prop spacing = UIWidgetRegistry.find("Linear", "spacing");
+            check("UiTr prop labels", "Opacity".equals(UiTr.propLabel("Label", alpha)) && "Spacing".equals(UiTr.propLabel("Linear", spacing)) && !UiTr.propDesc("Linear", spacing).isEmpty());
+            check("UiTr errors", "Already first".equals(UiTr.err("already first")) && "x".equals(UiTr.err("x")) && UiTr.err("Panel 'a' cannot hold children").contains("'a'"));
+        } catch (Throwable t) {
+            check("UiTr usable on the JVM", false, t.toString());
+        }
+
         System.out.println(fails == 0 ? "ALL OK (" + oks + " checks)" : fails + " FAILED of " + (oks + fails));
         System.exit(fails == 0 ? 0 : 1);
     }

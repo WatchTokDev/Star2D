@@ -7,6 +7,7 @@ The **UI Maker** edits that file; the **UIHolder** element shows it in a scene a
 ```
 project/
   UI/hud.ui, UI/settings.ui …        <- the documents (exported with the game, the whole project folder is zipped)
+  UI/menus/pause.ui …                <- documents may live in sub folders: they are addressed as "menus/pause" (no .ui) everywhere
   images/…  sounds/…                 <- images/sounds referenced by the documents (project relative)
   Events/<scene>/private/<holder>/ui/<nodeId>/<event>.java|.visual   <- event code of inner elements
 ```
@@ -48,7 +49,7 @@ Everything in `com.star4droid.template.ui` is pure Java + libGDX (no `android.*`
 ```json
 { "id": "btnJump", "type": "Button", "anchor": "bottomright", "margin": 8 | [l,t,r,b],
   "x": 0, "y": 0, "w": "120" | "50%" | "wrap" | "fill", "h": …,
-  "visible": true, "enabled": true, "alpha": 1, "weight": 0, "touchable": "enabled|disabled|childrenOnly",
+  "visible": true, "enabled": true, "alpha": 1, "weight": 0, "touchable": "enabled|disabled|childrenOnly", "locked": true,
   "props": { … type specific + common props … }, "children": [ … ] }
 ```
 
@@ -60,6 +61,7 @@ Everything in `com.star4droid.template.ui` is pure Java + libGDX (no `android.*`
 * `enabled=false` or `interactable=false` – drawn dimmed (alpha × 0.45) and does not react to touch.
 * `touchable` – `enabled`, `disabled` (node and children ignore touch) or `childrenOnly` (the node itself ignores touch, its children work).
   Defaults: Label/Image/Icon/Progress `disabled`; Stack/Linear/Grid `childrenOnly` (unless they have a background colour/image); the rest `enabled`.
+* `locked` – **editor only** (written only when `true`, ignored by the game): the UI Maker will not select it by tapping in the preview, will not draw resize handles on it and will not move, wrap, indent or delete it until it is unlocked.
 * `props` – everything else; the full list per type is generated from `UIWidgetRegistry` in section 9.
 
 Unknown types/props are kept when reading and writing (round trip is lossless) and reported by `UIDocument.validate()`.
@@ -112,6 +114,10 @@ Props that take a colour accept a **role name** (`"primary"`) or a hex colour, s
 | TextField | classic, jelly, neon, minimal_line, dark, flat |
 | Button | colour: primary, secondary, accent, success, danger, ghost, flat · look: outline, neon, glass, pill, jelly, soft, square, hex |
 | Panel | card, solid, glass, outline, flat, dark, transparent |
+
+**Theme of one element**: the common prop `theme` (`""` = the theme of the whole UI, or one of the presets above) gives a node – and everything inside it – a look of its own,
+resolved by `UITheme.forNode(node, docTheme)` (the node's own setting, else the nearest parent that has one, else the document theme). A node with its own theme uses that preset as it is
+(the document's colour / number overrides do not apply to it; the document `font` does).
 
 Lookup order for every visual value: node `props` > style preset > theme > built-in default.
 Images the user supplies (`image`, `pressedImage`, `iconImage`… project relative paths, 9-patch supported) always win over generated art.
@@ -195,7 +201,21 @@ All pure Java, safe on any thread (no GL) unless noted. Package `com.star4droid.
   (`com.star4droid.star2d.ui.uimaker.UiMakerDialog`) unless the `UiMakerLauncher.impl` hook is set. The Maker saves with `UIDocument.write(file)` (atomic) and runs `onSaved` on the UI thread, the editor then reloads the holder.
   Helpers: `UiMakerLauncher.uiDir(projectPath)`, `UiMakerLauncher.list(projectPath)` (names without `.ui`). Entry points: Files panel (`UI/*.ui`, "New UI"), UIHolder Properties (Edit / New).
 * **UI Maker classes** (`ui/uimaker/`): `UiMakerDialog` (screen), `UiPreviewView` (device frame, selection, drag/resize), `UiPropsView` (data-driven inspector), `PreviewEngine` + `UiPreviewGl` (real offscreen libGDX render of the document in an FBO on the GL thread, node rectangles, touch routing for Test mode),
-  `UiRects` (absolute rectangles), `UiLint` (overlaps, off-screen, touch targets), `UiHistory` (undo/redo snapshots), `UiOps` (add/set/remove/move/wrap/sanitize/themes, shared with the AI), `UiTemplates` (8 ready screens), `UiAi` (logic of the `ui` AI tool). Tests: `python3 tools/test_uimaker.py`.
+  `UiRects` (absolute rectangles, `hit` skips locked nodes), `UiLint` (overlaps, off-screen, touch targets), `UiHistory` (undo/redo snapshots), `UiFolders` (folders inside `UI/`), `UiTr` (translation keys of registry texts and editing errors), `UiOps` (add/set/remove/move/wrap/sanitize/themes, shared with the AI), `UiTemplates` (8 ready screens), `UiAi` (logic of the `ui` AI tool). Tests: `python3 tools/test_uimaker.py`.
+* **Editor screen** (`UiMakerDialog`), top to bottom:
+  * *Toolbar*: close, the file path (`menus/pause.ui *`, a star = unsaved; tap = Save as), undo, redo, layout warnings, More, **Save**. Saving shows a snackbar *inside* the Maker ("Saved menus/pause.ui", the dialog hosts the snackbars with `Snack.pushHost/popHost`) and the Save button turns green for a moment.
+    *More*: Save as (`UiFolders.newUiDialog`: name + folder chooser), **Open another UI…** (`UiFolders.pickUi`, asks about unsaved changes, then loads the file into the same editor), insert a ready-made screen, show/copy JSON, clear, warnings.
+    Names may contain folders; saving creates the folder.
+  * *Preview*: the phone (design) size is `curW x curH`, starting from the document's design size. Chips under the phone: Edit/Test, orientation (swaps width and height), **size** (`WxH`: picker with phones, tablets, 16:9 / 4:3 helpers in the current orientation and "Custom…" = `WxH`), grid (off/8/16/32), background, zoom.
+    In **Edit** mode the frame has three handles (right edge, bottom edge, bottom-right corner): drag them to change the phone size freely (snaps to the grid when it is on, 120…4096). The scale is frozen during the drag so the top-left corner stays put; the picture is re-rendered live and the view is refitted when you let go.
+    "Use preview size" (Theme tab) copies the current phone size into the document's design size.
+  * *Bottom panel* (tabs Elements / Tree / Properties / Theme): the bar on its edge facing the preview (top edge in portrait, the side next to the phone in landscape, also in Arabic) is a **grabber**. Drag it to resize the panel (20 %…80 % of the screen; dragging nearly closed hides it), tap it to hide / show the panel with a short animation. When hidden only the grabber stays and the preview gets the whole screen. The size per orientation and the hidden state are remembered (`uim_split_p`, `uim_split_l`, `uim_split_collapsed` in the app preferences).
+  * *Tree*: every row has a **lock** toggle and an eye; a coloured dot marks an element that has its own theme. Tree actions on a locked element (move, indent, outdent, wrap, delete) answer "unlock first" in a snackbar.
+  * *Properties*: header with the type, the id and a **lock** toggle; under it the **Parent** row (id and type of the parent): tapping it lists the root and every container that is not the element itself or inside it (indented by depth, the current one marked); choosing one moves the element to the end of that container (`UINode.moveTo`; refused moves show a snackbar).
+    The **Theme** property in Appearance is a row of preset chips (a dot in the preset's main colour) plus "Same as UI".
+  * *Theme tab*: a switch **Whole UI / Selected: id** (disabled when nothing or the root is selected). With *Selected* a tap on a preset chip sets that element's `theme` (the "Same as UI" chip clears it); with *Whole UI* it sets `theme.preset` as before. Colours and shape below belong to the whole UI. The design size is shown in both modes.
+  * *Locked elements*: `UiRects.hit(x, y)` skips them (a tap selects the element below, or nothing), `hit(x, y, true)` includes them (Test mode needs them). A locked element selected from the tree is outlined dashed in amber with a lock in its label chip, has no resize handles and cannot be dragged.
+  * *Translations*: every visible text goes through `Tr.t("uim_…", English)`. Texts that come from the registries are keyed by `UiTr`: widget name `uim_w_<type>`, widget text `uim_w_<type>_d`, property label `uim_p_<c|type>_<key>` (`c` = a property every widget has), property help `uim_pd_<c|type>_<key>`, enum option / style `uim_o_<option>`, theme role `uim_role_<role>`, theme preset `uim_preset_<name>`, template `uim_tpl_<name>` / `_d`; editing errors `uim_e_*`; layout warnings `uim_lint_*` (`UiLint.check(…, Translator)`). All keys are lower case.
 * A new document (`UiOps.newDocument`) has a transparent `Stack` root (`UIDocument.empty` has a filled Panel root).
 * **Document**: `UIDocument.read(File)`, `.parse(String)`, `.empty(name, w, h)`, `.write(File)`, `.toJsonString()`, `.find(id)`, `.add(parentId, type, idBase, index)`,
   `.remove(id)`, `.duplicate(id)`, `.uniqueId(base)`, `.makeIdsUnique(sub)`, `.allNodes()`, `.validate()` → list of problems (text for a person/AI), `.warnings` (read problems), `.theme`, `.designWidth/Height`.
@@ -246,6 +266,7 @@ All pure Java, safe on any thread (no GL) unless noted. Package `com.star4droid.
 | `enabled` | node | bool | `true` |  | false: no events and drawn dimmed. Change at run time with ui.setEnabled(id, v). |
 | `interactable` | props | bool | `true` |  | false: visible but ignores touch and is dimmed (design time switch, same effect as enabled=false). |
 | `alpha` | node | number | `1` | 0.0..1.0 step 0.05 | 0 transparent .. 1 opaque (applies to the children too). |
+| `theme` | props | enum | `` | , jelly, candy, flat_3d, glass_neon, hex_arcade, dark, light, minimal | Look of this element and everything inside it. Empty = the theme of the whole UI (Theme tab). |
 | `tint` | props | color | `` |  | Color multiplied over the whole node. Empty = none. |
 | `rotation` | props | number | `0` | -360.0..360.0 step 1.0 | Degrees, counter-clockwise, around the pivot. Does not change the layout. |
 | `scale` | props | number | `1` | 0.1..5.0 step 0.05 | Scale around the pivot. Does not change the layout. |

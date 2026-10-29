@@ -15,8 +15,10 @@ import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.SwitchCompat;
 
 import com.star4droid.star2d.evo.R;
@@ -59,6 +61,9 @@ final class UiPropsView {
         /** The id changed: the tree must be refreshed. */
         void idChanged();
 
+        /** The tree changed (parent, lock): record history now and refresh the preview, the tree and this tab. */
+        void structureChanged();
+
         /** Current rectangle of a node in logical px, or null. */
         UiRects.R rectOf(String id);
     }
@@ -97,11 +102,11 @@ final class UiPropsView {
         LinearLayout head = Ui.row(c);
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.addView(Ui.smallIcon(c, UiIcons.forType(n.type), Ui.ACCENT, 22));
-        TextView tn = Ui.text(c, wd == null ? n.type : wd.name, 15, Ui.TEXT);
+        TextView tn = Ui.text(c, wd == null ? n.type : UiTr.widgetName(wd.type, wd.name), 15, Ui.TEXT);
         tn.setTypeface(Typeface.DEFAULT_BOLD);
         tn.setPadding(Ui.dp(c, 8), 0, Ui.dp(c, 10), 0);
         head.addView(tn);
-        final EditText id = Ui.input(c, n.id, "id");
+        final EditText id = Ui.input(c, n.id, UiTr.propLabel(n.type, UIWidgetRegistry.find(n.type, "id")));
         id.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
         Runnable applyId = () -> {
             String want = id.getText().toString().trim();
@@ -122,12 +127,14 @@ final class UiPropsView {
             if (!f) applyId.run();
         });
         head.addView(id, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        if (n.parent != null) head.addView(lockToggle(n));
         root.addView(head, Ui.matchWrap());
         if (wd != null && wd.desc != null) {
-            TextView d = Ui.text(c, wd.desc, 12, Ui.TEXT_3);
+            TextView d = Ui.text(c, UiTr.widgetDesc(wd.type, wd.desc), 12, Ui.TEXT_3);
             d.setPadding(0, Ui.dp(c, 4), 0, Ui.dp(c, 4));
             root.addView(d);
         }
+        if (n.parent != null) root.addView(parentRow(n), Ui.matchWrap());
 
         // group the properties
         LinkedHashMap<String, ArrayList<Prop>> groups = new LinkedHashMap<>();
@@ -153,14 +160,105 @@ final class UiPropsView {
     }
 
     private String groupTitle(String g) {
-        switch (g) {
-            case UIWidgetRegistry.G_TEXT: return Tr.t("uim_g_text", "Text");
-            case UIWidgetRegistry.G_VALUE: return Tr.t("uim_g_value", "Value");
-            case UIWidgetRegistry.G_LOOK: return Tr.t("uim_g_look", "Appearance");
-            case UIWidgetRegistry.G_LAYOUT: return Tr.t("uim_g_layout", "Layout");
-            case UIWidgetRegistry.G_BEHAVIOR: return Tr.t("uim_g_behavior", "Behavior");
-            default: return Tr.t("uim_g_adv", "Advanced");
+        return UiTr.groupTitle(g);
+    }
+
+    // ------------------------------------------------------------------ lock and parent
+
+    private View lockToggle(final UINode n) {
+        ImageView b = Ui.iconButton(c, n.locked ? R.drawable.ic_s2_lock : R.drawable.ic_s2_lock_open,
+                n.locked ? Tr.t("uim_unlock", "Unlock") : Tr.t("uim_lock", "Lock (cannot be selected or moved in the preview)"), v -> {
+                    n.locked = !n.locked;
+                    host.structureChanged();
+                });
+        b.setImageTintList(android.content.res.ColorStateList.valueOf(n.locked ? Ui.WARNING : Ui.TEXT_2));
+        return b;
+    }
+
+    /** "Parent: id (Type)" row; opens the list of containers the element can be moved to. */
+    private View parentRow(final UINode n) {
+        LinearLayout row = Ui.row(c);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(Ui.dp(c, 10), Ui.dp(c, 8), Ui.dp(c, 8), Ui.dp(c, 8));
+        row.setBackground(Ui.rounded(Ui.SURFACE_2, Ui.dp(c, 10), Ui.BORDER, 1));
+        TextView cap = Ui.text(c, Tr.t("uim_parent", "Parent"), 12, Ui.TEXT_3);
+        row.addView(cap);
+        UINode p = n.parent;
+        TextView val = Ui.text(c, p.id + "  (" + UiTr.widgetName(p.type) + ")", 14, Ui.TEXT);
+        val.setMaxLines(1);
+        val.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        val.setPadding(Ui.dp(c, 10), 0, Ui.dp(c, 6), 0);
+        row.addView(val, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        ImageView chev = Ui.smallIcon(c, R.drawable.ic_s2_chevron_right, Ui.TEXT_3, 20);
+        if (Ui.isRtl(c)) chev.setScaleX(-1f);
+        row.addView(chev);
+        row.setOnClickListener(v -> chooseParent(n));
+        LinearLayout.LayoutParams lp = Ui.matchWrap();
+        lp.topMargin = Ui.dp(c, 6);
+        row.setLayoutParams(lp);
+        return row;
+    }
+
+    /** Containers that can take the node: not the node itself nor anything inside it. Depth is kept for the indentation. */
+    private static void collectParents(UINode x, int depth, UINode moving, ArrayList<UINode> out, ArrayList<Integer> depths) {
+        if (x == moving) return;
+        if (x.isContainer()) {
+            out.add(x);
+            depths.add(depth);
         }
+        for (UINode ch : x.children) collectParents(ch, depth + 1, moving, out, depths);
+    }
+
+    private void chooseParent(final UINode n) {
+        if (n.locked) {
+            Ui.toast(c, Tr.t("uim_unlock_first", "This element is locked. Unlock it first."));
+            return;
+        }
+        final ArrayList<UINode> targets = new ArrayList<>();
+        final ArrayList<Integer> depths = new ArrayList<>();
+        collectParents(host.doc().root, 0, n, targets, depths);
+        ScrollView sv = new ScrollView(c);
+        LinearLayout col = Ui.column(c);
+        sv.addView(col);
+        final AlertDialog[] dlg = new AlertDialog[1];
+        for (int i = 0; i < targets.size(); i++) {
+            final UINode t = targets.get(i);
+            boolean on = t == n.parent;
+            LinearLayout r = Ui.row(c);
+            r.setGravity(Gravity.CENTER_VERTICAL);
+            r.setMinimumHeight(Ui.dp(c, 46));
+            r.setPadding(Ui.dp(c, 12 + Math.min(depths.get(i), 8) * 16), 0, Ui.dp(c, 12), 0);
+            r.setBackgroundColor(on ? Ui.ACCENT_SOFT : Color.TRANSPARENT);
+            r.addView(Ui.smallIcon(c, UiIcons.forType(t.type), on ? Ui.ACCENT : Ui.TEXT_2, 20));
+            LinearLayout tx = Ui.column(c);
+            tx.setPadding(Ui.dp(c, 10), 0, 0, 0);
+            TextView id = Ui.text(c, t.id, 14, on ? Ui.ACCENT : Ui.TEXT);
+            if (on) id.setTypeface(Typeface.DEFAULT_BOLD);
+            tx.addView(id);
+            tx.addView(Ui.text(c, UiTr.widgetName(t.type), 11, Ui.TEXT_3));
+            r.addView(tx, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+            if (on) r.addView(Ui.smallIcon(c, R.drawable.ic_s2_check, Ui.ACCENT, 20));
+            r.setOnClickListener(v -> {
+                if (dlg[0] != null) dlg[0].dismiss();
+                moveTo(n, t);
+            });
+            col.addView(r, Ui.matchWrap());
+        }
+        LinearLayout box = Ui.column(c);
+        box.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(c, 320)));
+        dlg[0] = new AlertDialog.Builder(c).setTitle(Tr.t("uim_parent_pick", "Move to"))
+                .setView(box).setNegativeButton(Tr.t("close", "Close"), null).create();
+        dlg[0].show();
+    }
+
+    private void moveTo(UINode n, UINode target) {
+        if (target == n.parent) return;
+        String err = n.moveTo(target, target.children.size());
+        if (err != null) {
+            Ui.toast(c, Tr.t("uim_move_failed", "Could not move: ") + UiTr.err(err));
+            return;
+        }
+        host.structureChanged();
     }
 
     private void addSection(final LinearLayout root, final UINode n, final String group, ArrayList<Prop> props) {
@@ -206,7 +304,7 @@ final class UiPropsView {
         box.setPadding(0, Ui.dp(c, 5), 0, Ui.dp(c, 5));
         LinearLayout top = Ui.row(c);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        TextView label = Ui.text(c, pr.label, 13, Ui.TEXT_2);
+        TextView label = Ui.text(c, lab(n, pr), 13, Ui.TEXT_2);
         top.addView(label, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         if (UiOps.isSet(n, pr.key) && !pr.key.equals("id")) {
             ImageView reset = Ui.smallIcon(c, R.drawable.ic_s2_refresh, Ui.TEXT_3, 18);
@@ -228,6 +326,10 @@ final class UiPropsView {
         return box;
     }
 
+    private String lab(UINode n, Prop pr) {
+        return UiTr.propLabel(n.type, pr);
+    }
+
     private View control(UINode n, Prop pr, Runnable refresh) {
         switch (pr.kind) {
             case NUMBER: case INT: return numberControl(n, pr, refresh);
@@ -247,7 +349,7 @@ final class UiPropsView {
 
     private void set(UINode n, Prop pr, String v) {
         String err = UIWidgetRegistry.set(n, pr.key, v);
-        if (err != null) Ui.toast(c, err);
+        if (err != null) Ui.toast(c, UiTr.err(err));
         host.edited();
     }
 
@@ -283,10 +385,10 @@ final class UiPropsView {
         val.setGravity(Gravity.CENTER);
         val.setBackground(Ui.rounded(0xFF121417, Ui.dp(c, 8), Ui.BORDER, 1));
         val.setMinHeight(Ui.dp(c, 40));
-        val.setOnClickListener(v -> NumberPad.show(c, pr.label, cur.isEmpty() ? pr.def : cur, value -> {
+        val.setOnClickListener(v -> NumberPad.show(c, lab(n, pr), cur.isEmpty() ? pr.def : cur, value -> {
             set(n, pr, value);
             refresh.run();
-        }, () -> Dialogs.input(c, pr.label, rangeText(pr), cur, null, value -> {
+        }, () -> Dialogs.input(c, lab(n, pr), rangeText(n, pr), cur, null, value -> {
             set(n, pr, value);
             refresh.run();
         })));
@@ -297,9 +399,10 @@ final class UiPropsView {
         return l;
     }
 
-    private String rangeText(Prop pr) {
-        if (Float.isNaN(pr.min) && Float.isNaN(pr.max)) return pr.desc == null ? "" : pr.desc;
-        return (pr.desc == null ? "" : pr.desc + "\n") + (Float.isNaN(pr.min) ? "" : "min " + fmt(pr.min)) + (Float.isNaN(pr.max) ? "" : "  max " + fmt(pr.max));
+    private String rangeText(UINode n, Prop pr) {
+        String d = UiTr.propDesc(n.type, pr);
+        if (Float.isNaN(pr.min) && Float.isNaN(pr.max)) return d;
+        return (d.isEmpty() ? "" : d + "\n") + (Float.isNaN(pr.min) ? "" : Tr.t("uim_min", "min") + " " + fmt(pr.min)) + (Float.isNaN(pr.max) ? "" : "  " + Tr.t("uim_max", "max") + " " + fmt(pr.max));
     }
 
     private void bump(UINode n, Prop pr, float delta, Runnable refresh) {
@@ -322,7 +425,7 @@ final class UiPropsView {
         String cur = UIWidgetRegistry.get(n, pr.key);
         boolean on = cur.isEmpty() ? pr.def.equalsIgnoreCase("true") : cur.equalsIgnoreCase("true");
         sw.setChecked(on);
-        sw.setText(pr.desc == null ? "" : shorten(pr.desc, 60));
+        sw.setText(shorten(UiTr.propDesc(n.type, pr), 60));
         sw.setTextColor(Ui.TEXT_3);
         sw.setTextSize(12);
         sw.setOnCheckedChangeListener((b, checked) -> {
@@ -355,17 +458,65 @@ final class UiPropsView {
     }
 
     private View chips(final UINode n, final Prop pr, final Runnable refresh) {
+        if (pr.key.equals("theme")) return themeChips(n, pr, refresh);
         LinearLayout l = Ui.row(c);
         String cur = UIWidgetRegistry.get(n, pr.key);
         for (final String o : pr.options) {
             boolean on = o.equalsIgnoreCase(cur);
-            String shown = o.isEmpty() ? Tr.t("uim_default", "default") : o;
-            l.addView(chip(shown, on, v -> {
+            l.addView(chip(UiTr.optionLabel(o), on, v -> {
                 set(n, pr, o);
                 refresh.run();
             }));
         }
         return hscroll(l);
+    }
+
+    /** A theme preset as a chip: a dot in the preset's main color and its name; the empty preset reads "Same as UI". */
+    static View presetChip(Context c, String preset, boolean on, boolean enabled, View.OnClickListener l) {
+        LinearLayout chip = Ui.row(c);
+        chip.setGravity(Gravity.CENTER_VERTICAL);
+        chip.setPadding(Ui.dp(c, 10), Ui.dp(c, 8), Ui.dp(c, 14), Ui.dp(c, 8));
+        chip.setBackground(Ui.rounded(on ? Ui.ACCENT : Ui.SURFACE_3, Ui.dp(c, 18)));
+        View dot = new View(c);
+        UITheme.Look look = preset.isEmpty() ? null : UITheme.look(preset);
+        if (preset.isEmpty() || look == null) dot.setBackground(Ui.rounded(0x00000000, Ui.dp(c, 8), on ? 0xFFFFFFFF : Ui.TEXT_3, Ui.dp(c, 1)));
+        else dot.setBackground(Ui.rounded(toArgb(look.primary), Ui.dp(c, 8), 0xFFFFFFFF, Ui.dp(c, 1)));
+        LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(Ui.dp(c, 16), Ui.dp(c, 16));
+        dl.setMarginEnd(Ui.dp(c, 8));
+        chip.addView(dot, dl);
+        chip.addView(Ui.text(c, preset.isEmpty() ? Tr.t("uim_theme_same", "Same as UI") : UiTr.presetName(preset), 13, on ? 0xFFFFFFFF : Ui.TEXT_2));
+        chip.setAlpha(enabled ? 1f : 0.4f);
+        if (enabled) chip.setOnClickListener(l);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMarginEnd(Ui.dp(c, 6));
+        chip.setLayoutParams(lp);
+        return chip;
+    }
+
+    /** The per-element theme: "Same as UI" or one preset, plus a hint when a parent's theme is inherited. */
+    private View themeChips(final UINode n, final Prop pr, final Runnable refresh) {
+        LinearLayout box = Ui.column(c);
+        LinearLayout l = Ui.row(c);
+        String cur = UIWidgetRegistry.get(n, pr.key);
+        for (final String o : pr.options) {
+            l.addView(presetChip(c, o, o.equalsIgnoreCase(cur), true, v -> {
+                set(n, pr, o);
+                refresh.run();
+            }));
+        }
+        box.addView(hscroll(l), Ui.matchWrap());
+        if (cur.isEmpty()) {
+            for (UINode a = n.parent; a != null; a = a.parent) {
+                String t = a.has("theme") ? a.str("theme", "").trim() : "";
+                if (!t.isEmpty()) {
+                    TextView h = Ui.text(c, String.format(Tr.t("uim_theme_inherited", "Uses the look of %1$s: %2$s"), a.id, UiTr.presetName(t)), 12, Ui.TEXT_3);
+                    h.setPadding(0, Ui.dp(c, 4), 0, 0);
+                    box.addView(h);
+                    break;
+                }
+            }
+        }
+        return box;
     }
 
     private static final String[][] GRID9 = {{"topleft", "top", "topright"}, {"left", "center", "right"}, {"bottomleft", "bottom", "bottomright"}};
@@ -395,7 +546,7 @@ final class UiPropsView {
         LinearLayout side = Ui.column(c);
         side.setPadding(Ui.dp(c, 12), 0, 0, 0);
         for (final String a : new String[]{"stretch", "stretchx", "stretchy"}) {
-            TextView ch = chip(a, cur.equals(a), v -> {
+            TextView ch = chip(UiTr.optionLabel(a), cur.equals(a), v -> {
                 set(n, pr, a);
                 refresh.run();
             });
@@ -432,7 +583,7 @@ final class UiPropsView {
         TextView t = Ui.text(c, cur.isEmpty() ? (pr.def.isEmpty() ? Tr.t("uim_default", "default") : pr.def) : cur, 14, cur.isEmpty() ? Ui.TEXT_3 : Ui.TEXT);
         t.setPadding(Ui.dp(c, 10), 0, 0, 0);
         top.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-        top.addView(button("…", v -> ColorPickerDialog.show(c, pr.label, cur.isEmpty() ? "FFFFFFFF" : toHexForPicker(cur), null, hex -> {
+        top.addView(button("…", v -> ColorPickerDialog.show(c, lab(n, pr), cur.isEmpty() ? "FFFFFFFF" : toHexForPicker(cur), null, hex -> {
             if (hex == null) return;
             set(n, pr, "#" + hex.toLowerCase(Locale.ROOT));
             refresh.run();
@@ -445,7 +596,7 @@ final class UiPropsView {
             View dot = new View(c);
             boolean on = r.equalsIgnoreCase(cur);
             dot.setBackground(Ui.rounded(resolve(r), Ui.dp(c, 14), on ? 0xFFFFFFFF : Ui.BORDER, Ui.dp(c, on ? 3 : 1)));
-            dot.setContentDescription(r);
+            dot.setContentDescription(UiTr.roleName(r));
             dot.setOnClickListener(v -> {
                 set(n, pr, r);
                 refresh.run();
@@ -487,7 +638,7 @@ final class UiPropsView {
         t.setPadding(Ui.dp(c, 10), 0, Ui.dp(c, 6), 0);
         t.setMaxLines(2);
         l.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-        View.OnClickListener pick = v -> FilePickerDialog.show(c, pr.label, imagesDir().getAbsolutePath(), new String[]{"png", "jpg", "jpeg", "webp"}, true, (file, rel) -> {
+        View.OnClickListener pick = v -> FilePickerDialog.show(c, lab(n, pr), imagesDir().getAbsolutePath(), new String[]{"png", "jpg", "jpeg", "webp"}, true, (file, rel) -> {
             set(n, pr, "/" + rel.replace('\\', '/').replaceFirst("^/", ""));
             refresh.run();
         });
@@ -507,7 +658,7 @@ final class UiPropsView {
         TextView t = Ui.text(c, cur.isEmpty() ? "[" + Tr.t("choose", "choose") + "]" : cur, 13, cur.isEmpty() ? Ui.TEXT_3 : Ui.TEXT);
         t.setBackground(Ui.rounded(0xFF121417, Ui.dp(c, 8), Ui.BORDER, 1));
         t.setPadding(Ui.dp(c, 10), Ui.dp(c, 10), Ui.dp(c, 10), Ui.dp(c, 10));
-        t.setOnClickListener(v -> FilePickerDialog.show(c, pr.label, new File(host.projectPath(), folder).getAbsolutePath(), ext, false, (file, rel) -> {
+        t.setOnClickListener(v -> FilePickerDialog.show(c, lab(n, pr), new File(host.projectPath(), folder).getAbsolutePath(), ext, false, (file, rel) -> {
             String r = rel.replace('\\', '/').replaceFirst("^/", "");
             set(n, pr, withFolder ? folder + "/" + r : r);
             refresh.run();
@@ -533,7 +684,7 @@ final class UiPropsView {
                 case "px": on = s.kind == UINode.PX; break;
                 default: on = s.kind == UINode.PCT; break;
             }
-            String label = k.isEmpty() ? Tr.t("uim_default", "default") : k;
+            String label = k.equals("px") || k.equals("%") ? k : UiTr.optionLabel(k);
             l.addView(chip(label, on, v -> {
                 String val;
                 UiRects.R r = host.rectOf(n.id);
@@ -560,7 +711,7 @@ final class UiPropsView {
             val.setGravity(Gravity.CENTER);
             val.setBackground(Ui.rounded(0xFF121417, Ui.dp(c, 8), Ui.BORDER, 1));
             val.setMinHeight(Ui.dp(c, 40));
-            val.setOnClickListener(v -> NumberPad.show(c, pr.label, fmt(cv), value -> {
+            val.setOnClickListener(v -> NumberPad.show(c, lab(n, pr), fmt(cv), value -> {
                 try {
                     setSize(n, pr, pct, Float.parseFloat(value), refresh);
                 } catch (Exception ignored) {
@@ -598,7 +749,7 @@ final class UiPropsView {
             val.setGravity(Gravity.CENTER);
             val.setBackground(Ui.rounded(0xFF121417, Ui.dp(c, 8), Ui.BORDER, 1));
             val.setMinHeight(Ui.dp(c, 40));
-            val.setOnClickListener(x -> NumberPad.show(c, pr.label + " – " + names[idx], fmt(v[idx]), value -> {
+            val.setOnClickListener(x -> NumberPad.show(c, lab(n, pr) + " – " + names[idx], fmt(v[idx]), value -> {
                 try {
                     float f = Float.parseFloat(value);
                     float[] nv = v.clone();
@@ -629,6 +780,7 @@ final class UiPropsView {
 
     private View textControl(final UINode n, final Prop pr, boolean multi) {
         final EditText e = Ui.input(c, UIWidgetRegistry.get(n, pr.key), pr.def.isEmpty() ? "" : pr.def);
+        e.setContentDescription(lab(n, pr));
         if (multi) {
             e.setSingleLine(false);
             e.setMinLines(2);
