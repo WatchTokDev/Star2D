@@ -131,6 +131,9 @@ final class BehaviorTools {
         o.addProperty("name", v.name);
         o.addProperty("type", typeName(v));
         if (v.def != null) o.addProperty("default", String.valueOf(v.def));
+        if (v.isStatic) o.addProperty("static", true);
+        if (v.access != null && !v.access.equals("public")) o.addProperty("access", v.access);
+        if (v.auto) o.addProperty("auto", true);
         if (full) {
             if (!v.desc.isEmpty()) o.addProperty("desc", v.desc);
             if (!v.unit.isEmpty()) o.addProperty("unit", v.unit);
@@ -455,7 +458,7 @@ final class BehaviorTools {
         boolean scene = c.name == null;
         String file = scene ? c.project.getSceneScript(c.scene) : bodyScriptFile(c);
         SourceScanner.Result r = SourceScanner.scanScript(BehaviorCatalog.readFile(new File(file)));
-        if (r.vars.isEmpty()) return ToolResult.error((scene ? "The scene script" : "The Body Script of '" + c.name + "'") + " has no public variables. Declare `public float speed = 5;` in its Java code first.");
+        if (r.vars.isEmpty()) return ToolResult.error((scene ? "The scene script" : "The Body Script of '" + c.name + "'") + " has no variables. Declare `public float speed = 5;` (or a package-private / static field, or `@Expose private int lives;`) in its Java code first.");
         File store = new File(c.projectPath + "/Events/" + c.scene + "/public/scriptvars.json");
         Map<String, Object> cur = BehaviorData.parseVars(scene ? BehaviorCatalog.readFile(store) : c.scriptVars);
         JsonObject values = a.has("values") && a.get("values").isJsonObject() ? a.getAsJsonObject("values") : null;

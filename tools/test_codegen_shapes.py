@@ -159,7 +159,7 @@ def main():
         shutil.rmtree(OUT)
     os.makedirs(OUT)
     classes_dirs = glob.glob(os.path.join(ROOT, "template/build/intermediates/javac/*/compile*JavaWithJavac/classes"))
-    marker = "com/star4droid/star2d/ElementDefs/ElementEventAdapter.class"
+    marker = "com/star4droid/template/ui/UINodeRef.class"
     # newest compiled copy of the engine that already contains the new classes (older release builds may lack them)
     classes_dirs.sort(key=lambda d: os.path.getmtime(os.path.join(d, marker)) if os.path.exists(os.path.join(d, marker)) else 0, reverse=True)
     if not classes_dirs:

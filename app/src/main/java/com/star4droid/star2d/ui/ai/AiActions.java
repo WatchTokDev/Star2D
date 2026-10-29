@@ -56,7 +56,8 @@ public final class AiActions {
         return t.equals("read_file") || t.equals("list_files") || t.equals("get_element")
                 || t.equals("physics_info") || t.equals("list_templates") || t.equals("list_buttons")
                 || t.equals("search_icons") || t.equals("layout_check") || t.equals("list_font_presets") || t.equals("list_behaviors")
-                || t.equals("list_ui") || t.equals("get_ui") || t.equals("check_ui");
+                || t.equals("list_ui") || t.equals("get_ui") || t.equals("check_ui") || t.equals("describe_ui")
+                || t.equals("behavior_info") || t.equals("get_script_vars");
     }
 
     /**
@@ -68,7 +69,8 @@ public final class AiActions {
             case "physics_info": case "list_templates": case "apply_template": case "list_buttons": case "create_button":
             case "search_icons": case "import_icon": case "layout_check": case "create_scene":
             case "list_font_presets": case "create_font": case "list_behaviors": case "add_behavior":
-            case "list_ui": case "get_ui": case "check_ui": case "create_ui": case "edit_ui":
+            case "list_ui": case "get_ui": case "check_ui": case "create_ui": case "edit_ui": case "describe_ui": case "ui_event":
+            case "behavior_info": case "set_behavior": case "remove_behavior": case "get_script_vars": case "set_script_vars":
                 return true;
         }
         return false;
@@ -159,9 +161,19 @@ public final class AiActions {
                 o.addProperty("action", "add");
                 return AiBridge.runTool("behaviors", o);
             }
-            case "list_ui": case "get_ui": case "check_ui": case "create_ui": case "edit_ui": {
-                o.addProperty("action", t.equals("list_ui") ? "list" : t.equals("get_ui") ? "get" : t.equals("check_ui") ? "check" : t.equals("create_ui") ? "create" : "set");
+            case "list_ui": case "get_ui": case "check_ui": case "create_ui": case "edit_ui": case "describe_ui": case "ui_event": {
+                o.addProperty("action", t.equals("list_ui") ? "list" : t.equals("get_ui") ? "get" : t.equals("check_ui") ? "check" : t.equals("create_ui") ? "create"
+                        : t.equals("describe_ui") ? "describe" : t.equals("ui_event") ? "event" : "set");
                 return AiBridge.runTool("ui", o);
+            }
+            case "behavior_info": case "set_behavior": case "remove_behavior": {
+                o.addProperty("action", t.equals("behavior_info") ? "info" : t.equals("set_behavior") ? "set" : "remove");
+                return AiBridge.runTool("behaviors", o);
+            }
+            case "get_script_vars": case "set_script_vars": {
+                o.addProperty("action", "vars");
+                if (t.equals("get_script_vars")) o.remove("values");
+                return AiBridge.runTool("behaviors", o);
             }
         }
         return "Unknown action " + t;
@@ -197,6 +209,13 @@ public final class AiActions {
             case "check_ui": return (ar ? "📏 فحص الواجهة " : "📏 Check UI ") + s(a, "name");
             case "create_ui": return (ar ? "🖼 إنشاء واجهة " : "🖼 Create UI ") + s(a, "name") + (s(a, "template").isEmpty() ? "" : " (" + s(a, "template") + ")");
             case "edit_ui": return (ar ? "🖼 تعديل الواجهة " : "🖼 Edit UI ") + s(a, "name");
+            case "describe_ui": return (ar ? "🖼 خصائص عناصر الواجهة " : "🖼 UI widget properties ") + s(a, "type");
+            case "ui_event": return (ar ? "⚡ كود زر في الواجهة " : "⚡ UI event ") + s(a, "holder") + "." + s(a, "node") + " " + s(a, "event");
+            case "behavior_info": return (ar ? "🧩 تفاصيل السلوك " : "🧩 Behavior info ") + s(a, "id");
+            case "set_behavior": return (ar ? "🧩 ضبط السلوك " : "🧩 Set behavior ") + s(a, "id") + " → " + s(a, "element");
+            case "remove_behavior": return (ar ? "🧩 حذف السلوك " : "🧩 Remove behavior ") + s(a, "id") + " ← " + s(a, "element");
+            case "get_script_vars": return (ar ? "𝑥 متغيرات السكربت " : "𝑥 Script variables ") + s(a, "element");
+            case "set_script_vars": return (ar ? "𝑥 ضبط متغيرات السكربت " : "𝑥 Set script variables ") + (s(a, "element").isEmpty() ? (ar ? "(المشهد)" : "(scene)") : s(a, "element"));
             case "create_font": return (ar ? "🔤 إنشاء خط " : "🔤 Create font ") + s(a, "name") + (s(a, "preset").isEmpty() ? "" : " (" + s(a, "preset") + ")");
         }
         return "? " + t;

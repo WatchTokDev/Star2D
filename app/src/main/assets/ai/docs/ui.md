@@ -33,6 +33,12 @@ Ops apply in order; a failed op is listed in `errors` and the others are still s
 ## Layout warnings (ui check, also in every reply)
 Checked at the design size in portrait AND landscape: `off-screen`, `touch target < 44px` (buttons, text fields), text wider than a fixed width, overlapping interactive widgets. Text widths are approximate (no GL); look at the result on the phone with `screenshot` of the scene when it matters. Fix by anchoring (not hard-coded x/y), `fill`/`%` sizes or a ScrollView.
 
+## Folders, per-element themes, locks
+- A UI may live in a sub folder of `UI/`: its name is `menus/pause` (no `.ui`) in every tool, in the holder's `ui` property and at run time. `ui list` shows full names; `create` makes the folder.
+- Look of ONE element: `props:{theme:'dark'}` (a preset id; `''` = the UI's theme). It applies to the node and everything inside it and uses that preset as it is (the document's colour overrides do not apply to it).
+- `locked:true` is an editor-only flag the user sets in the UI Maker (no selecting / moving by touch). Leave it as it is; you can still edit a locked node with `ui set`.
+- Design size: `design:[w,h]` on create/set. The user previews many phone sizes in the Maker; use anchors and `fill`/`%` so every size works.
+
 ## Tips
 - Start from a template and edit it; it already uses sensible anchors for both orientations.
 - A HUD sits in the corners (`topleft`, `topright`) with margins >= 16; big buttons for thumbs at the bottom corners.
