@@ -10,6 +10,8 @@ import com.star4droid.template.Utils.ChildsHolder;
 import com.star4droid.template.Utils.ItemScript;
 import com.star4droid.template.Utils.PlayerItem;
 import com.star4droid.template.ui.UIEvents;
+import com.star4droid.template.ui.UIListeners;
+import com.star4droid.template.ui.UINodeRef;
 import com.star4droid.template.ui.UIView;
 
 /**
@@ -26,6 +28,7 @@ public class UIHolder extends Group implements PlayerItem {
 	ChildsHolder childsHolder = new ChildsHolder(this);
 	ItemScript itemScript;
 	UIView view;
+	private final UIListeners listeners = new UIListeners();
 	private float scaleFactor = 1f;
 	
 	public UIHolder(StageImp stageImp){
@@ -82,6 +85,7 @@ public class UIHolder extends Group implements PlayerItem {
 			view = null;
 		}
 		view = UIView.load(projectPath(), name);
+		view.setListeners(listeners);
 		view.setFit(holderDef.fit);
 		applyViewSize();
 		if(holderDef.uiEvents != null){
@@ -105,6 +109,23 @@ public class UIHolder extends Group implements PlayerItem {
 		return view;
 	}
 	
+	/** An inner element by id ({@code hud.node("score").setText("10")}); valid even after another .ui was loaded. */
+	public UINodeRef node(String id){
+		return new UINodeRef(this, id);
+	}
+
+	/** Listeners registered from code on the inner elements; they survive {@link #setUi}. */
+	public UIListeners listeners(){
+		return listeners;
+	}
+
+	public UIHolder onClick(String id, Runnable r){ listeners.onClick(id, r); return this; }
+	public UIHolder onTouchStart(String id, Runnable r){ listeners.onTouchStart(id, r); return this; }
+	public UIHolder onTouchEnd(String id, Runnable r){ listeners.onTouchEnd(id, r); return this; }
+	public UIHolder onChange(String id, UIListeners.OnValue l){ listeners.onChange(id, l); return this; }
+	public UIHolder onSubmit(String id, UIListeners.OnText l){ listeners.onSubmit(id, l); return this; }
+	public UIHolder onScroll(String id, UIListeners.OnScroll l){ listeners.onScroll(id, l); return this; }
+
 	/** Shows another .ui file of the project's UI folder in this element. */
 	public UIHolder setUi(String uiName){
 		if(holderDef != null) holderDef.ui = uiName;

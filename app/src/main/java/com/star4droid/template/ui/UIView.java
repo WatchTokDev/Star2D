@@ -29,6 +29,7 @@ public class UIView extends ClipGroup {
     private final String projectPath;
     private UIDocument doc;
     private UIEvents events;
+    private UIListeners listeners = new UIListeners();
     private final Group content = new Group();
     private final LinkedHashMap<String, UIActor> actors = new LinkedHashMap<>();
     private String fit = "stretch";
@@ -110,6 +111,17 @@ public class UIView extends ClipGroup {
 
     public UIEvents getEvents() {
         return events;
+    }
+
+    /** Listeners registered from code per node id (onClick("btnPlay", r)...): they run after {@link UIEvents}. */
+    public UIListeners listeners() {
+        return listeners;
+    }
+
+    /** Uses another listener list (a UIHolder keeps its own so they survive loading another .ui). */
+    public UIView setListeners(UIListeners l) {
+        this.listeners = l == null ? new UIListeners() : l;
+        return this;
     }
 
     /** "stretch" (default), "contain" or "cover". */
@@ -468,6 +480,7 @@ public class UIView extends ClipGroup {
                 events.onClick(UIView.this, a.node.id);
             }
         });
+        listeners.fire("onClick", a.node.id, null, null);
     }
 
     void fireTouchStart(final UIActor a) {
@@ -477,6 +490,7 @@ public class UIView extends ClipGroup {
                 events.onTouchStart(UIView.this, a.node.id);
             }
         });
+        listeners.fire("onTouchStart", a.node.id, null, null);
     }
 
     void fireTouchEnd(final UIActor a) {
@@ -486,6 +500,7 @@ public class UIView extends ClipGroup {
                 events.onTouchEnd(UIView.this, a.node.id);
             }
         });
+        listeners.fire("onTouchEnd", a.node.id, null, null);
     }
 
     void fireChange(final UIActor a, final Object v) {
@@ -495,6 +510,7 @@ public class UIView extends ClipGroup {
                 events.onChange(UIView.this, a.node.id, v instanceof Float || v instanceof Boolean || v instanceof String ? v : String.valueOf(v));
             }
         });
+        listeners.fire("onChange", a.node.id, v instanceof Float || v instanceof Boolean || v instanceof String ? v : String.valueOf(v), null);
     }
 
     void fireSubmit(final UIActor a, final String text) {
@@ -504,6 +520,7 @@ public class UIView extends ClipGroup {
                 events.onSubmit(UIView.this, a.node.id, text);
             }
         });
+        listeners.fire("onSubmit", a.node.id, text, null);
     }
 
     void fireScroll(final UIActor a, final float x, final float y) {
@@ -513,6 +530,7 @@ public class UIView extends ClipGroup {
                 events.onScroll(UIView.this, a.node.id, x, y);
             }
         });
+        listeners.fire("onScroll", a.node.id, Float.valueOf(x), Float.valueOf(y));
     }
 
     /** Frees what this view owns (text field fonts). Call when the view is thrown away for good. */

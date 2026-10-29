@@ -841,6 +841,11 @@ public class PropertiesPanel implements PanelHost.Panel {
         instanceBar.addView(card, Ui.margins(Ui.matchWrap(), c, 0, 2, 0, 4));
     }
 
+    /** A Body Script changed on disk (code editor closed): re-read its variables section. */
+    public void refreshScriptVars() {
+        if (behaviorSection != null) behaviorSection.rescan();
+    }
+
     private void commit(Runnable glWork) {
         Bridge.gl(glWork);
     }

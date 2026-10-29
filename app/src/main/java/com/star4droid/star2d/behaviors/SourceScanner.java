@@ -24,6 +24,10 @@ public final class SourceScanner {
 		public boolean reqBody, reqUi;
 		public List<String> sets = new ArrayList<String>();
 		public List<VarSpec> vars = new ArrayList<VarSpec>();
+		/** Scanned as a user script (Body / Scene script): more fields qualify, see {@link SourceScanner#scanScript}. */
+		public boolean script;
+		/** true when a class was found and its braces / parentheses are balanced (a half-typed file is not trustworthy: do not sync from it). */
+		public boolean complete;
 
 		public String fqn() {
 			return pkg.length() > 0 ? pkg + "." + className : className;
@@ -119,11 +123,29 @@ public final class SourceScanner {
 		return o.toString();
 	}
 
+	/**
+	 * Fields of a behavior: public instance fields only (see the class comment).
+	 */
 	public static Result scan(String source) {
+		return scan(source, false);
+	}
+
+	/**
+	 * Fields of a user script (Body Script / Scene Script). Exposed: public, package-private (no modifier) and static fields
+	 * (not final, not transient, not {@code @Hidden}); {@code private} / {@code protected} ones only with {@code @Expose}.
+	 * Every returned {@link VarSpec} has {@code auto = true}.
+	 */
+	public static Result scanScript(String source) {
+		return scan(source, true);
+	}
+
+	private static Result scan(String source, boolean script) {
 		Result r = new Result();
+		r.script = script;
 		if (source == null) return r;
 		try {
 			String s = clean(source);
+			r.complete = balanced(s);
 			// package
 			java.util.regex.Matcher pm = java.util.regex.Pattern.compile("\\bpackage\\s+([\\w.]+)\\s*;").matcher(s);
 			if (pm.find()) r.pkg = pm.group(1);
@@ -148,7 +170,10 @@ public final class SourceScanner {
 					}
 				}
 			}
-			if (classStart < 0) return r;
+			if (classStart < 0) {
+				r.complete = false;
+				return r;
+			}
 			int classEnd = matching(s, classStart);
 			String body = s.substring(classStart + 1, classEnd < 0 ? s.length() : classEnd);
 			Map<String, List<String>> enums = findEnums(s, r);
@@ -157,6 +182,22 @@ public final class SourceScanner {
 			// best effort
 		}
 		return r;
+	}
+
+	/** {} () [] are balanced (strings and comments are already masked). */
+	private static boolean balanced(String s) {
+		int b = 0, p = 0, k = 0;
+		for (int i = 0; i < s.length(); i++) {
+			char c = s.charAt(i);
+			if (c == '{') b++;
+			else if (c == '}') b--;
+			else if (c == '(') p++;
+			else if (c == ')') p--;
+			else if (c == '[') k++;
+			else if (c == ']') k--;
+			if (b < 0 || p < 0 || k < 0) return false;
+		}
+		return b == 0 && p == 0 && k == 0;
 	}
 
 	/** Position just after the previous ';' '}' of a depth-0 declaration (start of the annotations of the class). */
@@ -228,6 +269,9 @@ public final class SourceScanner {
 		Map<String, List<String>> out = new HashMap<String, List<String>>();
 		java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\benum\\s+(\\w+)\\s*(?:implements[^{]*)?\\{").matcher(s);
 		while (m.find()) {
+			// only public enums: the generated scene code lives in another package and must be able to name the constant
+			java.util.regex.Matcher mods = java.util.regex.Pattern.compile("((?:\\b(?:public|private|protected|static|final|abstract)\\s+)*)$").matcher(s.substring(Math.max(0, m.start() - 60), m.start()));
+			if (mods.find() && !mods.group(1).contains("public")) continue;
 			int open = m.end() - 1;
 			int close = matching(s, open);
 			if (close < 0) continue;
@@ -404,17 +448,27 @@ public final class SourceScanner {
 		List<Annotation> anns = annotations(t);
 		String bare = stripAnnotations(t).trim();
 		// modifiers
-		boolean isPublic = false, isStatic = false, isFinal = false;
+		boolean isPublic = false, isStatic = false, isFinal = false, isTransient = false;
+		String access = "package";
 		while (true) {
 			java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(public|private|protected|static|final|transient|volatile)\\b\\s*").matcher(bare);
 			if (!m.find()) break;
 			String mod = m.group(1);
-			if (mod.equals("public")) isPublic = true;
+			if (mod.equals("public")) {
+				isPublic = true;
+				access = "public";
+			} else if (mod.equals("private") || mod.equals("protected")) access = mod;
 			else if (mod.equals("static")) isStatic = true;
 			else if (mod.equals("final")) isFinal = true;
+			else if (mod.equals("transient")) isTransient = true;
 			bare = bare.substring(m.end());
 		}
-		if (!isPublic || isStatic || isFinal) return;
+		if (r.script) {
+			boolean exposed = false;
+			for (Annotation a : anns) if (a.name.equals("Expose")) exposed = true;
+			if (isFinal || isTransient) return;
+			if ((access.equals("private") || access.equals("protected")) && !exposed) return;
+		} else if (!isPublic || isStatic || isFinal) return;
 		// type
 		int p = 0;
 		int n = bare.length();
@@ -494,10 +548,18 @@ public final class SourceScanner {
 			v.min = min;
 			v.max = max;
 			v.step = step;
+			v.isStatic = isStatic;
+			v.access = access;
+			v.auto = r.script;
+			if (v.list && !v.array) v.container = containerOf(typeName);
 			if (init != null) v.def = parseDefault(v, init);
 			r.vars.add(v);
 			header = ""; // a header only opens a group at its first field
 		}
+	}
+
+	private static String containerOf(String typeName) {
+		return typeName.substring(typeName.lastIndexOf('.') + 1);
 	}
 
 	private static String nz(String s) {

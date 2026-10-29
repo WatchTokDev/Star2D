@@ -206,6 +206,15 @@ public class CodeEditorActivity extends AppCompatActivity {
 	}
 	
 	@Override
+	protected void onStop() {
+		super.onStop();
+		// leaving the editor: variables declared in a Body / Scene script show up in Properties (background scan, never blocks)
+		try {
+			com.star4droid.star2d.ui.behaviors.ScriptVarWatcher.onEditorClosed(path);
+		} catch(Throwable ignored){}
+	}
+
+	@Override
 	protected void onDestroy() {
 		super.onDestroy();
 		if(smart != null) smart.destroy();

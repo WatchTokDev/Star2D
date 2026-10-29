@@ -197,12 +197,12 @@ final class BehaviorTools {
             o.addProperty("element", c.name);
             o.addProperty("type", c.type + (c.ui ? " (UI)" : ""));
             o.add("behaviors", arr);
-            SourceScanner.Result r = SourceScanner.scan(BehaviorCatalog.readFile(new File(bodyScriptFile(c))));
+            SourceScanner.Result r = SourceScanner.scanScript(BehaviorCatalog.readFile(new File(bodyScriptFile(c))));
             if (!r.vars.isEmpty()) {
                 JsonArray bv = new JsonArray();
                 for (VarSpec v : r.vars) bv.add(varJson(v, false));
                 o.add("script_vars", bv);
-                if (!c.scriptVars.isEmpty()) o.add("script_var_values", BehaviorData.gson().toJsonTree(BehaviorData.parseVars(c.scriptVars)));
+                if (!c.scriptVars.isEmpty()) o.add("script_var_values", BehaviorData.gson().toJsonTree(com.star4droid.star2d.behaviors.ScriptVarSync.visible(BehaviorData.parseVars(c.scriptVars))));
             }
             return ToolResult.text(o.toString());
         }
@@ -454,7 +454,7 @@ final class BehaviorTools {
         Ctx c = ctx(a, false);
         boolean scene = c.name == null;
         String file = scene ? c.project.getSceneScript(c.scene) : bodyScriptFile(c);
-        SourceScanner.Result r = SourceScanner.scan(BehaviorCatalog.readFile(new File(file)));
+        SourceScanner.Result r = SourceScanner.scanScript(BehaviorCatalog.readFile(new File(file)));
         if (r.vars.isEmpty()) return ToolResult.error((scene ? "The scene script" : "The Body Script of '" + c.name + "'") + " has no public variables. Declare `public float speed = 5;` in its Java code first.");
         File store = new File(c.projectPath + "/Events/" + c.scene + "/public/scriptvars.json");
         Map<String, Object> cur = BehaviorData.parseVars(scene ? BehaviorCatalog.readFile(store) : c.scriptVars);
@@ -464,7 +464,7 @@ final class BehaviorTools {
             JsonArray arr = new JsonArray();
             for (VarSpec v : r.vars) arr.add(varJson(v, true));
             o.add("vars", arr);
-            o.add("values", BehaviorData.gson().toJsonTree(cur));
+            o.add("values", BehaviorData.gson().toJsonTree(com.star4droid.star2d.behaviors.ScriptVarSync.visible(cur)));
             return ToolResult.text(o.toString());
         }
         ArrayList<String> warnings = new ArrayList<String>(), errors = new ArrayList<String>();
@@ -492,7 +492,7 @@ final class BehaviorTools {
             if (err != null) return ToolResult.error(err);
         }
         o.addProperty("set", scene ? "scene script" : c.name);
-        o.add("values", BehaviorData.gson().toJsonTree(cur));
+        o.add("values", BehaviorData.gson().toJsonTree(com.star4droid.star2d.behaviors.ScriptVarSync.visible(cur)));
         if (!warnings.isEmpty()) {
             JsonArray w = new JsonArray();
             for (String x : warnings) w.add(x);

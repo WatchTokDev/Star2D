@@ -46,7 +46,7 @@ Per element: behaviors (list order, the user can reorder) → Body Script (`onX(
 
 ### Public variables (parameters)
 Every `public`, non-static, non-final field becomes a parameter: int/long/short/byte/float/double/boolean/String, `Color` (`libgdx.graphics.Color` or a `String` annotated nothing: hex `#RRGGBB[AA]`), enums (nested or imported), `@Image String` (project image path), `@Sound String`, **element references** (a field typed `PlayerItem`, `TextItem`, `ProgressItem`, `Joystick`, `BoxBody`... filtered by type in the picker), and `List<T>` / arrays of any of them. Defaults come from the field initializer (simple literals and `new Color(..)`/`Color.RED` are read; anything else falls back to the type's zero). Annotations `@Param(desc,label,min,max,step,unit)`, `@Header("Group")`, `@Hidden`.
-The same rule applies to Body Scripts (`Events/.../Script.java`) and the scene script: their public fields appear in Properties (Script variables) and Variables (scene script).
+The same rule applies to Body Scripts (`Events/.../Script.java`) and the scene script: their public fields appear in Properties (Script variables) and Variables (scene script). Scripts have a wider rule (package-private, `static`, `@Expose private`, auto-detect when the code editor is closed, list editor, UI holder nodes): see **SCRIPTVARS.md**.
 
 ### Events a behavior raises
 Declare them in `@BehaviorInfo(events = {"onShoot(PlayerItem bullet)"})` and call `fire("onShoot", bullet)`. The user fills them in the Events panel under **Behavior events**; storage: `Events/<scene>/private/<element>/behaviors/<Id>/<event>.java` (+ `.visual`). Generated code: `__b.on("onShoot", new Behavior.Handler(){ public void run(PlayerItem current, Object[] args){ PlayerItem bullet = (PlayerItem) args[0]; ... } });`.
@@ -57,7 +57,7 @@ Declare them in `@BehaviorInfo(events = {"onShoot(PlayerItem bullet)"})` and cal
 ## Storage
 * Element property `behaviors`: `[{"type":"Floating","params":{"amplitudeY":20},"enabled":true}]`.
 * Element property `scriptVars`: `{"speed":420,"hpBar":"HpBar","enemies":["e1","e2"],"tint":"#FF8800"}` (element references are element names).
-* Scene script variables: `Events/<scene>/public/scriptvars.json` (same map format).
+* Scene script variables: `Events/<scene>/public/scriptvars.json` (same map format). Both maps may carry a bookkeeping key `"$auto"` (fields found in the code, see SCRIPTVARS.md); it is never a value.
 * Both element properties are listed in `assets/items/default.json` (needed so they survive load/save) and skipped by the code generator's reflection.
 * Generated code (after every element exists, before the scene `OnCreate`): per behavior a block `{ Fqn __b = new Fqn(); __b.field = ...; __b.on(...); __b.attach(item, this); }`, then `((ScriptClass) item.getScript()).field = ...;` for script variables.
 

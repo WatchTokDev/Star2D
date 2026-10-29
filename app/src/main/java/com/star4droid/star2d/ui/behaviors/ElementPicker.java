@@ -32,13 +32,17 @@ final class ElementPicker {
 
 	static void show(VarEditors.Host h, VarSpec spec, String current, Pick pick) {
 		Context c = h.ctx();
-		Bridge.query(BehaviorEnv::elements, all -> {
+		Bridge.query(() -> {
+			List<String[]> l = BehaviorEnv.elements();
+			if (ElementTypes.UI_NODE.equals(spec.elemType)) l.addAll(BehaviorEnv.uiNodes()); // "holder/nodeId"
+			return l;
+		}, all -> {
 			final List<String> names = new ArrayList<>();
 			final List<String> labels = new ArrayList<>();
 			for (String[] e : all)
 				if (ElementTypes.accepts(spec.elemType, e[1])) {
 					names.add(e[0]);
-					labels.add(e[0] + "   · " + e[1]);
+					labels.add(e[0] + "   · " + (e.length > 2 ? e[2] : e[1]));
 				}
 			LinearLayout col = Ui.column(c);
 			col.setPadding(Ui.dp(c, 14), Ui.dp(c, 4), Ui.dp(c, 14), 0);

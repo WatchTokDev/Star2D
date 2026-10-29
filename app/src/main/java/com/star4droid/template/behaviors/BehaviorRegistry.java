@@ -12,6 +12,13 @@ public final class BehaviorRegistry {
 	/** Element by name, only if it is of the wanted type (else null): {@code b.hpBar = BehaviorRegistry.ref(this, "hp", ProgressItem.class);} */
 	public static <T> T ref(StageImp stage, String name, Class<T> type) {
 		if (stage == null || name == null || name.length() == 0) return null;
+		int slash = name.indexOf('/');
+		if (slash > 0) { // "holder/nodeId": an inner element of a UI holder
+			PlayerItem holder = stage.findItem(name.substring(0, slash));
+			if (!(holder instanceof com.star4droid.template.Items.UIHolder)) return null;
+			Object node = ((com.star4droid.template.Items.UIHolder) holder).node(name.substring(slash + 1));
+			return type.isInstance(node) ? type.cast(node) : null;
+		}
 		PlayerItem found = stage.findItem(name);
 		return type.isInstance(found) ? type.cast(found) : null;
 	}

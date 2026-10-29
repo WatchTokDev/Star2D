@@ -131,7 +131,7 @@ public class EventsPanel implements PanelHost.Panel {
             if (!"UIHOLDER".equals(ps.getString("TYPE"))) return out;
             String ui = ps.getString("ui");
             if (ui == null || ui.isEmpty()) return out;
-            java.io.File f = new java.io.File(p.getPath(), "UI/" + ui + ".ui");
+            java.io.File f = com.star4droid.template.ui.UIView.uiFile(p.getPath(), ui); // "folder/name" and a trailing ".ui" are fine
             if (!f.exists()) return out;
             com.star4droid.template.ui.UIDocument doc = com.star4droid.template.ui.UIDocument.read(f);
             if (doc == null) return out;
@@ -140,13 +140,17 @@ public class EventsPanel implements PanelHost.Panel {
                 String[] evs = com.star4droid.template.ui.UIWidgetRegistry.eventsOf(n);
                 if (evs.length == 0) continue;
                 boolean any = false;
-                for (String ev : evs)
-                    if (hasCode(p.getEventPath(scene, com.star4droid.star2d.Helpers.UiEventsGen.body(holder, n.id), ev))) any = true;
+                StringBuilder shown = new StringBuilder(); // "onClick ● · onTouchStart" (● = has code)
+                for (String ev : evs) {
+                    boolean has = hasCode(p.getEventPath(scene, com.star4droid.star2d.Helpers.UiEventsGen.body(holder, n.id), ev));
+                    any |= has;
+                    shown.append(shown.length() == 0 ? "" : " · ").append(ev).append(has ? " ●" : "");
+                }
                 String t = n.type;
                 boolean interactive = t.equals("Button") || t.equals("Slider") || t.equals("Checkbox") || t.equals("Radio")
                         || t.equals("Switch") || t.equals("TextField") || t.equals("ScrollView");
                 if (!interactive && !any) continue;
-                out.add(new String[]{holder, n.id, t, String.join(",", evs), any ? "1" : "0", ui});
+                out.add(new String[]{holder, n.id, t, String.join(",", evs), any ? "1" : "0", ui, shown.toString()});
             }
         } catch (Throwable ignored) {
         }
@@ -234,9 +238,12 @@ public class EventsPanel implements PanelHost.Panel {
         // inner elements of a UIHolder
         if (!uiNodes.isEmpty()) {
             list.addView(Ui.sectionLabel(c, Tr.t("ui_inner_events", "UI elements") + " · " + uiNodes.get(0)[5]));
+            TextView codeHint = Ui.text(c, Tr.t("sv_ui_code_hint", "From code") + ": " + uiNodes.get(0)[0] + ".onClick(\"" + uiNodes.get(0)[1] + "\", runnable)  ·  " + uiNodes.get(0)[0] + "_" + uiNodes.get(0)[1] + ".setText(\"..\")", 11, Ui.TEXT_3);
+            codeHint.setPadding(Ui.dp(c, 8), 0, Ui.dp(c, 8), Ui.dp(c, 4));
+            list.addView(codeHint);
             for (String[] n : uiNodes) {
                 String[] evs = n[3].split(",");
-                View r = row(c, R.drawable.ic_s2_widgets, 0xFFFF9800, n[1] + "  (" + n[2] + ")", n[3].replace(",", " · "), "1".equals(n[4]), v -> {
+                View r = row(c, R.drawable.ic_s2_widgets, 0xFFFF9800, n[1] + "  (" + n[2] + ")", n[6], "1".equals(n[4]), v -> {
                     if (evs.length == 1) VisualScriptingDialog.showForUi(n[0], n[1], evs[0]);
                     else Dialogs.choose(c, n[1], evs, i -> VisualScriptingDialog.showForUi(n[0], n[1], evs[i]));
                 });

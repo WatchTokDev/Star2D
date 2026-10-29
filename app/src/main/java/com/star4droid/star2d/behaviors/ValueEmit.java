@@ -29,8 +29,9 @@ public final class ValueEmit {
 					items.append(i > 0 ? ", " : "").append(e);
 				}
 				if (v.array) return "new " + v.javaType() + "[]{" + items + "}";
-				if (l.isEmpty()) return "new java.util.ArrayList<" + v.boxedJavaType() + ">()";
-				return "new java.util.ArrayList<" + v.boxedJavaType() + ">(java.util.Arrays.asList(" + items + "))";
+				String impl = "LinkedList".equals(v.container) ? "java.util.LinkedList" : "java.util.ArrayList";
+				if (l.isEmpty()) return "new " + impl + "<" + v.boxedJavaType() + ">()";
+				return "new " + impl + "<" + v.boxedJavaType() + ">(java.util.Arrays.asList(" + items + "))";
 			}
 			return scalar(v, val);
 		} catch (RuntimeException ex) {

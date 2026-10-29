@@ -59,6 +59,27 @@ public final class BehaviorEnv {
 		return e;
 	}
 
+	/** Inner elements of the UI holders of the scene as {"holder/nodeId", "UINODE", widget type}; GL thread. */
+	public static List<String[]> uiNodes() {
+		List<String[]> out = new ArrayList<>();
+		LibgdxEditor ed = Bridge.editor();
+		if (ed == null) return out;
+		String project = ed.getProject().getPath();
+		for (Actor a : ed.getActors()) {
+			try {
+				PropertySet<String, Object> ps = PropertySet.getPropertySet(a);
+				if (ps == null || !"UIHOLDER".equals(ps.getString("TYPE")) || ps.getString("ui").isEmpty()) continue;
+				File f = com.star4droid.template.ui.UIView.uiFile(project, ps.getString("ui"));
+				com.star4droid.template.ui.UIDocument doc = f.isFile() ? com.star4droid.template.ui.UIDocument.read(f) : null;
+				if (doc != null)
+					for (com.star4droid.template.ui.UINode n : doc.allNodes())
+						out.add(new String[] {ps.getString("name") + "/" + n.id, "UINODE", n.type});
+			} catch (RuntimeException ignored) {
+			}
+		}
+		return out;
+	}
+
 	/** Elements of the scene as {name, TYPE}; GL thread. Lights are left out (they are not PlayerItems). */
 	public static List<String[]> elements() {
 		List<String[]> out = new ArrayList<>();

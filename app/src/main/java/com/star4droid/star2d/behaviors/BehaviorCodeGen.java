@@ -36,10 +36,10 @@ public final class BehaviorCodeGen {
 	public static String forItem(Env env, String item, String behaviorsJson, String scriptVarsJson, String scriptFile) {
 		StringBuilder out = new StringBuilder();
 		Map<String, Object> vars = BehaviorData.parseVars(scriptVarsJson);
-		if (!vars.isEmpty() && scriptFile != null) {
-			SourceScanner.Result r = SourceScanner.scan(env.readFile(scriptFile));
+		if (ScriptVarSync.hasValues(vars) && scriptFile != null) {
+			SourceScanner.Result r = SourceScanner.scanScript(env.readFile(scriptFile));
 			if (r.className.length() > 0)
-				out.append(assignVars("((" + r.fqn() + ") " + item + ".getScript())", r.vars, vars));
+				out.append(assignVars("((" + r.fqn() + ") " + item + ".getScript())", r.fqn(), r.vars, vars));
 		}
 		List<BehaviorData.Entry> entries = BehaviorData.parse(behaviorsJson);
 		int n = 0;
@@ -52,7 +52,7 @@ public final class BehaviorCodeGen {
 			out.append("{\n");
 			out.append(m.fqn).append(" __b = new ").append(m.fqn).append("();\n");
 			if (!e.enabled) out.append("__b.enabled = false;\n");
-			out.append(assignVars("__b", m.vars, e.params));
+			out.append(assignVars("__b", null, m.vars, e.params));
 			for (BehaviorMeta.EventSpec ev : m.events) {
 				String code = env.eventCode(eventBody(item, m.id), ev.name);
 				if (code == null || code.trim().length() == 0) continue;
@@ -70,13 +70,22 @@ public final class BehaviorCodeGen {
 	/** Scene script: {@code ((fqn) getSceneScript()).x = ...;}. */
 	public static String forSceneScript(Env env, String scriptFile, String varsJson) {
 		Map<String, Object> vars = BehaviorData.parseVars(varsJson);
-		if (vars.isEmpty() || scriptFile == null) return "";
-		SourceScanner.Result r = SourceScanner.scan(env.readFile(scriptFile));
+		if (!ScriptVarSync.hasValues(vars) || scriptFile == null) return "";
+		SourceScanner.Result r = SourceScanner.scanScript(env.readFile(scriptFile));
 		if (r.className.length() == 0) return "";
-		return assignVars("((" + r.fqn() + ") getSceneScript())", r.vars, vars);
+		return assignVars("((" + r.fqn() + ") getSceneScript())", r.fqn(), r.vars, vars);
 	}
 
-	private static String assignVars(String target, List<VarSpec> specs, Map<String, Object> values) {
+	/** Runtime helper (template) that sets non-public fields. */
+	private static final String SCRIPT_VARS = "com.star4droid.template.Utils.ScriptVars";
+
+	/**
+	 * One statement per stored value whose variable still exists in the code. Public fields: plain assignment;
+	 * package-private / {@code @Expose}d ones through {@link #SCRIPT_VARS} (the scene class lives in another package); static fields on the class.
+	 *
+	 * @param cls fully qualified class of a script (needed for static fields), null for behaviors
+	 */
+	private static String assignVars(String target, String cls, List<VarSpec> specs, Map<String, Object> values) {
 		StringBuilder sb = new StringBuilder();
 		for (Map.Entry<String, Object> e : values.entrySet()) {
 			VarSpec spec = null;
@@ -84,7 +93,13 @@ public final class BehaviorCodeGen {
 			if (spec == null) continue;
 			String expr = ValueEmit.expr(spec, e.getValue());
 			if (expr == null) continue;
-			sb.append(target).append('.').append(spec.name).append(" = ").append(expr).append(";\n");
+			String name = ValueEmit.quote(spec.name);
+			if (spec.isStatic) {
+				if (cls == null) continue;
+				if (spec.direct()) sb.append(cls).append('.').append(spec.name).append(" = ").append(expr).append(";\n");
+				else sb.append(SCRIPT_VARS).append(".setStatic(").append(cls).append(".class, ").append(name).append(", ").append(expr).append(");\n");
+			} else if (spec.direct()) sb.append(target).append('.').append(spec.name).append(" = ").append(expr).append(";\n");
+			else sb.append(SCRIPT_VARS).append(".set(").append(target).append(", ").append(name).append(", ").append(expr).append(");\n");
 		}
 		return sb.toString();
 	}

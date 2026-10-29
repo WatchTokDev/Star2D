@@ -151,6 +151,27 @@ hud_def.uiEvents = new com.star4droid.template.ui.UIEventsAdapter(){
 Variables available in the code: `ui` (UIView), `id`, and `value` (onChange, Object), `text` (onSubmit), `x`, `y` (onScroll).
 Code can use the whole `UIView` API (below) and the usual game API, so a jump button connects to the game with ordinary code.
 
+### Inner elements from code (holder, `UINodeRef`, listeners)
+
+The inner nodes of a holder are first-class for scripts, no `findItem` needed:
+
+```java
+// generated base class <scene>ItemRefs / <scene>SceneRefs (every Body Script and the Scene Script extends one)
+public UIHolder hud;                                   // typed: hud.ui(), hud.node(..), hud.onClick(..), setUi(..)
+public UINodeRef hud_root, hud_btnPlay, hud_score;     // one per node id of the holder's .ui: <holder>_<nodeId>
+```
+```java
+hud_score.setText("12").setVisible(true);                  // same as hud.node("score")
+hud_btnPlay.setEnabled(false);
+hud.onClick("btnPlay", new Runnable() { public void run() { startGame(); } });     // Java 8+ projects: () -> startGame()
+hud_volume.onChange(new UIListeners.OnValue() { public void on(Object v) { setVolume(((Float) v).floatValue()); } });
+```
+* `UINodeRef` (package `com.star4droid.template.ui`) wraps (holder, id) and looks the widget up in the holder's CURRENT view each time, so it survives `setUi(..)` / `rebuild()`; an unknown id does nothing (setters) or returns ""/0/false (getters). Setters return the ref: `setText setValue setRange setChecked setVisible setEnabled setAlpha setImage setColor scrollTo click`, `set(key, value)`; getters `getText getValue isChecked isVisible isEnabled getTag exists node view`.
+* Listeners: `onClick onTouchStart onTouchEnd` take a `Runnable`; `onChange(id, UIListeners.OnValue)` (Float for Slider, Boolean for Checkbox / Radio / Switch, String for TextField), `onSubmit(id, UIListeners.OnText)`, `onScroll(id, UIListeners.OnScroll)` (x, y). Same methods on `UINodeRef` without the id, and `UIView.listeners()` for a standalone view. They run in addition to (after) the `UIEvents` object and the event code written in the editor, on the GL thread; an exception in one is logged and the others still run. `UIListeners.remove(id, event|null)` / `clear()` / `UINodeRef.clearListeners()` remove them. A holder keeps its listeners when another .ui is loaded with `setUi`.
+* Fields that would not be valid Java names (`bad-id`) or would clash with an element are skipped (the Refs comment lists them); the file may be in a sub folder (`ui` = `folder/name`, a trailing `.ui` is fine), see `UIView.uiFile`.
+* Script variables: a field of type `UINodeRef` is a variable; the picker (Properties > Script variables) lists the inner nodes of every UI holder of the scene as `hud/score`. Stored as the string `"hud/score"`, resolved by `BehaviorRegistry.ref(this, "hud/score", UINodeRef.class)`. Lists of them work too. See SCRIPTVARS.md.
+* The Events panel of a selected holder lists the nodes of its `.ui` (interactive ones and any with code) with ALL their events, a `●` marks the events that have code, and shows the code shortcuts above.
+
 ---------------------------------------------------------------------------------------------------
 
 ## 5. UIHolder (scene element)
@@ -159,8 +180,8 @@ Code can use the whole `UIView` API (below) and the usual game API, so a jump bu
 * Properties: `ui` (file name without `.ui`, empty = nothing), `fit` (`stretch|contain|cover`), plus the usual `x, y, z, width, height, rotation, Visible, name, Script`.
 * In the editor the `.ui` is rendered directly as one block (dashed orange frame + name; empty = placeholder text). The inner elements cannot be selected or moved in the scene; the Properties panel has **Edit** (choose a file from the project's `UI/` folder, then the UI Maker opens) and **New** (asks a name, creates `UI/<name>.ui`, opens the Maker).
   The editor reloads the view when the file changes (checked every 0.6 s: modification time + length).
-* Runtime class `com.star4droid.template.Items.UIHolder` (a `Group implementing PlayerItem`). In scripts:
-  `UIView ui = ((UIHolder) hud).ui();`  `((UIHolder) hud).setUi("settings");`
+* Runtime class `com.star4droid.template.Items.UIHolder` (a `Group implementing PlayerItem`). In scripts (the generated Refs make `hud` a `UIHolder` field):
+  `UIView ui = hud.ui();`  `hud.setUi("settings");`  `hud.node("score").setText("5")`  `hud.onClick("btnPlay", runnable)` (see "Inner elements from code" in section 4).
   Inside the UI event code the `ui` variable is already the view.
 * When a holder is in world space (`type` ≠ UI) the view is scaled by `StageImp.WORLD_SCALE` like every world element.
 
