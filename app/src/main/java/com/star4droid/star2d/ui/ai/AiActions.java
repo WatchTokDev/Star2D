@@ -15,6 +15,7 @@ import com.star4droid.star2d.editor.LibgdxEditor;
 import com.star4droid.star2d.editor.TestApp;
 import com.star4droid.star2d.editor.ui.ItemActions;
 import com.star4droid.star2d.editor.ui.sub.PropertyEditing;
+import com.star4droid.star2d.remote.AiBridge;
 import com.star4droid.star2d.editor.ui.variables.VarModel;
 import com.star4droid.star2d.ui.Bridge;
 import com.star4droid.star2d.ui.blocks.BlockModel;
@@ -24,6 +25,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -48,7 +53,94 @@ public final class AiActions {
 
     public static boolean isReadOnly(JsonObject a) {
         String t = s(a, "action");
-        return t.equals("read_file") || t.equals("list_files") || t.equals("get_element");
+        return t.equals("read_file") || t.equals("list_files") || t.equals("get_element")
+                || t.equals("physics_info") || t.equals("list_templates") || t.equals("list_buttons")
+                || t.equals("search_icons") || t.equals("layout_check");
+    }
+
+    /**
+     * Actions that are connector tools (physics_info, templates, buttons, icons, scenes...). They wait for the GL thread themselves,
+     * so they must run on a WORKER thread: use {@link #runAny}, never {@link #run}, for them.
+     */
+    public static boolean needsWorker(JsonObject a) {
+        switch (s(a, "action")) {
+            case "physics_info": case "list_templates": case "apply_template": case "list_buttons": case "create_button":
+            case "search_icons": case "import_icon": case "layout_check": case "create_scene":
+                return true;
+        }
+        return false;
+    }
+
+    /** Runs any action from a WORKER thread (not the GL thread): GL actions are posted to the GL thread and awaited, tool actions run here. */
+    public static String runAny(JsonObject a) {
+        try {
+            if (needsWorker(a)) return runTool(a);
+            return onGl(() -> run(a));
+        } catch (Throwable t) {
+            return "Error: " + t.getMessage();
+        }
+    }
+
+    private static <T> T onGl(Callable<T> c) throws Exception {
+        if (Gdx.app == null) throw new Exception("The editor is not ready yet.");
+        final AtomicReference<Object> out = new AtomicReference<>();
+        final AtomicReference<Throwable> err = new AtomicReference<>();
+        final CountDownLatch done = new CountDownLatch(1);
+        Gdx.app.postRunnable(() -> {
+            try { out.set(c.call()); } catch (Throwable t) { err.set(t); } finally { done.countDown(); }
+        });
+        if (!done.await(90, TimeUnit.SECONDS)) throw new Exception("The editor did not answer in time.");
+        if (err.get() != null) throw new Exception(String.valueOf(err.get()));
+        @SuppressWarnings("unchecked") T r = (T) out.get();
+        return r;
+    }
+
+    private static JsonObject args(JsonObject a, String... drop) {
+        JsonObject o = a.deepCopy();
+        o.remove("action");
+        for (String d : drop) o.remove(d);
+        return o;
+    }
+
+    /** The tool behind an action (WORKER thread). Same tools, validation and warnings as the connector. */
+    private static String runTool(JsonObject a) {
+        String t = s(a, "action");
+        JsonObject o = args(a);
+        switch (t) {
+            case "physics_info": return AiBridge.runTool("physics_info", o);
+            case "layout_check": return AiBridge.runTool("layout_check", o);
+            case "list_templates": {
+                JsonObject x = new JsonObject();
+                x.addProperty("action", "list");
+                return AiBridge.runTool("templates", x);
+            }
+            case "apply_template": {
+                o.addProperty("action", "apply");
+                return AiBridge.runTool("templates", o);
+            }
+            case "list_buttons": {
+                JsonObject x = new JsonObject();
+                x.addProperty("action", "list");
+                return AiBridge.runTool("buttons", x);
+            }
+            case "create_button": {
+                o.addProperty("action", "create");
+                return AiBridge.runTool("buttons", o);
+            }
+            case "search_icons": {
+                o.addProperty("action", "search");
+                return AiBridge.runTool("icons", o);
+            }
+            case "import_icon": {
+                o.addProperty("action", "import");
+                return AiBridge.runTool("icons", o);
+            }
+            case "create_scene": {
+                o.addProperty("action", "create");
+                return AiBridge.runTool("scenes", o);
+            }
+        }
+        return "Unknown action " + t;
     }
 
     /** One-line human description for the confirmation card. */
@@ -64,6 +156,15 @@ public final class AiActions {
             case "delete_element": return (ar ? "🗑 حذف " : "🗑 Delete ") + s(a, "element");
             case "add_variable": return (ar ? "𝑥 متغير " : "𝑥 Variable ") + s(a, "type") + " " + s(a, "name") + " = " + s(a, "value");
             case "write_file": return (ar ? "💾 كتابة ملف " : "💾 Write ") + s(a, "path");
+            case "apply_template": return (ar ? "🧩 تطبيق قالب " : "🧩 Apply template ") + s(a, "id") + (s(a, "scene").isEmpty() ? "" : " → " + s(a, "scene"));
+            case "create_button": return (ar ? "🔘 إنشاء زر " : "🔘 Create button ") + s(a, "name") + (s(a, "preset").isEmpty() ? "" : " (" + s(a, "preset") + ")");
+            case "import_icon": return (ar ? "🖼 استيراد أيقونة " : "🖼 Import icon ") + s(a, "id") + (s(a, "name").isEmpty() ? "" : " → " + s(a, "name"));
+            case "create_scene": return (ar ? "🎬 مشهد جديد " : "🎬 New scene ") + s(a, "name") + (s(a, "orientation").isEmpty() ? "" : " (" + s(a, "orientation") + ")");
+            case "physics_info": return (ar ? "📐 حساب الفيزياء" : "📐 Physics info");
+            case "list_templates": return (ar ? "🧩 قائمة القوالب" : "🧩 List templates");
+            case "list_buttons": return (ar ? "🔘 أنماط الأزرار" : "🔘 Button presets");
+            case "search_icons": return (ar ? "🔎 بحث أيقونات " : "🔎 Search icons ") + s(a, "query");
+            case "layout_check": return (ar ? "📏 فحص التخطيط" : "📏 Layout check");
         }
         return "? " + t;
     }
@@ -140,19 +241,41 @@ public final class AiActions {
                         String err = PropertyEditing.applyString(app, "name", name);
                         res.append(err == null ? " named " + name : " (rename failed: " + err + ")");
                     }
-                    if (a.has("properties") && a.get("properties").isJsonObject())
-                        for (Map.Entry<String, JsonElement> e : a.getAsJsonObject("properties").entrySet()) {
-                            String err = applyProperty(app, e.getKey(), e.getValue().isJsonPrimitive() ? e.getValue().getAsString() : e.getValue().toString());
-                            if (err != null) res.append("; ").append(e.getKey()).append(": ").append(err);
-                        }
+                    JsonObject props = a.has("properties") && a.get("properties").isJsonObject() ? a.getAsJsonObject("properties") : new JsonObject();
+                    for (Map.Entry<String, JsonElement> e : props.entrySet()) {
+                        String err = applyProperty(app, e.getKey(), e.getValue().isJsonPrimitive() ? e.getValue().getAsString() : e.getValue().toString());
+                        if (err != null) res.append("; ").append(e.getKey()).append(": ").append(err);
+                    }
+                    Actor added = ed.getSelectedActor();
+                    if (added != null) {
+                        // same z policy and bounds feedback as the connector tools (background 0, ground 10, actors 20, UI 100...)
+                        String zNote = AiBridge.afterAdd(app, ed, added, props);
+                        if (!zNote.isEmpty()) res.append("; auto ").append(zNote);
+                        appendBounds(res, ed, added.getName());
+                    }
                     return res.toString();
                 }
                 case "set_property": {
                     Actor ac = Bridge.actor(s(a, "element"));
                     if (ac == null) return "No element named " + s(a, "element");
                     ed.selectActor(ac);
-                    String err = applyProperty(app, s(a, "property"), s(a, "value"));
-                    return err == null ? "Set " + s(a, "property") : err;
+                    String prop = s(a, "property"), val = s(a, "value");
+                    String clamp = "";
+                    if (prop.equalsIgnoreCase("z")) {
+                        try {
+                            if (Float.parseFloat(val) < 0) {
+                                val = "0";
+                                clamp = " (negative z is not allowed: set to 0; background 0, ground 10, actors 20, UI 100+)";
+                            }
+                        } catch (NumberFormatException ignored) {}
+                    }
+                    String err = applyProperty(app, prop, val);
+                    if (err != null) return err;
+                    StringBuilder out = new StringBuilder("Set " + prop + clamp);
+                    String pl = prop.toLowerCase(Locale.ROOT);
+                    if (pl.equals("x") || pl.equals("y") || pl.equals("width") || pl.equals("height") || pl.equals("radius"))
+                        appendBounds(out, ed, s(a, "element"));
+                    return out.toString();
                 }
                 case "delete_element": {
                     Actor ac = Bridge.actor(s(a, "element"));
@@ -181,6 +304,13 @@ public final class AiActions {
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
+    }
+
+    private static void appendBounds(StringBuilder sb, LibgdxEditor ed, String name) {
+        try {
+            java.util.List<String> w = AiBridge.bounds(ed, java.util.Collections.singleton(name));
+            for (String x : w) sb.append("; WARNING: ").append(x);
+        } catch (Throwable ignored) {}
     }
 
     private static HashMap<String, String> types;

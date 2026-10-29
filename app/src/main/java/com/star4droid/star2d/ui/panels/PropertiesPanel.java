@@ -428,6 +428,20 @@ public class PropertiesPanel implements PanelHost.Panel {
                 t.setPadding(Ui.dp(c, 10), 0, 0, 0);
                 t.setMaxLines(2);
                 r.addView(t, Ui.weight(1));
+                ImageView bmIcon = Ui.iconButton(c, R.drawable.ic_s2_palette, Tr.t("bm_menu", "Button Maker"), v -> Bridge.query(() -> Bridge.editor().getProject().getImagesPath(), imgs ->
+                        shell.panels.show(new ButtonMakerPanel(shell, new File(imgs), null, null, rel -> {
+                            values.put(f, rel);
+                            commit(() -> PropertyEditing.applyImage(Bridge.app(), f, rel));
+                        }))));
+                r.addView(bmIcon);
+                ImageView iconLib = Ui.iconButton(c, R.drawable.ic_s2_widgets, Tr.t("icn_title", "Icons"), v -> Bridge.query(() -> Bridge.editor().getProject().getPath(), projectPath ->
+                        com.star4droid.star2d.ui.IconBrowser.show(shell.activity(), new File(projectPath), true, (useAs, file) -> {
+                            values.put(f, useAs);
+                            t.setText(useAs);
+                            FilePickerDialog.thumb(iv, file, Ui.dp(c, 40));
+                            commit(() -> PropertyEditing.applyImage(Bridge.app(), f, useAs));
+                        })));
+                r.addView(iconLib);
                 Bridge.query(() -> Bridge.editor().getProject().getImagesPath(), imgs -> {
                     File img = new File(imgs + values.get(f));
                     if (img.isFile()) FilePickerDialog.thumb(iv, img, Ui.dp(c, 40));

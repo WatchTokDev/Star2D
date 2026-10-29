@@ -61,6 +61,8 @@ public class ProjectAssetLoader extends AssetManager {
 	}
 	
 	public void loadFile(String file,Class<?> Type){
+		// name.9.png is drawn through NinePatchLoader (cropped, with stretch splits), not as a plain Texture
+		if(NinePatchLoader.is9(file)) return;
 		if(endsWith(file,".jpg",".png",".jpeg")){
 			load(file,Texture.class);
 			return;
@@ -92,6 +94,7 @@ public class ProjectAssetLoader extends AssetManager {
 	
 	public void load(File dir,Class<?> Type) {
 		if(dir.isFile() && !contains(dir.getAbsolutePath())){
+			if(NinePatchLoader.is9(dir.getName())) return;
 			load(dir.getAbsolutePath(),Type);
 			return;
 		}

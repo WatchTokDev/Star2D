@@ -258,6 +258,10 @@ public class FileBrowser extends VisWindow implements Disposable {
 		    if(!isImagesFolder){
 		        return fileIcon;
 		    }
+		    // name.9.png: thumbnail of the picture without its 1px markers
+		    if(com.star4droid.template.Utils.NinePatchLoader.is9(file)){
+		        try { return com.star4droid.template.Utils.NinePatchLoader.load(file).texture; } catch(Throwable ignored){ return fileIcon; }
+		    }
 			if(projectAssetLoader.isLoaded(file.toString())){
 				return projectAssetLoader.get(file.toString());
 			} else {

@@ -20,6 +20,12 @@ public class Utils {
 		public static String error_tag="star2d_error",seperator=".star2d.Seperator.";
 		
 		public static Drawable getDrawable(FileHandle fileHandle){
+			// name.9.png (Android 9-patch): stretches to the size of the element it is set on
+			if(NinePatchLoader.is9(fileHandle) && fileHandle.exists()){
+				try {
+					return NinePatchLoader.drawable(fileHandle);
+				} catch(Throwable ignored){}
+			}
 			return new TextureRegionDrawable(new TextureRegion(new Texture(fileHandle)));
 		}
 		

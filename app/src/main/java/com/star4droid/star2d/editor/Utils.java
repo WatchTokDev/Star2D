@@ -129,6 +129,18 @@ public class Utils {
 	}
 	
 	public static void setImageFromFile(Image image,String path,float rx,float ry){
+		// name.9.png (Android 9-patch): stretched to the element size (editor items are drawn 1:1 in px, no tiling)
+		if(com.star4droid.template.Utils.NinePatchLoader.is9(path)){
+			try {
+				FileHandle nine = Gdx.files.absolute(path);
+				if(nine.exists() && !nine.isDirectory()){
+					image.setDrawable(com.star4droid.template.Utils.NinePatchLoader.drawable(nine));
+					return;
+				}
+			} catch(Throwable t){
+				Gdx.files.external("logs/ninepatch.error.txt").writeString(t.toString()+"\n",true);
+			}
+		}
 		ProjectAssetLoader loader = (Editor.getCurrentEditor()!=null && Editor.getCurrentEditor().getLibgdxEditor()!=null)?Editor.getCurrentEditor().getLibgdxEditor().getAssetLoader():null;
 		Texture editorTexture = null;
 		// contains() is also true for an image that is only queued (just added, not loaded yet): get() would throw and the item would keep the default logo

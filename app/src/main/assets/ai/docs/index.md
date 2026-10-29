@@ -27,6 +27,7 @@ Star2D is a 2D game-engine editor on an Android phone (LibGDX + Box2D). Do NOT r
 - `variables`: scene variables, types, saving data.
 - `ui-input`: TEXT sizing, buttons, designing UI (layout_check + screenshot loop), touch, keyboard, joystick, camera follow.
 - `assets`: images, animations, sounds, particles, maps, fonts, paths, `create_image` / `create_sound`.
+- `icons`: the `icons` tool: ~1800 ready icons in two sets (ui: heart, star, sound, arrows...; game: swords, potions, gems, monsters...) searchable by many English words, imported as PNG with size/colour. Before drawing any small symbol or item picture.
 - `joints`: the `joints` tool, which types are safe.
 - `groups`: the GROUP element and `parent`: children follow the parent (world/UI rules), hide/destroy cascade. Before building anything with moving parts (a car with wheels, a HUD panel).
 - `prefabs`: reusable groups of elements saved as files: the `prefabs` tool (create, add, apply, revert, unpack, link), overrides, scripts. Before repeating the same enemy/UI piece.

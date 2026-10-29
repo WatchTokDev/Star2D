@@ -2,7 +2,7 @@
 import { spawn } from "node:child_process";
 import WebSocket from "ws";
 
-const PORT = 8799;
+const PORT = Number(process.env.E2E_PORT || 8799);
 const BASE = `http://127.0.0.1:${PORT}`;
 const SECRET = "test_secret_" + "x".repeat(30);
 let failed = 0;
@@ -85,6 +85,8 @@ try {
   const scenesTool = r0Tools().find((t) => t.name === "scenes");
   check("scenes create takes orientation", scenesTool.inputSchema.properties.orientation && scenesTool.inputSchema.properties.orientation.enum.includes("portrait"));
   check("physics_info tool exists", names.includes("physics_info"));
+  check("buttons tool exists", names.includes("buttons"));
+  check("rules mention the buttons tool", r0Instr().includes("buttons {action"));
   check("instructions carry the frame/z/physics rules", r0Instr().includes("status.frame") && r0Instr().includes("physics_info") && r0Instr().includes("Background 0"));
 
   r = await call("get_guide");

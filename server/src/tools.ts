@@ -292,6 +292,62 @@ export const TOOLS: ToolDef[] = [
     ),
   },
   {
+    name: "buttons",
+    description:
+      "Make a professional button/panel image (9-patch, no text) with gradient, outline, shadow, 3D lip and shine, from a preset. action 'list' = presets, shapes, params (call it first); 'create' {name, preset?, color?, shape?, ...} -> use_as for a BOX image (stretches to any size); 'get' {name} = settings of a saved one. Pass only what you want to change.",
+    inputSchema: obj(
+      {
+        action: str("list|create|get", { enum: ["list", "create", "get"] }),
+        name: str("image name, letters/digits/_ (e.g. btn_play)"),
+        preset: str("look id from list (default jelly)"),
+        shape: str("rect|rounded|pill|chamfer|circle|blob|triangle_left|triangle_right|triangle_up|triangle_down"),
+        color: str("main colour: #RRGGBB or name (blue, green, orange, red, purple, cyan, pink, yellow, gray, navy, teal, lime)"),
+        color2: str("optional gradient end colour"),
+        replace: bool("overwrite an existing image of that name"),
+        pressed: bool("also create name_pressed (pushed-in look; default true)"),
+        preview: bool("return a picture of the result"),
+      },
+      [],
+    ),
+  },
+  {
+    name: "templates",
+    description:
+      "Ready, playable, correctly oriented and layered games built in ONE call (real elements + blocks, editable afterwards): platformer, top_down, space_shooter, flappy, breakout, main_menu. action 'list' = short catalog with params and defaults; 'apply' {id, scene?, params?, orientation?, replace?} builds it (open scene if empty, else a new scene; a non-empty scene needs replace:true); 'info' {id} = what it creates and which variables to tweak. After apply: run_game, then screenshot. Details: read_docs templates.",
+    inputSchema: obj(
+      {
+        action: str("list|apply|info", { enum: ["list", "apply", "info"] }),
+        id: str("template id from list, e.g. platformer"),
+        scene: str("scene to build in (letters/digits/_); default: the open scene if empty, else a new scene named after the template"),
+        params: anyObj("template params from list, e.g. {lives:5, theme:'night'}; out-of-range values are clamped and reported in notes"),
+        orientation: str("portrait|landscape; default: the scene's / project's orientation", { enum: ["portrait", "landscape"] }),
+        replace: bool("wipe an existing non-empty scene (it is deleted and re-created) before building"),
+      },
+      [],
+    ),
+  },
+  {
+    name: "icons",
+    description:
+      "Built-in library of ~1800 small icons in two sets: 'ui' (heart, star, sound, check, close, arrows, controls, shop, emoji...) and 'game' (swords, shields, potions, gems, chests, crowns, monsters, vehicles...), each with many English tags. 'search' {query:'love', set?} -> ids; 'import' {id, name?, size?, color?} -> PNG in images/, use_as is the value for a BOX element's image. White by default (recolour with color, or the element's Tint). 'list_categories'. Prefer these over drawing icons with create_image.",
+    inputSchema: obj({
+      action: str("search|import|list_categories", { enum: ["search", "import", "list_categories"] }),
+      query: str("search: one or more words, e.g. 'heart', 'sound off', 'exit door'"),
+      category: str("search: limit to one category (see list_categories)"),
+      set: str("search: ui | game (default both)", { enum: ["ui", "game"] }),
+      limit: num("search: max results, default 12, max 30"),
+      id: str("import: icon id from search, e.g. heart"),
+      icons: arr(anyObj("{id, name?, size?, color?}"), "import several at once (max 40); top-level size/color are the defaults"),
+      name: str("import: file name without extension, default icon_<id> (e.g. icon_heart)"),
+      size: num("import: pixels 16-512, default 64"),
+      color: str("import: '#RRGGBB' or a name, default white"),
+      background: str("import: circle|rounded = icon on a coloured badge"),
+      background_color: str("import: badge colour, default #2196F3"),
+      shadow: bool("import: soft drop shadow"),
+      replace: bool("import: overwrite an existing file (automatic for the default name)"),
+    }),
+  },
+  {
     name: "create_sound",
     description:
       "Synthesize a short sound effect (WAV) into the project's sounds folder: presets jump, coin, hit, explosion, shoot, powerup, click, laser, or custom waveform parameters. See read_docs('assets').",
@@ -491,6 +547,8 @@ Rules:
 5. Events. Scene: OnCreate OnStep onCollisionStart onCollisionEnd OnPause OnResume. Element: onClick onTouchStart onTouchEnd OnBodyCreated OnBodyUpdate onBodyCollided onBodyCollideEnd.
 6. Physics: first block of a physical scene's OnCreate is setWorldGravity (about 800 platformer, 0 top-down); positive velocity Y moves UP (jump = positive power); speeds <= 450 px/s; call physics_info before choosing jump power, gravity, speeds or platform gaps; scene collision events, isSensor pickups, hide + destroyLater to remove.
 7. Images: create_image name.png -> element image "/name.png". TEXT wraps if narrower than its content (about 10 px per letter x Font Scale): resize with elements set (the reply warns). A TEXT/PROGRESS without touch events is click-through: put onClick/onTouchStart on the BOX button only.
+7b. Buttons and panels: call buttons {action:'list'}, then buttons create (a 9-patch image: it stretches to any BOX size; no text inside, put a TEXT on top).
+7c. Small icons (heart, star, coin, sound, arrows...): icons search {query}, then icons import {id}; do not draw them with create_image.
 8. UI: after building a screen run layout_check (it also checks draw order), then screenshot (target scene, region/camera) and fix what you see.
 8b. Structure: put related elements under a GROUP (parent, read_docs groups); a repeated enemy/UI piece becomes a prefab (prefabs tool, read_docs prefabs), edit one instance then apply.
 9. Test: run_game compiles and starts in ONE call (never build first, that compiles twice); build only to check errors without opening the game. It returns when loaded (ready:true). game_input: tap, hold(ms), down (stays pressed until up/release), swipe, key, joystick, wait; real time, 45 s per call (run_test start:false continues). Verify with screenshot, game_state, game_logs before saying it works.

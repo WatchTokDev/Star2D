@@ -60,12 +60,16 @@ public final class FilePickerDialog {
                 BitmapFactory.Options o = new BitmapFactory.Options();
                 o.inJustDecodeBounds = true;
                 BitmapFactory.decodeFile(f.getAbsolutePath(), o);
+                // name.9.png keeps its 1px stretch/padding markers in the file: decode 1:1 and cut them off for the thumbnail
+                boolean nine = f.getName().toLowerCase(Locale.ROOT).endsWith(".9.png");
                 int s = 1;
-                while (o.outWidth / (s * 2) >= px && o.outHeight / (s * 2) >= px) s *= 2;
+                while (!nine && o.outWidth / (s * 2) >= px && o.outHeight / (s * 2) >= px) s *= 2;
                 o = new BitmapFactory.Options();
                 o.inSampleSize = s;
-                Bitmap bm = BitmapFactory.decodeFile(f.getAbsolutePath(), o);
-                if (bm == null) return;
+                Bitmap full = BitmapFactory.decodeFile(f.getAbsolutePath(), o);
+                if (full == null) return;
+                final Bitmap bm = (nine && full.getWidth() > 2 && full.getHeight() > 2)
+                        ? Bitmap.createBitmap(full, 1, 1, full.getWidth() - 2, full.getHeight() - 2) : full;
                 THUMBS.put(key, bm);
                 Ui.ui(() -> {
                     if (key.equals(iv.getTag())) {

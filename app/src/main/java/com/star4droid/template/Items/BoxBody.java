@@ -112,7 +112,7 @@ public class BoxBody extends Image implements PlayerItem {
 		    setDrawable(Utils.getDrawable(Utils.internal("images/logo.png")));
 		}
 		
-		if(tileX!=1||tileY!=1){
+		if((tileX!=1||tileY!=1) && getDrawable() instanceof TextureRegionDrawable){
 		try {
 		    Texture texture = ((TextureRegionDrawable)getDrawable()).getRegion().getTexture();
 		    texture.setWrap(Texture.TextureWrap.MirroredRepeat, Texture.TextureWrap.MirroredRepeat);

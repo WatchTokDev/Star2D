@@ -648,6 +648,24 @@ public class StageImp extends ApplicationAdapter {
 	    String imgPath = (project.getImagesPath()+image).replace("//","/");
 		//if(!assetLoader.isFinished())
 			//assetLoader.finishLoading();
+		// name.9.png : drawn as a 9-patch (it is not loaded as a plain Texture by the asset loader)
+		if(com.star4droid.template.Utils.NinePatchLoader.is9(imgPath)){
+			try {
+				com.badlogic.gdx.files.FileHandle nine = Gdx.files.absolute(imgPath);
+				if(nine.exists() && !nine.isDirectory()){
+					com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable np = com.star4droid.template.Utils.NinePatchLoader.drawable(nine);
+					// world items are drawn at WORLD_SCALE (1 world unit = 4 px): scale the fixed corners the same way, UI items are 1:1
+					boolean ui = false;
+					try { ui = "UI".equals(playerItem.getProperties().getType()); } catch(Throwable ignored){}
+					if(!ui) np.getPatch().scale(WORLD_SCALE,WORLD_SCALE);
+					playerItem.setImage(np);
+					return true;
+				}
+			} catch(Throwable t){
+				Utils.Log("9-patch load error : "+imgPath,Utils.getStackTraceString(t));
+			}
+			return false;
+		}
 		if(assetLoader.isLoaded(imgPath)){
 			playerItem.setImage(assetLoader.get(imgPath,Texture.class));
 			return true;

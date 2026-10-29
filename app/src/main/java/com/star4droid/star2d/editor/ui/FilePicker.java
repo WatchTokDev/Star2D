@@ -226,6 +226,9 @@ public class FilePicker extends VisWindow implements Disposable {
             }
         }
 		String ext = file.extension().toLowerCase();
+		if(com.star4droid.template.Utils.NinePatchLoader.is9(file)){
+			try { return com.star4droid.template.Utils.NinePatchLoader.load(file).texture; } catch(Throwable ignored){}
+		}
 		if(ext.contains("png") || ext.contains("jpeg") || ext.contains("jpg"))
 			return new Texture(file);
         return new Texture(Gdx.files.internal("images/file.png"));

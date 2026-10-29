@@ -1,0 +1,19 @@
+Game Icons (game-icons.net)
+===========================
+
+The icons of the 'Game' set (swords, shields, potions, monsters, ...) come from Game Icons, https://game-icons.net,
+icons by Lorc, Delapouite & contributors, licensed under Creative Commons Attribution 3.0 (CC BY 3.0).
+Source: https://github.com/game-icons/icons
+License: https://creativecommons.org/licenses/by/3.0/
+
+Packaging information (info.json of the npm package @iconify-json/game-icons 1.2.x, copied exactly):
+  name:    Game Icons
+  author:  GameIcons (https://github.com/game-icons/icons)
+  license: CC BY 3.0 (CC-BY-3.0) https://github.com/game-icons/icons/blob/master/license.txt
+
+Changes made by Star2D (adaptation notice required by CC BY 3.0): only a selection of the icons is included; the SVG path
+data is kept, with numbers rounded to two decimals; the shapes are drawn as plain single-colour PNG images (white by default,
+or tinted with the colour chosen when importing), optionally on a coloured badge or with a shadow.
+
+You may use these icons in your games, including commercial ones, as long as you give credit, for example in the credits
+screen: 'Icons by Lorc, Delapouite & contributors from game-icons.net, CC BY 3.0'.

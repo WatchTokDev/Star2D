@@ -7,6 +7,7 @@ import com.star4droid.star2d.Helpers.PropertySet;
 import com.star4droid.star2d.Helpers.editor.Project;
 import com.star4droid.star2d.editor.LibgdxEditor;
 import com.star4droid.star2d.editor.items.EditorItem;
+import com.star4droid.star2d.remote.AiBridge;
 import com.star4droid.star2d.ui.Bridge;
 
 import java.io.File;
@@ -47,7 +48,7 @@ public final class AiContext {
             "getBody() (Box2D Body: setLinearVelocity, applyLinearImpulse, applyForceToCenter, setTransform, getPosition, getLinearVelocity, setGravityScale...),\n" +
             "getActor() (scene2d Actor: setVisible, setColor, setScale, toFront...), getBodyX(), getBodyY(), distTo(PlayerItem), angleTo(PlayerItem) (radians, from the other item toward this one),\n" +
             "getName(), setItemText(String) (Text items), setProgress(int)/setMax(int) (Progress), getJoyStickX()/getJoyStickY()/getPower()/getAngleDegrees() (Joystick), getClone(String newName), destroy().\n" +
-            "Units: Box2D meters-like world units; gravity default (0,-9.8). Velocity units per second.\n\n" +
+            "Units: element properties (x, y, width, height, radius, z) are editor PIXELS (origin bottom-left, y up). In raw Java Box2D world units = pixels * 0.25 (velocities in world units per second). Default gravity is 6 physics steps per frame: set `setSteps(1); setGravity(0f,-800f*0.25f);` first in the scene OnCreate (platformer; 0 for top-down).\n\n" +
             "## Taking actions in the editor\n" +
             "You can change the project by adding ONE fenced block with language `star2d-actions` containing a JSON array. The user reviews and taps Apply.\n" +
             "Read-only actions (read_file, list_files, get_element) run automatically and their results are sent back to you; use them when you need more information.\n" +
@@ -56,13 +57,42 @@ public final class AiContext {
             "- {\"action\":\"list_files\",\"path\":\"images\"}\n" +
             "- {\"action\":\"get_element\",\"name\":\"player\"}\n" +
             "- {\"action\":\"set_event_code\",\"event\":\"onClick\",\"element\":\"jumpBtn\",\"code\":\"player.getBody().setLinearVelocity(0,8);\"}  (omit element for scene events; replaces that event's code and blocks)\n" +
-            "- {\"action\":\"add_element\",\"type\":\"Box\",\"name\":\"wall\",\"properties\":{\"x\":\"5\",\"y\":\"0\",\"width\":\"1\",\"height\":\"10\",\"type\":\"STATIC\"}}\n" +
+            "- {\"action\":\"add_element\",\"type\":\"Box\",\"name\":\"wall\",\"properties\":{\"x\":\"600\",\"y\":\"0\",\"width\":\"40\",\"height\":\"300\",\"type\":\"STATIC\",\"z\":\"10\"}}  (pixels; the result may add z and bounds warnings: read them)\n" +
             "- {\"action\":\"set_property\",\"element\":\"player\",\"property\":\"Fixed Rotation\",\"value\":\"true\"}\n" +
             "- {\"action\":\"delete_element\",\"element\":\"enemy3\"}\n" +
             "- {\"action\":\"add_variable\",\"name\":\"score\",\"type\":\"int\",\"value\":\"0\"}\n" +
             "- {\"action\":\"write_file\",\"path\":\"java/com/star4droid/Game/Scripts/scene1/playerScript.java\",\"content\":\"...\"}\n" +
+            "Helper actions (they use the same tools as the connector assistants; physics_info, list_*, search_icons and layout_check run automatically and their result comes back to you; the others are applied when the user taps Apply):\n" +
+            "- {\"action\":\"physics_info\",\"jump_height\":150,\"gravity\":800,\"move_speed\":250,\"jumps\":[{\"gap\":200,\"rise\":80}]}  (jump/reach numbers in px; also reports the scene frame)\n" +
+            "- {\"action\":\"list_templates\"} / {\"action\":\"apply_template\",\"id\":\"platformer\",\"scene\":\"level1\",\"params\":{}}  (complete ready games; prefer them for standard game types)\n" +
+            "- {\"action\":\"list_buttons\"} / {\"action\":\"create_button\",\"name\":\"btn_play\",\"preset\":\"jelly\",\"color\":\"green\"}  (9-patch button image + pressed twin; no text inside)\n" +
+            "- {\"action\":\"search_icons\",\"query\":\"heart\",\"set\":\"ui|game\"} / {\"action\":\"import_icon\",\"id\":\"heart\",\"size\":64,\"color\":\"#FF4081\"}  (small icons into images/)\n" +
+            "- {\"action\":\"create_scene\",\"name\":\"level2\",\"orientation\":\"portrait\"}  (keeps the project orientation when omitted) and {\"action\":\"layout_check\"}\n" +
             "Paths are relative to the project root. Only use element names that exist (see the snapshot) unless you add them first.\n" +
             "When you give code for an event, prefer set_event_code. Keep explanations short and use Markdown (headings, lists, code blocks).\n";
+
+    /** Prefs key of the switch in the AI settings (default ON). */
+    public static final String PRO_PREF = "ai_pro_guide";
+
+    private static String proGuide;
+
+    /** The professional guidance (orientation, units, physics numbers, z policy, templates, buttons, icons): assets/ai/pro_guide.md. Any thread. */
+    public static synchronized String proGuide() {
+        if (proGuide == null) {
+            try {
+                proGuide = Gdx.files.internal("ai/pro_guide.md").readString("UTF-8");
+            } catch (Throwable t) {
+                proGuide = "";
+            }
+        }
+        return proGuide;
+    }
+
+    /** Rough token cost of the guide (about 4 characters per token, rounded to 50), for the warning under the switch. */
+    public static int proGuideTokens() {
+        int n = proGuide().length() / 4;
+        return Math.max(50, Math.round(n / 50f) * 50);
+    }
 
     /** Live project snapshot (GL thread). */
     public static String snapshot(boolean includeFiles) {
@@ -73,13 +103,15 @@ public final class AiContext {
         sb.append("## Current project\n");
         sb.append("Project: ").append(new File(p.getPath()).getName()).append("\n");
         sb.append("Current scene: ").append(ed.getScene()).append(ed.isLandscape() ? " (landscape)" : " (portrait)").append("\n");
+        String frame = AiBridge.frame(ed, p, ed.getScene());
+        if (!frame.isEmpty()) sb.append("Frame: ").append(frame).append(". Design inside this frame; never assume 1280x720.\n");
         sb.append("Scenes: ");
         FileHandle sc = Gdx.files.absolute(p.getScenesPath());
         if (sc.exists()) for (FileHandle f : sc.list()) if (!f.isDirectory() && !com.star4droid.star2d.prefab.PrefabStore.isTempScene(f.name())) sb.append(f.name()).append(" ");
         sb.append("\nLogic screen size: ").append(ed.getLogicWidth()).append(" x ").append(ed.getLogicHeight()).append("\n");
         Actor sel = ed.getSelectedActor();
         sb.append("Selected element: ").append(sel == null ? "none" : sel.getName()).append("\n\n");
-        sb.append("Elements (name | kind | type | x,y | w x h | image | extra):\n");
+        sb.append("Elements (name | kind | type | x,y | w x h | z | image | extra):\n");
         int n = 0;
         for (Actor a : ed.getActors()) {
             if (!(a instanceof EditorItem)) continue;
@@ -90,7 +122,8 @@ public final class AiContext {
             sb.append("- ").append(ps.getString("name")).append(" | ").append(kind)
                     .append(" | ").append(ps.getString("type"))
                     .append(" | ").append(r(ps.getString("x"))).append(",").append(r(ps.getString("y")))
-                    .append(" | ").append(r(ps.getString("width"))).append("x").append(r(ps.getString("height")));
+                    .append(" | ").append(r(ps.getString("width"))).append("x").append(r(ps.getString("height")))
+                    .append(" | z").append(r(ps.getString("z").isEmpty() ? "0" : ps.getString("z")));
             if (ps.containsKey("radius")) sb.append(" r=").append(r(ps.getString("radius")));
             String img = ps.getString("image");
             if (!img.isEmpty()) sb.append(" | ").append(img);

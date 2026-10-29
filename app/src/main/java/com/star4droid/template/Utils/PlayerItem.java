@@ -154,6 +154,11 @@ public interface PlayerItem {
 			((Image)this).setDrawable(Utils.getDrawable(fileHandle));
 	}
 	
+	default public void setImage(com.badlogic.gdx.scenes.scene2d.utils.Drawable drawable){
+		if(this instanceof Image)
+			((Image)this).setDrawable(drawable);
+	}
+	
 	default public void setImage(Texture texture){
 		if(this instanceof Image)
 			((Image)this).setDrawable(Utils.getDrawable(texture));

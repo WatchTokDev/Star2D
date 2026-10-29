@@ -52,6 +52,8 @@ import java.util.concurrent.Executors;
 public class AiPanel implements PanelHost.Panel {
     private final EditorShell shell;
     private final ExecutorService net = Executors.newSingleThreadExecutor();
+    /** Runs the assistant's actions: tool actions (templates, buttons, icons...) must not run on the GL thread. */
+    private final ExecutorService actionsExec = Executors.newSingleThreadExecutor();
     private AiClient client;
     private LinearLayout root, messagesBox;
     private ScrollView scroll;
@@ -261,16 +263,20 @@ public class AiPanel implements PanelHost.Panel {
         apply.setOnClickListener(v -> {
             apply.setEnabled(false);
             apply.setAlpha(0.5f);
-            Bridge.query(() -> {
+            // worker thread: tool actions (templates, buttons, icons, scenes) wait for the GL thread, GL actions are posted to it
+            actionsExec.execute(() -> {
                 StringBuilder sb = new StringBuilder();
-                for (JsonObject a : actions) sb.append("• ").append(AiActions.run(a)).append("\n");
-                Bridge.controls().actionSave();
-                return sb.toString().trim();
-            }, res -> {
-                result.setText(res);
-                shell.refreshAll();
-                session.messages.add(new Message("tool", "Applied:\n" + res));
-                persist();
+                for (JsonObject a : actions) sb.append("• ").append(AiActions.runAny(a)).append("\n");
+                final String applied = sb.toString().trim();
+                Bridge.query(() -> {
+                    Bridge.controls().actionSave();
+                    return applied;
+                }, res -> {
+                    result.setText(res);
+                    shell.refreshAll();
+                    session.messages.add(new Message("tool", "Applied:\n" + res));
+                    persist();
+                });
             });
         });
         btns.addView(apply);
@@ -348,6 +354,7 @@ public class AiPanel implements PanelHost.Panel {
             List<AiClient.Msg> msgs = new ArrayList<>();
             boolean ar = Ui.isRtl(c);
             msgs.add(new AiClient.Msg("system", AiContext.ENGINE_GUIDE
+                    + (prefs().getBoolean(AiContext.PRO_PREF, true) ? "\n" + AiContext.proGuide() + "\n" : "")
                     + (ar ? "\nThe user interface is in Arabic: reply in Arabic unless asked otherwise.\n" : "")
                     + (snapshot.isEmpty() ? "" : "\n" + snapshot)));
             int from = Math.max(0, session.messages.size() - 24);
@@ -401,11 +408,12 @@ public class AiPanel implements PanelHost.Panel {
         for (JsonElement e : actions) if (e.isJsonObject() && AiActions.isReadOnly(e.getAsJsonObject())) ro.add(e.getAsJsonObject());
         if (ro.isEmpty() || autoRounds >= 4) return;
         autoRounds++;
-        Bridge.query(() -> {
+        actionsExec.execute(() -> {
             StringBuilder sb = new StringBuilder();
-            for (JsonObject a : ro) sb.append(AiActions.run(a)).append("\n\n");
-            return sb.toString();
-        }, res -> send(res, false));
+            for (JsonObject a : ro) sb.append(AiActions.runAny(a)).append("\n\n");
+            final String res = sb.toString();
+            Ui.ui(() -> send(res, false));
+        });
     }
 
     private void showError(Context c, String message) {
@@ -610,6 +618,20 @@ public class AiPanel implements PanelHost.Panel {
         tr.addView(sb, Ui.weight(1));
         tr.addView(tv);
         col.addView(tr, Ui.matchWrap());
+        col.addView(Ui.sectionLabel(c, ar ? "تعليمات احترافية" : "Professional instructions"));
+        SwitchCompat pro = new SwitchCompat(c);
+        pro.setText(ar ? "تمرير التعليمات الاحترافية للذكاء الاصطناعي" : "Send professional guidance to the AI");
+        pro.setTextColor(Ui.TEXT);
+        pro.setTextSize(13.5f);
+        pro.setChecked(p.getBoolean(AiContext.PRO_PREF, true));
+        pro.setOnCheckedChangeListener((b, on) -> p.edit().putBoolean(AiContext.PRO_PREF, on).apply());
+        col.addView(pro, Ui.matchWrap());
+        int proTokens = AiContext.proGuideTokens();
+        TextView proHelp = Ui.text(c, ar
+                ? "الاتجاه والأبعاد، أرقام الفيزياء والقفز، ترتيب z، القوالب الجاهزة، الأزرار والأيقونات. \u26A0 يضيف حوالي " + proTokens + " توكن لكل رسالة، فقد يستهلك رصيداً أكثر أو لا يناسب الموديلات المجانية المحدودة. أطفئه إن احتجت."
+                : "Orientation and frame, physics and jump numbers, z order, ready templates, buttons and icons. \u26A0 Adds about " + proTokens + " tokens to every request, so it may use more credit or not suit small free models. Turn it off if needed.", 12, Ui.TEXT_3);
+        proHelp.setPadding(0, Ui.dp(c, 2), 0, Ui.dp(c, 4));
+        col.addView(proHelp);
         TextView how = Ui.text(c, ar ? "\nنصائح: اختر موديلاً قوياً في البرمجة. إذا ظهر خطأ 429 فهذا حد الاستخدام للموديل المجاني، جرّب موديلاً آخر أو انتظر قليلاً."
                 : "\nTips: pick a model that's good at coding. Error 429 means a free model's rate limit — try another model or wait a bit.", 12, Ui.TEXT_3);
         col.addView(how);

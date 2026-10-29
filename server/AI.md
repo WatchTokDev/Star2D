@@ -23,7 +23,7 @@ Also: call `set_plan` before working, `update_task` as tasks start/finish, `fini
 
 ## Tools (names)
 
-`status` · `wait_for_app` · `get_guide` · `read_docs` · `set_plan` · `update_task` · `finish_work` · `project_info` · `scene_dump` · `get_elements` · `scenes` · `elements` · `templates` · `physics_info` · `layout_check` · `joints` · `prefabs` · `variables` · `block_catalog` · `events` · `define_blocks` · `files` · `create_image` · `create_sound` · `import_asset` · `editor` · `build` · `run_game` · `stop_game` · `screenshot` · `game_input` · `game_state` · `run_test` · `game_logs` · `git`
+`status` · `wait_for_app` · `get_guide` · `read_docs` · `set_plan` · `update_task` · `finish_work` · `project_info` · `scene_dump` · `get_elements` · `scenes` · `elements` · `templates` · `buttons` · `physics_info` · `layout_check` · `joints` · `prefabs` · `variables` · `block_catalog` · `events` · `define_blocks` · `files` · `create_image` · `icons` · `create_sound` · `import_asset` · `editor` · `build` · `run_game` · `stop_game` · `screenshot` · `game_input` · `game_state` · `run_test` · `game_logs` · `git`
 
 ## Privacy
 

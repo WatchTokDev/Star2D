@@ -13,6 +13,7 @@ public final class RemoteTools {
             case "elements": return "read_docs {topic:'elements', section:'<TYPE>'}";
             case "layout_check": return "read_docs {topic:'ui-input', section:'Designing UI'}";
             case "physics_info": return "read_docs {topic:'physics'}";
+            case "icons": return "read_docs {topic:'icons'}";
             case "events": return "read_docs {topic:'events'} and {topic:'blocks'}";
             case "define_blocks": case "block_catalog": return "read_docs {topic:'blocks', section:'define_blocks'}";
             case "create_image": case "create_sound": case "import_asset": return "read_docs {topic:'assets', section:'paths'}";
@@ -22,8 +23,26 @@ public final class RemoteTools {
             case "variables": return "read_docs {topic:'variables'}";
             case "joints": return "read_docs {topic:'joints'}";
             case "prefabs": return "read_docs {topic:'prefabs'}";
+            case "buttons": return "read_docs {topic:'buttons'}";
+            case "templates": return "read_docs {topic:'templates'}";
             case "files": return "read_docs {topic:'overview'}";
             default: return null;
+        }
+    }
+
+    /** Set on the worker thread of the in-app (API key) assistant: same tools, but no "Claude is working" lock of the connector session. */
+    private static final ThreadLocal<Boolean> LOCAL = new ThreadLocal<>();
+
+    /**
+     * For the in-app AI: runs a tool exactly like the connector does (same validation, z policy, bounds warnings, orientation fixes)
+     * without starting the connector work session. Call from a WORKER thread, never from the GL thread (the tools wait for the GL thread).
+     */
+    public static ToolResult runLocal(String tool, JsonObject args) {
+        LOCAL.set(Boolean.TRUE);
+        try {
+            return run(tool, args);
+        } finally {
+            LOCAL.remove();
         }
     }
 
@@ -46,7 +65,7 @@ public final class RemoteTools {
         if (args == null) args = new JsonObject();
         try {
             // everything but status/docs counts as "Claude is working" for the idle timer
-            if (!tool.equals("status") && !tool.equals("read_docs")) RemoteSession.touch();
+            if (!tool.equals("status") && !tool.equals("read_docs") && LOCAL.get() == null) RemoteSession.touch();
             switch (tool) {
                 case "status": return CoreTools.status();
                 case "read_docs": return CoreTools.readDocs(args);
@@ -64,6 +83,7 @@ public final class RemoteTools {
                 case "get_elements": return CoreTools.getElements(args);
                 case "layout_check": return LayoutCheck.check(args);
                 case "physics_info": return PhysicsInfo.info(args);
+                case "icons": return IconTools.icons(args);
                 case "scenes": return EditTools.scenes(args);
                 case "elements": return EditTools.elements(args);
                 case "joints": return EditTools.joints(args);
@@ -76,6 +96,8 @@ public final class RemoteTools {
                 case "files": return FileTools.files(args);
                 case "create_image": return FileTools.createImage(args);
                 case "create_sound": return FileTools.createSound(args);
+                case "buttons": return ButtonTools.buttons(args);
+                case "templates": return Templates.tool(args);
                 case "import_asset": return FileTools.importAsset(args);
                 case "build": return GameTools.buildOrRun(false, args);
                 case "run_game": return GameTools.buildOrRun(true, args);

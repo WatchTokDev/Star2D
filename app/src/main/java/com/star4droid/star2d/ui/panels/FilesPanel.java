@@ -449,7 +449,9 @@ public class FilesPanel implements PanelHost.Panel {
         android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
         o.inJustDecodeBounds = true;
         android.graphics.BitmapFactory.decodeFile(f.getAbsolutePath(), o);
-        TextView info = Ui.text(c, o.outWidth + " × " + o.outHeight + " px · " + size(f.length()) + "\n" + relative(f), 12.5f, Ui.TEXT_2);
+        boolean nine = f.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".9.png");
+        int iw = nine ? Math.max(0, o.outWidth - 2) : o.outWidth, ih = nine ? Math.max(0, o.outHeight - 2) : o.outHeight;
+        TextView info = Ui.text(c, iw + " × " + ih + " px" + (nine ? " · 9-patch" : "") + " · " + size(f.length()) + "\n" + relative(f), 12.5f, Ui.TEXT_2);
         info.setPadding(0, Ui.dp(c, 8), 0, 0);
         col.addView(info);
         AlertDialog d = new AlertDialog.Builder(c)
@@ -527,8 +529,10 @@ public class FilesPanel implements PanelHost.Panel {
         if (!f.isDirectory()) m.getMenu().add(0, 6, 4, Tr.t("ui_share", "Share"));
         m.getMenu().add(0, 5, 5, Tr.t("delete", "Delete"));
         final String prel = prefabRel(f);
+        if (!f.isDirectory() && isButtonImage(f)) m.getMenu().add(0, 8, 6, Tr.t("bm_edit", "Edit in Button Maker"));
         m.setOnMenuItemClickListener(it -> {
             switch (it.getItemId()) {
+                case 8: openButtonMaker(c, f); break;
                 case 1: open(c, f); break;
                 case 2:
                     if (prel != null && !prel.isEmpty()) {
@@ -601,6 +605,27 @@ public class FilesPanel implements PanelHost.Panel {
         m.show();
     }
 
+    /** An image made by the Button Maker (its settings are stored inside the PNG) that is not a generated _pressed twin. */
+    private static boolean isButtonImage(File f) {
+        String n = f.getName().toLowerCase(Locale.ROOT);
+        if (!n.endsWith(".png") || n.endsWith("_pressed.9.png") || n.endsWith("_pressed.png")) return false;
+        return com.star4droid.star2d.buttons.ButtonStore.loadSpec(f) != null;
+    }
+
+    /** Opens the Button Maker (new button, or editing the settings stored in {@code existing}). */
+    private void openButtonMaker(Context c, File existing) {
+        if (rootDir == null) return;
+        File images = new File(rootDir, "images");
+        images.mkdirs();
+        com.star4droid.star2d.buttons.ButtonSpec spec = null;
+        String name = null;
+        if (existing != null) {
+            spec = com.star4droid.star2d.buttons.ButtonStore.loadSpec(existing);
+            name = existing.getName().replaceAll("\\.9\\.png$|\\.png$", "");
+        }
+        shell.panels.show(new ButtonMakerPanel(shell, images, spec, name, null));
+    }
+
     private void createMenu(Context c, View anchor) {
         PopupMenu m = new PopupMenu(c, anchor);
         m.getMenu().add(0, 1, 0, Tr.t("folder", "Folder"));
@@ -608,10 +633,21 @@ public class FilesPanel implements PanelHost.Panel {
         m.getMenu().add(0, 3, 2, Tr.t("ui_animation", "Animation (in anims)"));
         m.getMenu().add(0, 4, 3, Tr.t("bitmapFont", "Bitmap font"));
         m.getMenu().add(0, 5, 4, Tr.t("prefab_new", "New prefab"));
+        m.getMenu().add(0, 7, 5, Tr.t("bm_menu", "Button Maker"));
+        m.getMenu().add(0, 8, 6, Tr.t("icn_title", "Icons"));
         m.setOnMenuItemClickListener(it -> {
             int id = it.getItemId();
+            if (id == 8) {
+                if (projectPath != null)
+                    com.star4droid.star2d.ui.IconBrowser.show(shell.activity(), new File(projectPath), false, (useAs, f) -> reload());
+                return true;
+            }
             if (id == 5) {
                 createPrefab(c);
+                return true;
+            }
+            if (id == 7) {
+                openButtonMaker(c, null);
                 return true;
             }
             if (id == 4) {
