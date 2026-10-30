@@ -1054,11 +1054,25 @@ public class BlockCreatorActivity extends AppCompatActivity {
             LinearLayout bar = Ui.row(c);
             bar.setGravity(Gravity.CENTER_VERTICAL);
             for (String lg : s.tabs) {
-                TextView tab = Ui.text(c, langName(lg), 13, Ui.TEXT);
-                tab.setPadding(Ui.dp(c, 12), Ui.dp(c, 8), Ui.dp(c, 12), Ui.dp(c, 8));
+                LinearLayout tab = Ui.row(c);
+                tab.setGravity(Gravity.CENTER_VERTICAL);
+                tab.setPadding(Ui.dp(c, 12), Ui.dp(c, 4), Ui.dp(c, 4), Ui.dp(c, 4));
                 tab.setBackground(Ui.toggleBg(c));
                 tab.setSelected(lg.equals(cur[0]));
-                tab.setTypeface(lg.equals(cur[0]) ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
+                TextView name = Ui.text(c, langName(lg), 13, Ui.TEXT);
+                name.setTypeface(lg.equals(cur[0]) ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
+                tab.addView(name);
+                ImageView x = Ui.iconButton(c, R.drawable.ic_s2_delete, Tr.t("delete", "Delete"), v -> {
+                    for (ArrayList<String[]> rows : java.util.Arrays.asList(s.labels, s.desc, s.fieldTr))
+                        for (int i = rows.size() - 1; i >= 0; i--) if (rows.get(i)[0].equalsIgnoreCase(lg)) rows.remove(i);
+                    s.tabs.remove(lg);
+                    if (lg.equals(cur[0])) cur[0] = s.tabs.isEmpty() ? "" : s.tabs.get(0);
+                    refreshPreview(s);
+                    render[0].run();
+                });
+                x.setImageTintList(ColorStateList.valueOf(0xFFFF8A80));
+                tab.addView(x, new LinearLayout.LayoutParams(Ui.dp(c, 32), Ui.dp(c, 32)));
+                name.setOnClickListener(v -> { cur[0] = lg; render[0].run(); });
                 tab.setOnClickListener(v -> { cur[0] = lg; render[0].run(); });
                 bar.addView(tab, Ui.margins(new LinearLayout.LayoutParams(-2, -2), c, 0, 0, 6, 0));
             }
