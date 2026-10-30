@@ -2,7 +2,7 @@
 
 ## Elements
 - **Pivot** (all elements, UI holder): `Pivot` = center | left | right | top | bottom | topleft | topright | bottomleft | bottomright | custom; `Pivot X` / `Pivot Y` (0..1) only for `custom`. Scale and rotation turn around it. Bodies that rotate: keep `center`.
-- **Y Sort** (GROUP or any parent, `"true"`): all descendants are drawn by height, the lower on screen in front (z first, then y). Put units, trees and pickups under one group; use `Pivot bottom` so the feet decide.
+- **Y Sort** (GROUP, `"true"`): everything inside the group (children, their children...) shares the group's layer `z` and is drawn by height: the one standing lower on the screen is in front. "Standing" = the bottom of its collider (the bottom of the picture when it has none), so put the collider of a tree on its trunk and the collider of a character on its feet. Ground, walls and the HUD stay outside the group.
 - **animation** (BOX): name of a file in `anims/` (inner folders: `hero/run`). Beats `image`, shows live in the editor. At runtime: blocks `setAnimation` / `removeAnimation`.
 - **Auto Size** (TEXT, UI holder label/button, default on): the text size follows the box and never leaves it; `Font Scale` is ignored while it is on.
 

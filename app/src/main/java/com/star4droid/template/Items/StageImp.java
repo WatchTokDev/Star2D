@@ -275,17 +275,65 @@ public class StageImp extends ApplicationAdapter {
 	
 	com.badlogic.gdx.utils.Array<Actor> orderedActors = new com.badlogic.gdx.utils.Array<>();
     
+	private final java.util.IdentityHashMap<Actor,float[]> ySortInfo = new java.util.IdentityHashMap<>();
+	private final java.util.ArrayList<Actor> ySortTmp = new java.util.ArrayList<>();
+	
+	/** The y the element is "standing" on: the bottom of its collider, or the bottom of the picture when it has none. */
+	private static float standingY(Actor a){
+		if(a instanceof PlayerItem){
+			com.badlogic.gdx.physics.box2d.Body b = null;
+			try { b = ((PlayerItem)a).getBody(); } catch(Exception ignored){}
+			if(b != null && b.getFixtureList().size > 0){
+				float min = Float.MAX_VALUE;
+				com.badlogic.gdx.math.Vector2 p = new com.badlogic.gdx.math.Vector2();
+				for(com.badlogic.gdx.physics.box2d.Fixture f : b.getFixtureList()){
+					com.badlogic.gdx.physics.box2d.Shape sh = f.getShape();
+					if(sh instanceof com.badlogic.gdx.physics.box2d.PolygonShape){
+						com.badlogic.gdx.physics.box2d.PolygonShape ps = (com.badlogic.gdx.physics.box2d.PolygonShape) sh;
+						for(int i = 0; i < ps.getVertexCount(); i++){
+							ps.getVertex(i, p);
+							min = Math.min(min, b.getWorldPoint(p).y);
+						}
+					} else if(sh instanceof com.badlogic.gdx.physics.box2d.CircleShape){
+						com.badlogic.gdx.physics.box2d.CircleShape cs = (com.badlogic.gdx.physics.box2d.CircleShape) sh;
+						min = Math.min(min, b.getWorldPoint(cs.getPosition()).y - cs.getRadius());
+					}
+				}
+				if(min != Float.MAX_VALUE) return min;
+			}
+		}
+		return a.getY();
+	}
+    
 	public com.badlogic.gdx.utils.Array<Actor> orderBodies(){
 	    orderedActors.clear();
 	    if(GameStage!=null) orderedActors.addAll(GameStage.getActors());
 	    if(UiStage!=null) orderedActors.addAll(UiStage.getActors());
 	    
+	    // Y Sort: everything inside a Y-Sort group shares the layer (z) of the group and is drawn by height (lower on the screen = in front)
+	    ySortInfo.clear();
+	    for(int i = 0; i < orderedActors.size; i++){
+	        Actor a = orderedActors.get(i);
+	        if(a instanceof GroupItem && ((GroupItem)a).isYSort()){
+	            GroupItem g = (GroupItem) a;
+	            ySortTmp.clear();
+	            g.collectDescendants(ySortTmp);
+	            for(Actor d : ySortTmp)
+	                if(!(d instanceof GroupItem) && !ySortInfo.containsKey(d)) ySortInfo.put(d, new float[]{g.getSortZ(), standingY(d)});
+	        }
+	    }
+	    
 	    orderedActors.sort(new Comparator<Actor>(){
 	        @Override
 	        public int compare(Actor a1, Actor a2){
-	            int z1 = getZ(a1);
-	            int z2 = getZ(a2);
-	            return Integer.compare(z1, z2);
+	            float[] i1 = ySortInfo.isEmpty() ? null : ySortInfo.get(a1), i2 = ySortInfo.isEmpty() ? null : ySortInfo.get(a2);
+	            int z1 = i1 != null ? (int) i1[0] : getZ(a1);
+	            int z2 = i2 != null ? (int) i2[0] : getZ(a2);
+	            int c = Integer.compare(z1, z2);
+	            if(c != 0) return c;
+	            if(i1 == null) return i2 == null ? 0 : -1; // same layer: what is outside a Y-Sort group first (a consistent total order)
+	            if(i2 == null) return 1;
+	            return Float.compare(i2[1], i1[1]); // higher on the screen first = behind
 	        }
 	        
 	        private int getZ(Actor actor){

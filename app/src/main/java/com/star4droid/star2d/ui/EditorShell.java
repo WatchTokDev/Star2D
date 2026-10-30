@@ -210,7 +210,6 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
             tools.setBackgroundColor(0xEC1C1F24);
             addSceneTools(c, tools);
             root.addView(shield(wrapScroll(c, tools, false), true), Ui.matchWrap());
-            root.addView(shield(buildTabsBar(c), true), Ui.matchWrap());
         }   // (landscape: the tabs are inside the top bar, buildTopBar made tabsRow; prefab mode: it is null)
 
         // middle: canvas is visible through here; rails float on the sides
@@ -329,22 +328,19 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
             top.addView(titleBox, Ui.weight(1));
             tabsRow = null;
         } else if (land) {
-            // tabs + scene tools inline (scrollable) in landscape
-            top.addView(titleBox);
-            scenesHolder = Ui.row(c);   // the "Scenes" menu stays visible, outside the scroll
-            top.addView(scenesHolder, new LinearLayout.LayoutParams(-2, -2));
+            // scene tools inline (scrollable); the scene menu is one icon among them
+            tabsRow = null;
+            scenesHolder = null;
             LinearLayout inline = Ui.row(c);
-            tabsRow = Ui.row(c);
-            inline.addView(tabsRow);
-            inline.addView(gap(c, false));
             addSceneTools(c, inline);
             HorizontalScrollView hs = new HorizontalScrollView(c);
             hs.setHorizontalScrollBarEnabled(false);
             hs.addView(inline);
             top.addView(hs, Ui.weight(1));
         } else {
+            tabsRow = null;
             scenesHolder = null;
-            top.addView(titleBox, Ui.weight(1));
+            top.addView(new View(c), Ui.weight(1));
         }
         undoBtn = Ui.iconButton(c, R.drawable.ic_s2_undo, Tr.t("undo", "Undo"), v -> Bridge.gl(() -> Bridge.controls().actionUndo()));
         redoBtn = Ui.iconButton(c, R.drawable.ic_s2_redo, Tr.t("redo", "Redo"), v -> Bridge.gl(() -> Bridge.controls().actionRedo()));
@@ -375,6 +371,12 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
 
     /** Scene tools as icon buttons: color, lights, orientation, logs, settings, help. */
     private void addSceneTools(Context c, LinearLayout into) {
+        if (!inPrefabMode()) {
+            ImageView scenes = Ui.iconButton(c, R.drawable.ic_s2_scenes, Tr.t("scenes", "Scenes"), v -> showScenesMenu(v));
+            scenes.setImageTintList(ColorStateList.valueOf(0xFF64B5F6));
+            Tut.tag(scenes, "tool:scenes");
+            into.addView(scenes);
+        }
         ImageView color = Ui.iconButton(c, R.drawable.ic_s2_palette, Tr.t("ui_scene_color", "Scene background color"), v -> sceneColor());
         color.setImageTintList(ColorStateList.valueOf(0xFFFFB74D));
         Tut.tag(color, "tool:color");
@@ -568,60 +570,16 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
             if (titleView != null) titleView.setText(Tr.t("prefab_editing", "Editing prefab") + ": " + PrefabUi.shortName(prefabPath));
             return;
         }
-        if (tabsRow == null || !Bridge.ready()) return;
+        if (!Bridge.ready()) return;
         Bridge.query(() -> {
-            ArrayList<String> names = new ArrayList<>();
-            TestApp app = Bridge.app();
-            for (LibgdxEditor e : app.editors) if (!com.star4droid.star2d.prefab.PrefabStore.isTempScene(e.getScene())) names.add(e.getScene());
-            String curScene = app.getEditor().getScene();
-            if (com.star4droid.star2d.prefab.PrefabStore.isTempScene(curScene) && !names.isEmpty()) curScene = names.get(0);
-            names.add("\u0000" + curScene);
-            return names;
-        }, names -> {
-            Context c = activity;
-            tabsRow.removeAllViews();
-            String current = names.remove(names.size() - 1).substring(1);
-            if (titleView != null) titleView.setText(current);
-            for (int i = 0; i < names.size(); i++) {
-                final int index = i;
-                String n = names.get(i);
-                boolean sel = n.equals(current);
-                LinearLayout chip = Ui.row(c);
-                chip.setPadding(Ui.dp(c, 10), Ui.dp(c, 4), Ui.dp(c, 4), Ui.dp(c, 4));
-                chip.setBackground(sel ? Ui.rounded(Ui.ACCENT, Ui.dp(c, 16)) : Ui.rounded(Ui.SURFACE_2, Ui.dp(c, 16), Ui.BORDER, 1));
-                ImageView ic = Ui.smallIcon(c, R.drawable.ic_s2_scenes, Ui.TEXT, 15);
-                chip.addView(ic);
-                TextView t = Ui.text(c, n, 13, Ui.TEXT);
-                t.setPadding(Ui.dp(c, 5), 0, Ui.dp(c, 2), 0);
-                if (sel) t.setTypeface(Typeface.DEFAULT_BOLD);
-                chip.addView(t);
-                if (names.size() > 1) {
-                    ImageView x = Ui.smallIcon(c, R.drawable.ic_s2_close, Ui.TEXT_2, 16);
-                    x.setPadding(Ui.dp(c, 3), Ui.dp(c, 3), Ui.dp(c, 3), Ui.dp(c, 3));
-                    LinearLayout.LayoutParams xl = new LinearLayout.LayoutParams(Ui.dp(c, 24), Ui.dp(c, 24));
-                    x.setLayoutParams(xl);
-                    x.setOnClickListener(v -> Bridge.query(() -> Bridge.controls().actionCloseSceneTab(index), ok -> {
-                        if (!ok) Ui.toast(c, Tr.t("closeAllScenes", "You can't close all scenes"));
-                    }));
-                    chip.addView(x);
-                } else chip.setPadding(Ui.dp(c, 10), Ui.dp(c, 6), Ui.dp(c, 12), Ui.dp(c, 6));
-                chip.setOnClickListener(v -> Bridge.gl(() -> Bridge.app().setCurrentEditor(index)));
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Ui.dp(c, 32));
-                lp.setMarginEnd(Ui.dp(c, 6));
-                tabsRow.addView(chip, lp);
+            String cur = Bridge.app().getEditor().getScene();
+            if (com.star4droid.star2d.prefab.PrefabStore.isTempScene(cur)) {
+                for (LibgdxEditor e : Bridge.app().editors)
+                    if (!com.star4droid.star2d.prefab.PrefabStore.isTempScene(e.getScene())) { cur = e.getScene(); break; }
             }
-            // scenes menu
-            LinearLayout menuChip = Ui.row(c);
-            menuChip.setPadding(Ui.dp(c, 8), 0, Ui.dp(c, 10), 0);
-            menuChip.setBackground(Ui.ripple(Ui.SURFACE_2, Ui.dp(c, 16)));
-            menuChip.addView(Ui.smallIcon(c, R.drawable.ic_s2_add, Ui.TEXT, 16));
-            TextView mt = Ui.text(c, Tr.t("scenes", "Scenes"), 13, Ui.TEXT);
-            mt.setPadding(Ui.dp(c, 4), 0, 0, 0);
-            menuChip.addView(mt);
-            menuChip.setOnClickListener(v -> showScenesMenu(menuChip));
-            LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Ui.dp(c, 32));
-            if (scenesHolder != null) { scenesHolder.removeAllViews(); mlp.setMarginEnd(Ui.dp(c, 6)); scenesHolder.addView(menuChip, mlp); }
-            else tabsRow.addView(menuChip, mlp);
+            return cur;
+        }, current -> {
+            if (titleView != null) titleView.setText(current);
         });
     }
 
