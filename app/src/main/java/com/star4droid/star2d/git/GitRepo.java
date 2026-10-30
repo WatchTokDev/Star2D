@@ -57,13 +57,13 @@ public final class GitRepo implements AutoCloseable {
     /** What the editor never wants in a repository: build output, caches and files regenerated from the scenes. */
     public static final String DEFAULT_IGNORE =
             "# Star2D: generated or machine-local files\n"
-                    + "/dex/\n"
+                    + "/dex/*\n"
+                    + "!/dex/scenes.dex\n"
                     + "/bin/\n"
                     + "/logs/\n"
                     + "/log/\n"
                     + "/java/javac.*\n"
                     + "/java/java.version\n"
-                    + "*.dex\n"
                     + "*.class\n"
                     + "/java/classes.dex\n"
                     + "/Events/JavaChanges.json\n"
@@ -203,8 +203,28 @@ public final class GitRepo implements AutoCloseable {
         return token == null || token.isEmpty() ? null : new UsernamePasswordCredentialsProvider("x-access-token", token);
     }
 
+    /** Copies the ready GitHub Actions (APK / PC builds) into .github/workflows of the project when missing. */
+    public void ensureWorkflows() {
+        try {
+            File dst = new File(dir(), ".github/workflows");
+            for (String n : new String[]{"build-android.yml", "build-desktop.yml"}) {
+                File f = new File(dst, n);
+                if (f.exists()) continue;
+                dst.mkdirs();
+                try (java.io.InputStream in = com.star4droid.star2d.evo.star2dApp.getContext().getAssets().open("ci/workflows/" + n);
+                     FileOutputStream o = new FileOutputStream(f)) {
+                    byte[] b = new byte[8192];
+                    int c;
+                    while ((c = in.read(b)) > 0) o.write(b, 0, c);
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
     /** Writes the default .gitignore when the project has none. */
     public void ensureIgnore() {
+        ensureWorkflows();
         File f = new File(dir(), ".gitignore");
         if (f.exists()) return;
         try (FileOutputStream o = new FileOutputStream(f)) {

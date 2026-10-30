@@ -19,7 +19,8 @@ public final class BehaviorTemplate {
 		StringBuilder s = new StringBuilder();
 		s.append("package ").append(BehaviorCatalog.PROJECT_PACKAGE).append(";\n\n");
 		s.append("import com.star4droid.template.behaviors.*;\n");
-		s.append("import com.star4droid.template.Utils.PlayerItem;\n\n");
+		s.append("import com.star4droid.template.Utils.PlayerItem;\n");
+		s.append("import com.star4droid.template.Items.UIHolder;\n\n");
 		s.append("/**\n * A behavior: attach it to any element from \"Additional behaviors\" in the Properties panel.\n");
 		s.append(" * Every public non-static field below becomes a field in the inspector (numbers, booleans, text, Color, enums,\n");
 		s.append(" * images with @Image, sounds with @Sound, lists, and elements: PlayerItem / ProgressItem / TextItem / Joystick ...).\n");

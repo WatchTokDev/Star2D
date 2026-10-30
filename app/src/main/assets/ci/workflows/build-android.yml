@@ -1,0 +1,59 @@
+name: Build Android APK
+
+# Builds the game as a signed APK. Run it from the Actions tab (or push a tag like v1.0).
+# Before pushing: run the game ONCE in the Star2D editor (it writes dex/scenes.dex) and commit that file.
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: "App name (empty = project folder name)"
+        default: ""
+      package:
+        description: "Package id, e.g. com.me.mygame (empty = automatic)"
+        default: ""
+      version_name:
+        default: "1.0"
+      version_code:
+        default: "1"
+      engine_ref:
+        description: "Star2D engine branch / tag used to build"
+        default: "master"
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: star4droid/Star2D
+          ref: ${{ inputs.engine_ref || 'master' }}
+          path: .engine
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - run: pip install pyzipper
+      - name: Check the compiled scenes
+        run: test -f dex/scenes.dex || { echo "::error::dex/scenes.dex is missing. Run the game once in the Star2D editor, then commit dex/scenes.dex"; exit 1; }
+      - name: Build APK
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          EXTRA=""
+          if [ -n "$KS_B64" ]; then echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"; EXTRA="--keystore $RUNNER_TEMP/release.jks --store-pass $KS_PASS --alias $KS_ALIAS"; fi
+          python3 .engine/tools/ci/make_game.py apk --project . --out build/game.apk \
+            --name "${{ inputs.app_name }}" --package "${{ inputs.package }}" \
+            --version-name "${{ inputs.version_name || '1.0' }}" --version-code "${{ inputs.version_code || '1' }}" $EXTRA
+      - uses: actions/upload-artifact@v4
+        with:
+          name: game-apk
+          path: build/game.apk
+          if-no-files-found: error

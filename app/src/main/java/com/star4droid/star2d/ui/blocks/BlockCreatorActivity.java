@@ -71,6 +71,10 @@ public class BlockCreatorActivity extends AppCompatActivity {
         final ArrayList<String[]> desc = new ArrayList<>();
         /** The text on the block in other languages: {language code, text} (value blocks keep {field} places). */
         final ArrayList<String[]> labels = new ArrayList<>();
+        /** The names of the fields in other languages: {language code, field name, text}. */
+        final ArrayList<String[]> fieldTr = new ArrayList<>();
+        /** Languages that have a tab in the editor (even while still empty). */
+        final ArrayList<String> tabs = new ArrayList<>();
         // where it is stored (for editing): section name + index, or -1
         String section;
         int index = -1;
@@ -88,6 +92,8 @@ public class BlockCreatorActivity extends AppCompatActivity {
             for (String[] f : fields) s.fields.add(f.clone());
             for (String[] d : desc) s.desc.add(d.clone());
             for (String[] d : labels) s.labels.add(d.clone());
+            for (String[] d : fieldTr) s.fieldTr.add(d.clone());
+            s.tabs.addAll(tabs);
             return s;
         }
     }
@@ -167,6 +173,11 @@ public class BlockCreatorActivity extends AppCompatActivity {
             s.kind = m.get("kind").getAsInt();
             s.label = BlockModel.str(m, "label", "");
             for (java.util.Map.Entry<String, String> e : BlockCatalog.parseDesc(m.get("labels")).entrySet()) s.labels.add(new String[]{e.getKey(), e.getValue()});
+            try {
+                if (m.has("fieldLabels"))
+                    for (java.util.Map.Entry<String, JsonElement> fe : m.getAsJsonObject("fieldLabels").entrySet())
+                        for (java.util.Map.Entry<String, String> e : BlockCatalog.parseDesc(fe.getValue()).entrySet()) s.fieldTr.add(new String[]{e.getKey(), fe.getKey(), e.getValue()});
+            } catch (Exception ignored) {}
             s.code = BlockModel.str(m, "code", "");
             s.hasElse = m.has("else") && m.get("else").getAsBoolean();
             if (m.has("fields"))
@@ -370,6 +381,8 @@ public class BlockCreatorActivity extends AppCompatActivity {
         n.add("s2", m);
         JsonObject nl = labelsJson(s, true);
         if (nl.size() > 0) n.add("labels", nl);
+        JsonObject fl = fieldLabelsJson(s);
+        if (fl.size() > 0) { n.add("fieldLabels", fl); m.add("fieldLabels", fl); }
         JsonObject dj = descJson(s);
         if (dj.size() > 0) n.add("desc", dj);
         return n;
@@ -389,6 +402,18 @@ public class BlockCreatorActivity extends AppCompatActivity {
             m.put(lang, text);
         }
         return com.star4droid.star2d.blocks.BlockDesc.toJson(m);
+    }
+
+    /** {"field": {"ar": "..", "fr": ".."}} : the names of the fields in other languages. */
+    static JsonObject fieldLabelsJson(Spec s) {
+        JsonObject out = new JsonObject();
+        for (String[] f : s.fieldTr) {
+            String lang = f[0].trim().toLowerCase(Locale.ROOT), text = f[2].trim();
+            if (lang.isEmpty() || text.isEmpty()) continue;
+            if (!out.has(f[1])) out.add(f[1], new JsonObject());
+            out.getAsJsonObject(f[1]).addProperty(lang, text);
+        }
+        return out;
     }
 
     /** {"en":"..","ar":".."}: rows with a language and a text (a language written twice keeps the last). */
@@ -794,21 +819,9 @@ public class BlockCreatorActivity extends AppCompatActivity {
         label.addTextChangedListener(watch(() -> { s.label = label.getText().toString(); refreshPreview(s); }));
         form.addView(label, Ui.matchWrap());
 
-        // the same text in other languages (the palette shows the one of the app language)
-        form.addView(Ui.sectionLabel(c, t("label_tr", "Text in other languages (shown when the app is in that language)")));
-        LinearLayout labBox = Ui.column(c);
-        form.addView(labBox, Ui.matchWrap());
-        Runnable[] rebuildLab = new Runnable[1];
-        rebuildLab[0] = () -> {
-            labBox.removeAllViews();
-            for (int i = 0; i < s.labels.size(); i++) labBox.addView(langRow(s, s.labels, i, rebuildLab[0], s.kind == VALUE ? "double of {n}" : t("label_hint", "e.g. Move up"), false), Ui.margins(Ui.matchWrap(), c, 0, 3, 0, 3));
-        };
-        rebuildLab[0].run();
-        LinearLayout addLab = Ui.button(c, R.drawable.ic_s2_add, t("add_label_tr", "Add translation"), false, v -> {
-            s.labels.add(new String[]{freeLang(s.labels), ""});
-            rebuildLab[0].run();
-        });
-        form.addView(addLab, Ui.margins(new LinearLayout.LayoutParams(-2, Ui.dp(c, 38)), c, 0, 4, 0, 0));
+        // translations: one tab per language (name, description and field names); the code is the same for all
+        form.addView(Ui.sectionLabel(c, t("label_tr", "Translations (shown when the app is in that language)")), Ui.matchWrap());
+        form.addView(translationsView(s), Ui.matchWrap());
 
         // category + color
         LinearLayout cat = Ui.row(c);
@@ -926,23 +939,6 @@ public class BlockCreatorActivity extends AppCompatActivity {
         codePreview.setBackground(Ui.rounded(0xFF121417, Ui.dp(c, 10), Ui.BORDER, Ui.dp(c, 1)));
         prev.addView(codePreview, Ui.matchWrap());
 
-        // description (shown by the (i) button), in as many languages as wanted
-        prev.addView(Ui.sectionLabel(c, t("desc", "Description (shown when the (i) button of the block is tapped)")));
-        LinearLayout descBox = Ui.column(c);
-        prev.addView(descBox, Ui.matchWrap());
-        Runnable[] rebuildDesc = new Runnable[1];
-        rebuildDesc[0] = () -> {
-            descBox.removeAllViews();
-            for (int i = 0; i < s.desc.size(); i++) descBox.addView(langRow(s, s.desc, i, rebuildDesc[0], t("desc_hint", "What does this block do?"), true), Ui.margins(Ui.matchWrap(), c, 0, 3, 0, 3));
-        };
-        rebuildDesc[0].run();
-        LinearLayout addDesc = Ui.button(c, R.drawable.ic_s2_add, t("add_desc", "Add description / language"), false, v -> {
-            s.desc.add(new String[]{freeLang(s.desc), ""});
-            rebuildDesc[0].run();
-        });
-        prev.addView(addDesc, Ui.margins(new LinearLayout.LayoutParams(-2, Ui.dp(c, 38)), c, 0, 4, 0, 0));
-
-
         if (land) {
             LinearLayout body = Ui.row(c);
             ScrollView left = new ScrollView(c);
@@ -1013,6 +1009,121 @@ public class BlockCreatorActivity extends AppCompatActivity {
             dv.addTextChangedListener(watch(() -> { f[2] = dv.getText().toString(); refreshPreview(s); }));
             box.addView(dv, Ui.margins(Ui.matchWrap(), c, 0, 6, 0, 0));
         }
+        return box;
+    }
+
+    // ---------------------------------------------------------------- translation tabs
+
+    private static String rowGet(ArrayList<String[]> rows, String lang) {
+        for (String[] r : rows) if (r[0].equalsIgnoreCase(lang)) return r[r.length - 1];
+        return "";
+    }
+
+    private static String rowGet(ArrayList<String[]> rows, String lang, String field) {
+        for (String[] r : rows) if (r[0].equalsIgnoreCase(lang) && r[1].equals(field)) return r[2];
+        return "";
+    }
+
+    private static void rowSet(ArrayList<String[]> rows, String lang, String text) {
+        for (String[] r : rows) if (r[0].equalsIgnoreCase(lang)) { r[1] = text; return; }
+        rows.add(new String[]{lang, text});
+    }
+
+    private static void rowSet(ArrayList<String[]> rows, String lang, String field, String text) {
+        for (String[] r : rows) if (r[0].equalsIgnoreCase(lang) && r[1].equals(field)) { r[2] = text; return; }
+        rows.add(new String[]{lang, field, text});
+    }
+
+    private static void syncTabs(Spec s) {
+        for (ArrayList<String[]> rows : java.util.Arrays.asList(s.labels, s.desc, s.fieldTr))
+            for (String[] r : rows) {
+                String lg = r[0].trim().toLowerCase(Locale.ROOT);
+                if (!lg.isEmpty() && !s.tabs.contains(lg)) s.tabs.add(lg);
+            }
+    }
+
+    /** Scrollable language tabs with a "+" button; each tab edits the block name, description and field names in that language. */
+    private View translationsView(Spec s) {
+        Context c = this;
+        syncTabs(s);
+        LinearLayout box = Ui.column(c);
+        final String[] cur = {s.tabs.isEmpty() ? "" : s.tabs.get(0)};
+        Runnable[] render = new Runnable[1];
+        render[0] = () -> {
+            box.removeAllViews();
+            LinearLayout bar = Ui.row(c);
+            bar.setGravity(Gravity.CENTER_VERTICAL);
+            for (String lg : s.tabs) {
+                TextView tab = Ui.text(c, langName(lg), 13, Ui.TEXT);
+                tab.setPadding(Ui.dp(c, 12), Ui.dp(c, 8), Ui.dp(c, 12), Ui.dp(c, 8));
+                tab.setBackground(Ui.toggleBg(c));
+                tab.setSelected(lg.equals(cur[0]));
+                tab.setTypeface(lg.equals(cur[0]) ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
+                tab.setOnClickListener(v -> { cur[0] = lg; render[0].run(); });
+                bar.addView(tab, Ui.margins(new LinearLayout.LayoutParams(-2, -2), c, 0, 0, 6, 0));
+            }
+            TextView plus = Ui.text(c, "+", 18, Ui.TEXT);
+            plus.setGravity(Gravity.CENTER);
+            plus.setPadding(Ui.dp(c, 14), Ui.dp(c, 4), Ui.dp(c, 14), Ui.dp(c, 4));
+            plus.setBackground(Ui.rounded(Ui.SURFACE_3, Ui.dp(c, 8)));
+            plus.setOnClickListener(v -> {
+                IconMenu m = new IconMenu(c);
+                for (String[] l : LANGS) if (!s.tabs.contains(l[0]))
+                    m.add(0, Ui.ACCENT, l[1] + " · " + l[0], () -> { s.tabs.add(l[0]); cur[0] = l[0]; render[0].run(); });
+                m.add(0, Ui.ACCENT, t("desc_other", "Other language code…"), () -> Dialogs.input(c, t("desc_other", "Other language code…"), t("desc_other_msg", "Two or three letters, like de or id."), "", false,
+                        val -> val.trim().toLowerCase(Locale.ROOT).matches("[a-z]{2,3}([-_][A-Za-z0-9]{2,8})?") ? (s.tabs.contains(val.trim().toLowerCase(Locale.ROOT)) ? t("err_label_dup", "Two translations of the text use the same language:") : null) : t("err_desc_lang", "A description has no valid language code (like en, ar, fr):"),
+                        val -> { String lg = val.trim().toLowerCase(Locale.ROOT); s.tabs.add(lg); cur[0] = lg; render[0].run(); }));
+                m.show(plus);
+            });
+            bar.addView(plus, new LinearLayout.LayoutParams(-2, -2));
+            android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(c);
+            hs.setHorizontalScrollBarEnabled(false);
+            hs.addView(bar);
+            box.addView(hs, Ui.matchWrap());
+            if (cur[0].isEmpty()) return;
+            final String lg = cur[0];
+            LinearLayout page = Ui.column(c);
+            page.setBackground(Ui.rounded(Ui.SURFACE_2, Ui.dp(c, 10), Ui.BORDER, Ui.dp(c, 1)));
+            page.setPadding(Ui.dp(c, 10), Ui.dp(c, 8), Ui.dp(c, 10), Ui.dp(c, 10));
+            LinearLayout head = Ui.row(c);
+            head.setGravity(Gravity.CENTER_VERTICAL);
+            head.addView(Ui.sectionLabel(c, t("tr_name", "Block name")), Ui.weight(1));
+            ImageView del = Ui.iconButton(c, R.drawable.ic_s2_delete, Tr.t("delete", "Delete"), v -> {
+                for (ArrayList<String[]> rows : java.util.Arrays.asList(s.labels, s.desc, s.fieldTr))
+                    for (int i = rows.size() - 1; i >= 0; i--) if (rows.get(i)[0].equalsIgnoreCase(lg)) rows.remove(i);
+                s.tabs.remove(lg);
+                cur[0] = s.tabs.isEmpty() ? "" : s.tabs.get(0);
+                refreshPreview(s);
+                render[0].run();
+            });
+            del.setImageTintList(ColorStateList.valueOf(0xFFFF8A80));
+            head.addView(del);
+            page.addView(head, Ui.matchWrap());
+            EditText name = Ui.input(c, rowGet(s.labels, lg), s.kind == VALUE ? "double of {n}" : t("label_hint", "e.g. Move up"));
+            name.addTextChangedListener(watch(() -> { rowSet(s.labels, lg, name.getText().toString()); refreshPreview(s); }));
+            page.addView(name, Ui.matchWrap());
+            page.addView(Ui.sectionLabel(c, t("tr_desc", "Description")), Ui.matchWrap());
+            EditText desc = Ui.input(c, rowGet(s.desc, lg), t("desc_hint", "What does this block do?"));
+            desc.setSingleLine(false);
+            desc.setMinLines(2);
+            desc.setGravity(Gravity.TOP | Gravity.START);
+            desc.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+            desc.addTextChangedListener(watch(() -> rowSet(s.desc, lg, desc.getText().toString())));
+            page.addView(desc, Ui.matchWrap());
+            if (!s.fields.isEmpty() && s.kind != VALUE) {
+                page.addView(Ui.sectionLabel(c, t("tr_fields", "Field names")), Ui.matchWrap());
+                for (String[] f : s.fields) {
+                    final String fname = f[0];
+                    EditText fe = Ui.input(c, rowGet(s.fieldTr, lg, fname), fname);
+                    fe.addTextChangedListener(watch(() -> rowSet(s.fieldTr, lg, fname, fe.getText().toString())));
+                    page.addView(fe, Ui.margins(Ui.matchWrap(), c, 0, 3, 0, 3));
+                }
+            }
+            TextView note = Ui.text(c, t("tr_code_same", "The code is the same for every language."), 12, Ui.TEXT_2);
+            page.addView(note, Ui.margins(Ui.matchWrap(), c, 0, 6, 0, 0));
+            box.addView(page, Ui.margins(Ui.matchWrap(), c, 0, 6, 0, 0));
+        };
+        render[0].run();
         return box;
     }
 

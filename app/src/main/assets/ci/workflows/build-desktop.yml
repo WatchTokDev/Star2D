@@ -1,0 +1,64 @@
+name: Build PC (Windows + Linux)
+
+# Experimental desktop build (see docs/DESKTOP.md in the Star2D repo). Needs dex/scenes.dex committed (run the game once in the editor).
+on:
+  workflow_dispatch:
+    inputs:
+      with_jre:
+        description: "Bundle a Java runtime (bigger zip, no Java needed on the player's PC)"
+        type: boolean
+        default: true
+      engine_ref:
+        description: "Star2D engine branch / tag used to build"
+        default: "master"
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            runner: ubuntu-latest
+          - os: windows
+            runner: windows-latest
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: star4droid/Star2D
+          ref: ${{ inputs.engine_ref || 'master' }}
+          path: .engine
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - run: pip install pyzipper
+      - name: Project zip
+        run: python3 .engine/tools/ci/make_game.py zip --project . --out build/project.zip
+      - name: Compiled scenes (dex -> jar)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test -f dex/scenes.dex || { echo "::error::dex/scenes.dex is missing. Run the game once in the Star2D editor, then commit dex/scenes.dex"; exit 1; }
+          mkdir -p build/d2j
+          gh release download --repo ThexXTURBOXx/dex2jar --pattern 'dex-tools-*.zip' --dir build/d2j
+          cd build/d2j && unzip -q -o dex-tools-*.zip && cd ../..
+          D2J=$(find build/d2j -name "d2j-dex2jar.sh" | head -1)
+          chmod +x "$D2J" "$(dirname "$D2J")"/*.sh
+          "$D2J" -f -o build/game.jar dex/scenes.dex
+      - name: Build desktop package
+        working-directory: .engine
+        run: python3 tools/make_desktop.py --os ${{ matrix.os }} ${{ inputs.with_jre && '--with-jre' || '' }} --project ../build/project.zip --game-jar ../build/game.jar --out ../build/desktop-dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: game-${{ matrix.os }}
+          path: build/desktop-dist/*.zip
+          if-no-files-found: error

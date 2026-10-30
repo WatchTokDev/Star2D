@@ -397,7 +397,24 @@ public final class BlockInfo {
         return v == null ? cat : v[ar ? 1 : 0];
     }
 
+    private static final Map<String, Map<String, String>> FIELD_TR = new HashMap<>();
+
+    /** Own names of a custom block's field in other languages: field name -> {language: text}. */
+    public static synchronized void setFieldLabels(String field, Map<String, String> byLang) {
+        if (byLang == null || byLang.isEmpty()) FIELD_TR.remove(field);
+        else FIELD_TR.put(field, byLang);
+    }
+
+    private static synchronized String fieldExact(String label) {
+        Map<String, String> m = FIELD_TR.get(label);
+        if (m == null) return null;
+        String v = m.get(com.star4droid.star2d.ui.Tr.lang().toLowerCase(java.util.Locale.ROOT));
+        return v == null || v.trim().isEmpty() ? null : v;
+    }
+
     public static String field(String label, boolean ar) {
+        String own = fieldExact(label);
+        if (own != null) return own;
         String t = tr("blk_f_" + key(label));
         if (t != null) return t;
         String[] v = FIELD.get(label);
