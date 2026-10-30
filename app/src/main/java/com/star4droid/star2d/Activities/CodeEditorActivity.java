@@ -41,6 +41,16 @@ import org.eclipse.tm4e.core.registry.IThemeSource;
     Advanced code editor using tyron java completion library and sora editor.....
 */
 public class CodeEditorActivity extends AppCompatActivity {
+
+	/** The editor class that matches the orientation of the scene being edited (landscape / portrait). */
+	public static Class<? extends CodeEditorActivity> forScene(){
+		try {
+			com.star4droid.star2d.editor.LibgdxEditor e = com.star4droid.star2d.editor.LibgdxEditor.getCurrentEditor();
+			if(e != null) return e.isLandscape() ? CodeEditorLandscapeActivity.class : CodeEditorPortraitActivity.class;
+		} catch(Throwable ignored){}
+		return CodeEditorActivity.class;
+	}
+
 	/** The new script extends the scene's generated Refs base class: make sure that class exists (from the saved scene). */
 	private void writeSceneRefs(String scene){
 		try {

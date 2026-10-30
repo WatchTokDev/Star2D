@@ -868,8 +868,24 @@ public class CodeGenerator {
      * @param code The unformatted Java code
      * @return The formatted Java code
      */
+    private static Boolean palantirOk = null;
+
+    private static synchronized boolean palantirAvailable() {
+        if (palantirOk == null) {
+            try {
+                Class.forName("com.sun.tools.javac.parser.Tokens$TokenKind");
+                palantirOk = Boolean.TRUE;
+            } catch (Throwable t) {
+                palantirOk = Boolean.FALSE;
+            }
+        }
+        return palantirOk;
+    }
+
     private static String formatWithPalantir(String code) {
-        //return code;
+        // The formatter needs the JDK compiler classes (com.sun.tools.javac...), which Android does not have: skip it there
+        // (the unformatted code compiles the same) instead of failing with NoClassDefFoundError on every build.
+        if (!palantirAvailable()) return code;
         // there's bug :
         // Runtime.version() isn't available method 
         // check :
@@ -878,6 +894,7 @@ public class CodeGenerator {
             Formatter formatter = Formatter.createFormatter(JavaFormatterOptions.defaultOptions());
             return formatter.formatSource(code);
         } catch (Error | Exception e) {
+            if (e instanceof LinkageError) palantirOk = Boolean.FALSE; // missing JDK classes: never try again
             System.err.println("Error formatting code: " + e.getMessage());
             Gdx.files.external("logs/code format.txt").writeString(com.star4droid.template.Utils.Utils.getStackTraceString(e),false);
             // Return original code if formatting fails

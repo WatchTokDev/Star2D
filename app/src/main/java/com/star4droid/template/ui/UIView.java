@@ -578,7 +578,18 @@ public class UIView extends ClipGroup {
         relayout();
     }
 
+    /** Runs the "call method" specs of buttons (set by the UIHolder). */
+    public interface CallHandler { void call(String spec); }
+    private CallHandler callHandler;
+    public UIView setCallHandler(CallHandler h) { callHandler = h; return this; }
+    private void callSpec(UINode n, String key) {
+        if (callHandler == null || !n.has(key)) return;
+        String s = n.str(key, "");
+        if (!s.isEmpty()) callHandler.call(s);
+    }
+
     void fireClick(final UIActor a) {
+        callSpec(a.node, "callClick");
         playClick(a.node);
         if (a.node.has("action")) runAction(a.node.str("action", ""), a.node);
         if (events != null) safe(new Runnable() {
@@ -591,6 +602,7 @@ public class UIView extends ClipGroup {
     }
 
     void fireTouchStart(final UIActor a) {
+        callSpec(a.node, "callStart");
         if (events != null) safe(new Runnable() {
             @Override
             public void run() {
@@ -601,6 +613,7 @@ public class UIView extends ClipGroup {
     }
 
     void fireTouchEnd(final UIActor a) {
+        callSpec(a.node, "callEnd");
         if (events != null) safe(new Runnable() {
             @Override
             public void run() {

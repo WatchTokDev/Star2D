@@ -388,7 +388,18 @@ final class UiPropsView {
         return UiTr.propLabel(n.type, pr);
     }
 
+    private View callControl(final UINode n, final Prop pr, final Runnable refresh) {
+        String cur = UIWidgetRegistry.get(n, pr.key);
+        String sum = cur == null || cur.isEmpty() ? "" : CallDialog.summary(cur);
+        return button(sum.isEmpty() ? Tr.t("call_set", "Set action…") : sum, v ->
+                CallDialog.show(c, host.projectPath(), cur == null ? "" : cur, spec -> {
+                    set(n, pr, spec);
+                    refresh.run();
+                }));
+    }
+
     private View control(UINode n, Prop pr, Runnable refresh) {
+        if (pr.key.startsWith("call") && pr.key.length() > 4 && Character.isUpperCase(pr.key.charAt(4))) return callControl(n, pr, refresh);
         switch (pr.kind) {
             case NUMBER: case INT: return numberControl(n, pr, refresh);
             case BOOL: return boolControl(n, pr, refresh);

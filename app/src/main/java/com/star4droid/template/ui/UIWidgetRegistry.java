@@ -233,6 +233,9 @@ public final class UIWidgetRegistry {
         p(button.props, "image", "Image", Kind.IMAGE, PROPS, "", G_LOOK, "Picture / .9.png replacing the drawn button.");
         p(button.props, "pressedImage", "Pressed image", Kind.IMAGE, PROPS, "", G_LOOK, "Picture shown while pressed. Empty = name_pressed.9.png if it exists, else the normal one.");
         p(button.props, "radius", "Corner radius", Kind.NUMBER, PROPS, "", G_LOOK, "px. Empty = theme.").range(0, 200, 1).adv();
+        p(button.props, "callClick", "Call on click", Kind.TEXT, PROPS, "", G_BEHAVIOR, "Calls a method of a scene element when clicked (set with the editor).").adv();
+        p(button.props, "callStart", "Call on touch start", Kind.TEXT, PROPS, "", G_BEHAVIOR, "Calls a method of a scene element when the touch starts.").adv();
+        p(button.props, "callEnd", "Call on touch end", Kind.TEXT, PROPS, "", G_BEHAVIOR, "Calls a method of a scene element when the touch ends.").adv();
         p(button.props, "pressScaleAmount", "Press scale", Kind.NUMBER, PROPS, "0.94", G_BEHAVIOR, "Size while pressed (1 = no effect).").range(0.5f, 1, 0.01f).adv();
 
         Widget slider = w(UINode.SLIDER, "Slider", "tune", "Input", false, "Drag the knob to choose a number between min and max.", new String[]{"onChange"});

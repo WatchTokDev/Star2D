@@ -718,8 +718,14 @@ public class FilesPanel implements PanelHost.Panel {
         m.getMenu().add(0, 9, 7, Tr.t("uim_new", "New UI (UI Maker)"));
         m.getMenu().add(0, 31, 90, Tr.t("bhv_new", "New behavior"));
         m.getMenu().add(0, 32, 91, Tr.t("bhv_import", "Import behavior (.s2b)"));
+        m.getMenu().add(0, 33, 89, Tr.t("pbh_title", "Project behaviors"));
         m.setOnMenuItemClickListener(it -> {
             int id = it.getItemId();
+            if (id == 33) {
+                if (projectPath != null)
+                    com.star4droid.star2d.ui.behaviors.ProjectBehaviorsDialog.show(c, projectPath, path -> shell.host().openJava(path), this::reload);
+                return true;
+            }
             if (id == 31 || id == 32) {
                 if (projectPath == null) return true;
                 if (id == 31) com.star4droid.star2d.ui.behaviors.BehaviorShare.create(shell, projectPath, this::reload);

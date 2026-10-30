@@ -51,7 +51,7 @@ public class VisualScriptingDialog {
 		Intent intent = new Intent();
 		intent.putExtra("scene",scene.toLowerCase());
 		intent.putExtra("path",path);
-		intent.setClass(Editor.getCurrentEditor().getContext(),com.star4droid.star2d.Activities.CodeEditorActivity.class);
+		intent.setClass(Editor.getCurrentEditor().getContext(),com.star4droid.star2d.Activities.CodeEditorActivity.forScene());
 		Editor.getCurrentEditor().getContext().startActivity(intent);
 	}
 	
@@ -63,7 +63,7 @@ public class VisualScriptingDialog {
 		intent.putExtra("path",editor.getProject().getBodyScriptPath(ps.getString("name"),editor.getScene()));
 		intent.putExtra("name",ps.getString("name")+"Script");
 		intent.putExtra("body",true);
-		intent.setClass(editor.getContext(),com.star4droid.star2d.Activities.CodeEditorActivity.class);
+		intent.setClass(editor.getContext(),com.star4droid.star2d.Activities.CodeEditorActivity.forScene());
 		editor.getContext().startActivity(intent);
 	}
 	
@@ -91,7 +91,7 @@ public class VisualScriptingDialog {
 			} else {
 				Intent i= new Intent();
 				editor.setToCurrentEditor();
-				i.setClass(context,CodeEditorActivity.class);
+				i.setClass(context,CodeEditorActivity.forScene());
 				//i.putExtra("list",editor.getBodiesList());
 				i.putExtra("path",codePath+".code");
 				context.startActivity(i);

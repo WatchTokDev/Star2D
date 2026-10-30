@@ -117,6 +117,7 @@ public class UIHolder extends Group implements PlayerItem {
 		}
 		view = UIView.load(projectPath(), name);
 		view.setListeners(listeners);
+		view.setCallHandler(spec -> com.star4droid.template.ui.UICalls.run(stage, spec));
 		view.setFit(holderDef.fit);
 		applyViewSize();
 		if(holderDef.uiEvents != null){

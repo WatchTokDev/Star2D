@@ -465,6 +465,9 @@ Style presets (`props.style`): `primary`, `secondary`, `accent`, `success`, `dan
 | `image` | props | image | `` |  | Picture / .9.png replacing the drawn button. |
 | `pressedImage` | props | image | `` |  | Picture shown while pressed. Empty = name_pressed.9.png if it exists, else the normal one. |
 | `radius` | props | number | `` | 0.0..200.0 step 1.0 | px. Empty = theme. |
+| `callClick` | props | text | `` |  | Calls a method of a scene element when clicked (set with the editor). |
+| `callStart` | props | text | `` |  | Calls a method of a scene element when the touch starts. |
+| `callEnd` | props | text | `` |  | Calls a method of a scene element when the touch ends. |
 | `pressScaleAmount` | props | number | `0.94` | 0.5..1.0 step 0.01 | Size while pressed (1 = no effect). |
 
 ### Slider  (`Slider`)

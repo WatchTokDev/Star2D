@@ -164,6 +164,17 @@ public class RemotePanel implements PanelHost.Panel, RemoteClient.StateListener 
             t.setPadding(0, Ui.dp(c, 2), 0, Ui.dp(c, 4));
             hc.addView(t, Ui.matchWrap());
         }
+        final String guide = "https://anotepad.com/notes/atsen86p";
+        hc.addView(Ui.button(c, R.drawable.ic_s2_help, Tr.t("rc_guide", "How to connect (full guide)"), true, v ->
+                Dialogs.confirm(c, Tr.t("rc_guide", "How to connect (full guide)"),
+                        Tr.t("rc_guide_msg", "Open the explanation website in your browser?") + "\n\n" + guide,
+                        Tr.t("rc_guide_open", "Open"), () -> {
+                            try {
+                                c.startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(guide)));
+                            } catch (Exception e) {
+                                Ui.toast(c, guide);
+                            }
+                        })), Ui.margins(Ui.matchWrap(), c, 0, 6, 0, 0));
         refresh();
         return root;
     }

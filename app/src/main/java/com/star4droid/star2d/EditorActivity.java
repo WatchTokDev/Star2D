@@ -244,7 +244,7 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
 	public void openJava(String path){
 	    Intent intent= new Intent();
 		intent.putExtra("path",path);
-		intent.setClass(this,com.star4droid.star2d.Activities.CodeEditorActivity.class);
+		intent.setClass(this,com.star4droid.star2d.Activities.CodeEditorActivity.forScene());
 		startActivity(intent);
 	}
 	//useless : to change your game icon, go to directory "/icon/" and put your icon there...
@@ -384,7 +384,7 @@ public class EditorActivity extends AppCompatActivity implements AndroidFragment
                 intent.putExtra("goto_col", col);
                 intent.putExtra("goto_end", endCol);
                 intent.putExtra("goto_msg", message);
-                intent.setClass(EditorActivity.this, com.star4droid.star2d.Activities.CodeEditorActivity.class);
+                intent.setClass(EditorActivity.this, com.star4droid.star2d.Activities.CodeEditorActivity.forScene());
                 startActivity(intent);
             }
             @Override public boolean openBlocks(String file, String hints){

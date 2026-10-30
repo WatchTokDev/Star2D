@@ -87,6 +87,24 @@
 			android:theme="@style/AppTheme"
 			android:windowSoftInputMode="adjustResize|stateVisible"
 			android:exported="true"/>
+		<activity
+			android:name="com.star4droid.star2d.Activities.CodeEditorLandscapeActivity"
+			android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
+			android:hardwareAccelerated="true"
+			android:supportsPictureInPicture="true"
+			android:screenOrientation="sensorLandscape"
+			android:theme="@style/AppTheme"
+			android:windowSoftInputMode="adjustResize|stateVisible"
+			android:exported="true"/>
+		<activity
+			android:name="com.star4droid.star2d.Activities.CodeEditorPortraitActivity"
+			android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
+			android:hardwareAccelerated="true"
+			android:supportsPictureInPicture="true"
+			android:screenOrientation="sensorPortrait"
+			android:theme="@style/AppTheme"
+			android:windowSoftInputMode="adjustResize|stateVisible"
+			android:exported="true"/>
 			
 		<provider
 		android:name="androidx.core.content.FileProvider"

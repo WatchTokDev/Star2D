@@ -59,3 +59,6 @@ Checked at the design size in portrait AND landscape: `off-screen`, `touch targe
 - A HUD sits in the corners (`topleft`, `topright`) with margins >= 16; big buttons for thumbs at the bottom corners.
 - Dialogs: a `Stack` root child filling the screen with a dimmed Panel, and a centred card.
 - Slider/Switch/Checkbox values live in the widget; read them in `onChange` (`value`) or `ui.getValue(id)`.
+
+## Button actions that call a scene element
+A button has `callClick`, `callStart`, `callEnd` (JSON set with the UI Maker: scene -> element -> method -> parameters), e.g. `{"scene":"main","item":"player","method":"jump","args":["400"],"types":["float"]}`. The public method is looked for on the element and on its script; types int/long/float/double/boolean/String.
