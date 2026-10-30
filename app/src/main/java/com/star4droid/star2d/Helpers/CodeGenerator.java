@@ -369,7 +369,12 @@ public class CodeGenerator {
                             }
                             
                             // Get field from definition class
-                            java.lang.reflect.Field field = cls.getField(propertyKey.replace(" ", "_"));
+                            java.lang.reflect.Field field;
+                            try {
+                                field = cls.getField(propertyKey.replace(" ", "_"));
+                            } catch (NoSuchFieldException nsf) {
+                                continue; // key this element type doesn't have (e.g. Collider* on a GROUP): ignore
+                            }
                             String fieldType = field.getType().getName().replace("java.lang.", "");
                             
                             // Skip unsupported field types

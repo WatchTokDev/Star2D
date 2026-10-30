@@ -48,6 +48,11 @@ public class BuildConsole extends LinearLayout {
         title = Ui.text(c, "", 15, Ui.TEXT);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         head.addView(title, Ui.weight(1));
+        head.addView(Ui.button(c, 0, Tr.t("console_copy_all", "Copy all errors"), false, v -> {
+            String t = allText();
+            if (!t.isEmpty()) Dialogs.copy(getContext(), t);
+        }));
+        head.addView(new View(c), new LinearLayout.LayoutParams(Ui.dp(c, 6), 1));
         head.addView(Ui.button(c, 0, Tr.t("console_clear", "Clear"), false, v -> clear()));
         LinearLayout.LayoutParams gap = new LinearLayout.LayoutParams(Ui.dp(c, 6), 1);
         head.addView(new View(c), gap);
@@ -85,6 +90,24 @@ public class BuildConsole extends LinearLayout {
         extraText = errors.isEmpty() && plainText != null && !plainText.trim().isEmpty() ? plainText : null;
         rebuild();
         if (count() > 0) reveal();
+    }
+
+    /** Every error as plain text, ready for the clipboard. */
+    public String allText() {
+        StringBuilder sb = new StringBuilder();
+        int n = 0;
+        for (BuildError e : errors) {
+            sb.append(++n).append(") ");
+            if (e.target == BuildError.TARGET_BLOCK) sb.append("Block: ").append(e.blockTitle == null || e.blockTitle.isEmpty() ? "#" + e.blockIndex : e.blockTitle);
+            else {
+                String f = e.target == BuildError.TARGET_JAVA && e.targetFile != null ? e.targetFile : e.file;
+                sb.append(f == null ? "" : new File(f).getName()).append(':').append(e.target == BuildError.TARGET_JAVA ? e.targetLine : e.line);
+            }
+            if (e.origin != null && !e.origin.isEmpty()) sb.append("  [").append(e.origin).append(']');
+            sb.append('\n').append(e.message).append("\n\n");
+        }
+        if (extraText != null) sb.append(extraText).append('\n');
+        return sb.toString().trim();
     }
 
     public void reveal() {
