@@ -10,6 +10,8 @@ public class GroupDef extends ItemDef {
 	public String type="STATIC";
 	public String parentName = "",name="", Script="";
 	public boolean Visible = true;
+	/** Draws the descendants by height (lower on the screen = in front), like top-down games need. */
+	public boolean Y_Sort = false;
 	public float x=0,y=0,z=0,width=100,height=100,rotation=0;
 	
 	public GroupDef(){}
@@ -28,6 +30,7 @@ public class GroupDef extends ItemDef {
         clone.parentName = (parentName!=null&&parentName.equals("")) ? parentName : name;
         clone.Script = this.Script;
         clone.Visible = this.Visible;
+        clone.Y_Sort = this.Y_Sort;
         clone.x = this.x;
         clone.y = this.y;
         clone.z = this.z;
@@ -35,6 +38,9 @@ public class GroupDef extends ItemDef {
         clone.height = this.height;
         clone.rotation = this.rotation;
         clone.Version = this.Version;
+		clone.Pivot = this.Pivot;
+		clone.Pivot_X = this.Pivot_X;
+		clone.Pivot_Y = this.Pivot_Y;
         clone.name = newName;
         return clone;
 	}

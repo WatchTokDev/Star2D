@@ -162,7 +162,7 @@ public class CircleItem extends Image implements PlayerItem {
 		super.sizeChanged();
 		//if(getStage()!=null) setY(circleY);
 		if(!circleDef.type.equals("UI"))
-		    setOrigin(getWidth()*0.5f,getHeight()*0.5f);
+		    com.star4droid.template.Utils.Pivot.apply(this, circleDef);
 	}
 	
 	@Override

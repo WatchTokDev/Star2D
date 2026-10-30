@@ -24,6 +24,8 @@ public class ProjectAssetLoader extends AssetManager {
 	
 	public void load(Project p){
 		this.project = p;
+		AtlasIndex.init(p);
+		GameStrings.init(p);
 		setErrorListener((descriptor,error)->{
 			Utils.Log("assets load error : \nfile : "+descriptor.fileName,Utils.getStackTraceString(error));
 		});

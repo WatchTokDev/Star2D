@@ -77,7 +77,7 @@ public class CustomItem extends Image implements EditorItem {
         float width = propertySet.getFloat("width");
         float height = propertySet.getFloat("height");
         setSize(width, height);
-        setOrigin(width * 0.5f, height * 0.5f);
+        EditorPivot.apply(this, propertySet);
         
         float x = propertySet.getFloat("x");
         float y = needFix ? (getStage().getHeight() - propertySet.getFloat("y") - height) : propertySet.getFloat("y");
@@ -215,6 +215,6 @@ public class CustomItem extends Image implements EditorItem {
     @Override
     protected void sizeChanged() {
         super.sizeChanged();
-        setOrigin(getWidth() * 0.5f, getHeight() * 0.5f);
+        EditorPivot.apply(this, propertySet);
     }
 }

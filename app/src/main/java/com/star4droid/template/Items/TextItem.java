@@ -58,7 +58,9 @@ public class TextItem extends Label implements PlayerItem {
 	public static TextItem create(StageImp stageImp,TextDef textDef,ElementEvent elementEvent){
 		BitmapFont font = new BitmapFont(Gdx.files.internal("files/default.fnt"));
 		LabelStyle labelStyle = new LabelStyle(font, Color.GOLD);
-		return new TextItem(textDef.Text,labelStyle,stageImp).setElementEvent(elementEvent).setDef(textDef);
+		TextItem item = (TextItem) new TextItem(textDef.Text,labelStyle,stageImp).setElementEvent(elementEvent).setDef(textDef);
+		if(textDef.Text!=null && textDef.Text.startsWith("@")) item.setItemText(textDef.Text);
+		return item;
 	}
 	
 	public TextItem setDef(TextDef textDef){
@@ -76,7 +78,27 @@ public class TextItem extends Label implements PlayerItem {
 	
 	@Override
 	public void setItemText(String text) {
+		// "@key" = a translated text: it follows the language of the game (strings/strings.json)
+		if(text!=null && text.startsWith("@") && text.length()>1){
+			transKey = text.substring(1);
+			transVersion = com.star4droid.template.Utils.GameStrings.version;
+			setText(com.star4droid.template.Utils.GameStrings.tr(transKey));
+			return;
+		}
+		transKey = null;
 		setText(text);
+	}
+
+	private String transKey;
+	private int transVersion = -1;
+
+	@Override
+	public void act(float delta) {
+		super.act(delta);
+		if(transKey!=null && transVersion!=com.star4droid.template.Utils.GameStrings.version){
+			transVersion = com.star4droid.template.Utils.GameStrings.version;
+			setText(com.star4droid.template.Utils.GameStrings.tr(transKey));
+		}
 	}
 	
 	@Override

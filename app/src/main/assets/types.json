@@ -4,7 +4,7 @@
 "boolean":",Loop,lock,Active,Soft,X Ray,Static Light,Visible,Stretch X,Stretch Y,Bullet,Fixed Rotation,isSensor,",
 "spinner":"type,Shape,Light Type,fit,layout,anchor",
 "string":",name,Text",
-"File":"file,font",
+"File":"file,font,animation",
 "static":"TYPE",
 "color":",Text Color,Tint,Progress Color,color,Background Color,",
 "body":",Collision,attach To,parent",

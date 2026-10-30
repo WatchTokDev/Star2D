@@ -25,6 +25,8 @@ public final class BlockCatalog {
     private BlockCatalog() {}
 
     /** A statement block template. */
+    public static boolean isExplain(String title){ return "explain".equals(title) || "explainIf".equals(title) || "explainIfElse".equals(title); }
+
     public static class Def {
         public String category, title, code;
         public String[] fields;
@@ -285,6 +287,10 @@ public final class BlockCatalog {
         def("Control", ctrl, "everySeconds", "seconds", "1", true,
                 "Timer.schedule(new Timer.Task(){\n    public void run(){\n        %2$s\n    }\n},(float)(%1$s),(float)(%1$s));\n%4$s");
         def("Control", ctrl, "comment", "text", "note", false, "// %1$s\n%2$s");
+        // explanation blocks: no code of their own, the (i) button shows the instructions the user wrote in them
+        def("Control", ctrl, "explain", "note", "", false, "%2$s");
+        def("Control", ctrl, "explainIf", "note", "", true, "{\n%2$s\n}\n%4$s");
+        def("Control", ctrl, "explainIfElse", "note", "", true, "{\n%2$s\n}\nif(false){\n%3$s\n}\n%4$s");
         def("Control", ctrl, "codeLine", "code", "", false, "%1$s\n%2$s");
 
         // Variables & data
@@ -330,6 +336,8 @@ public final class BlockCatalog {
         def("Looks", looks, "flipX", "body(Body)", "", false, "%1$s.getActor().setScaleX(-%1$s.getActor().getScaleX());\n%2$s");
         def("Looks", looks, "bringToFront", "body(Body)", "", false, "%1$s.getActor().toFront();\n%2$s");
         def("Looks", looks, "sendToBack", "body(Body)", "", false, "%1$s.getActor().toBack();\n%2$s");
+        def("Looks", looks, "setAnimation", "body(Body) name", "|\"idle\"", false, "%1$s.setAnimation(String.valueOf(%2$s));\n%3$s");
+        def("Looks", looks, "removeAnimation", "body(Body)", "", false, "%1$s.removeAnimation();\n%2$s");
         def("Looks", looks, "showText", "ui(Body) text", "|\"Hello\"", false, "%1$s.setItemText(String.valueOf(%2$s));\n%3$s");
 
         // Input
@@ -378,6 +386,14 @@ public final class BlockCatalog {
         def("Ui Nodes", uic, "uiSizePercent", "holder(Body) widthPct heightPct", "current|100|100", false, "if(%1$s instanceof com.star4droid.template.Items.UIHolder) ((com.star4droid.template.Items.UIHolder)%1$s).sizePercent((float)(%2$s), (float)(%3$s));\n%4$s");
         def("Ui Nodes", uic, "uiStretch", "holder(Body) stretchH(Boolean) stretchV(Boolean)", "current|true|true", false, "if(%1$s instanceof com.star4droid.template.Items.UIHolder) ((com.star4droid.template.Items.UIHolder)%1$s).stretch(%2$s, %3$s);\n%4$s");
 
+        // Language (game translations: strings/strings.json)
+        int lang = 0xFF00897B;
+        String GS = "com.star4droid.template.Utils.GameStrings";
+        def("Language", lang, "setLanguage", "code", "\"ar\"", false, GS + ".setLanguage(String.valueOf(%1$s));\n%2$s");
+        def("Language", lang, "nextLanguage", "", "", false, GS + ".nextLanguage();\n%1$s");
+        def("Language", lang, "showTranslated", "ui(Body) key", "|\"play\"", false, "%1$s.setItemText(" + GS + ".tr(%2$s));\n%3$s");
+        def("Language", lang, "ifLanguage", "code", "\"ar\"", true, "if(" + GS + ".language().equals(String.valueOf(%1$s))){\n%2$s\n} else {\n%3$s\n}\n%4$s");
+
         // Debug
         def("Debug", dbg, "toastValue", "value", "", false, "toast(String.valueOf(%1$s));\n%2$s");
         def("Debug", dbg, "logValue", "value", "score", false, "debug(String.valueOf(%1$s));\n%2$s");
@@ -422,6 +438,8 @@ public final class BlockCatalog {
         r("Logic", "not ___", "(!(%1$s))");
         r("Logic", "___ touches ___", "checkCollision(%1$s,%2$s)");
         r("Logic", "screen is touched", "Gdx.input.isTouched()");
+        r("Language", "translate ___", "com.star4droid.template.Utils.GameStrings.tr(%1$s)");
+        r("Language", "current language", "com.star4droid.template.Utils.GameStrings.language()");
         r("Math", "random ___ to ___", "random((int)(%1$s),(int)(%2$s))");
         r("Math", "___ mod ___", "(%1$s %% %2$s)");
         r("Math", "abs ___", "Math.abs(%1$s)");

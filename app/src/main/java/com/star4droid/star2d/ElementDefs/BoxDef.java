@@ -16,6 +16,9 @@ public class BoxDef extends ItemDef {
 	width=50,height=50,tileX=1,tileY=1,
 	Collider_Width=Integer.MAX_VALUE, Collider_Height=Integer.MAX_VALUE;
 	
+	/** Animation file of the anims folder ("walk" or "hero/walk"): when set it is shown instead of the image. */
+	public String animation = "";
+
 	public BoxDef(){}
 	
 	public BoxBody build(StageImp stage){
@@ -29,7 +32,11 @@ public class BoxDef extends ItemDef {
 	
 	public BoxDef getClone(String newName){
 	    BoxDef clone = new BoxDef();
+		clone.Pivot = this.Pivot;
+		clone.Pivot_X = this.Pivot_X;
+		clone.Pivot_Y = this.Pivot_Y;
 	    clone.elementEvents = elementEvents;
+	    clone.animation = this.animation;
 	    clone.image = this.image;
 	    clone.Pressed_Image = this.Pressed_Image;
 	    clone.Touch_Start_Image = this.Touch_Start_Image;

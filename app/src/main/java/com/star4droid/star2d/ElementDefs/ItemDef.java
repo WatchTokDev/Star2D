@@ -2,6 +2,9 @@ package com.star4droid.star2d.ElementDefs;
 
 public abstract class ItemDef {
     public String Version = "";
+    /** Pivot (origin) of the element: center, left, right, top, bottom, topleft, topright, bottomleft, bottomright or custom (Pivot_X / Pivot_Y = 0..1). */
+    public String Pivot = "center";
+    public float Pivot_X = 0.5f, Pivot_Y = 0.5f;
     public float getZF() {
         if (this instanceof BoxDef)
             return ((BoxDef) this).z;

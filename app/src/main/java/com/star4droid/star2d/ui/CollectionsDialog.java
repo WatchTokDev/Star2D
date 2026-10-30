@@ -34,7 +34,7 @@ public final class CollectionsDialog {
     private CollectionsDialog() {}
 
     public static class Pack {
-        public String id, title, titleAr, author, license;
+        public String id, title, titleAr, author, license, url;
         public final ArrayList<String> files = new ArrayList<>();
     }
 
@@ -53,6 +53,7 @@ public final class CollectionsDialog {
                     p.titleAr = o.has("title_ar") ? o.get("title_ar").getAsString() : p.title;
                     p.author = o.has("author") ? o.get("author").getAsString() : "";
                     p.license = o.has("license") ? o.get("license").getAsString() : "";
+                    p.url = o.has("url") ? o.get("url").getAsString() : "";
                     JsonArray fs = o.getAsJsonArray("files");
                     for (int i = 0; i < fs.size(); i++) p.files.add(fs.get(i).getAsString());
                     out.add(p);
@@ -133,6 +134,20 @@ public final class CollectionsDialog {
                 if (done != null) done.run();
             });
             card.addView(addBtn, Ui.margins(new LinearLayout.LayoutParams(-2, Ui.dp(a, 36)), a, 0, 2, 0, 0));
+            if (p.url != null && !p.url.isEmpty()) {
+                TextView link = Ui.text(a, "⬇ " + Tr.t("ui_download_full_pack", "Download the full pack") + "  ↗", 13.5f, Ui.ACCENT);
+                link.setPadding(Ui.dp(a, 2), Ui.dp(a, 10), Ui.dp(a, 2), Ui.dp(a, 4));
+                link.setBackground(Ui.ripple(0, Ui.dp(a, 8)));
+                link.setOnClickListener(v -> Dialogs.confirm(a, Tr.t("ui_open_website", "Open website?"),
+                        Tr.t("ui_open_website_msg", "This opens the pack page in your browser:") + "\n" + p.url
+                                + "\n\n" + Tr.t("ui_open_website_paid", "The full version may be paid."),
+                        Tr.t("ui_open", "Open"), () -> {
+                            try {
+                                a.startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(p.url)));
+                            } catch (Exception e) { Snack.show(e.toString()); }
+                        }));
+                card.addView(link);
+            }
             col.addView(card, Ui.margins(Ui.matchWrap(), a, 0, 10, 0, 0));
         }
         ScrollView sv = new ScrollView(a);

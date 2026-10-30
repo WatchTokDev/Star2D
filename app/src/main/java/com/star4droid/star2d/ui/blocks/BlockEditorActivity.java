@@ -1186,6 +1186,10 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
 
     @Override
     public void onInfo(BlockModel.Node node) {
+        if (BlockCatalog.isExplain(node.title) && !node.fields.isEmpty()) {
+            showExplain(node);
+            return;
+        }
         String err = canvas.errorOf(node);
         if (err != null) {
             new AlertDialog.Builder(this)
@@ -1197,6 +1201,33 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
             return;
         }
         showInfo(node.title, BlockCatalog.find(node.title));
+    }
+
+    /** The instructions written inside an explanation block, with an Edit (pencil) button. */
+    private void showExplain(BlockModel.Node node) {
+        BlockModel.Field f = node.fields.get(0);
+        String text = f.value == null ? "" : f.value.trim();
+        TextView t = Ui.text(this, text.isEmpty() ? Tr.t("blk_explain_empty", "No instructions yet. Tap Edit to write them.") : text, 15, text.isEmpty() ? Ui.TEXT_3 : Ui.TEXT);
+        t.setPadding(Ui.dp(this, 20), Ui.dp(this, 10), Ui.dp(this, 20), Ui.dp(this, 4));
+        t.setTextIsSelectable(true);
+        TextView hint = Ui.text(this, node.title.equals("explain") ? Tr.t("blk_explain_hint", "This block has no code: it only explains.")
+                : node.title.equals("explainIf") ? Tr.t("blk_explain_hint_if", "No code of its own: the blocks inside just run.")
+                : Tr.t("blk_explain_hint_else", "No code of its own: the first part just runs, the else part never runs."), 12, Ui.TEXT_3);
+        hint.setPadding(Ui.dp(this, 20), Ui.dp(this, 8), Ui.dp(this, 20), 0);
+        LinearLayout box = Ui.column(this);
+        box.addView(t);
+        box.addView(hint);
+        ScrollView sv = new ScrollView(this);
+        sv.addView(box);
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
+                .setTitle("ⓘ  " + BlockInfo.label(node.title, rtl)).setView(sv)
+                .setPositiveButton(Tr.t("ok", "OK"), null)
+                .setNeutralButton("✎  " + Tr.t("edit", "Edit"), (d, w) -> com.star4droid.star2d.ui.TextDialog.show(this, Tr.t("edit", "Edit"), "", f.value == null ? "" : f.value, nv -> {
+                    f.value = nv;
+                    canvas.changed();
+                    onInfo(node);
+                }));
+        b.show();
     }
 
     private void showInfo(String title, BlockCatalog.Def def) {

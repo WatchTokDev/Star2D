@@ -504,6 +504,7 @@ public class PropertiesPanel implements PanelHost.Panel {
                 return box;
             }
             case "File": {
+                final ImageView[] animReset = new ImageView[1];
                 box.addView(label(c, f));
                 TextView t = chooser(c, val.isEmpty() ? "[" + Tr.t("choose", "choose") + "]" : val.replace(com.star4droid.template.Utils.Utils.seperator, "/"));
                 t.setOnClickListener(v -> Bridge.query(() -> PropertyEditing.fileRoot(Bridge.editor(), f), rootPath ->
@@ -519,7 +520,25 @@ public class PropertiesPanel implements PanelHost.Panel {
                             values.put(f, rel);
                             t.setText(rel);
                             commit(() -> PropertyEditing.applyFile(Bridge.app(), f, rel));
+                            if (animReset[0] != null) animReset[0].setVisibility(View.VISIBLE);
                         })));
+                if (f.equals("animation")) {
+                    // animation: pick from the anims folder (inner folders too); the element shows it live; Reset clears it (the image shows again)
+                    LinearLayout ar = Ui.row(c);
+                    ar.addView(t, Ui.weight(1));
+                    ImageView rb = Ui.iconButton(c, R.drawable.ic_s2_refresh, Tr.t("anim_reset", "Reset animation"), v -> {
+                        values.put(f, "");
+                        t.setText("[" + Tr.t("choose", "choose") + "]");
+                        v.setVisibility(View.GONE);
+                        commit(() -> PropertyEditing.applyFile(Bridge.app(), f, ""));
+                    });
+                    rb.setVisibility(val.isEmpty() ? View.GONE : View.VISIBLE);
+                    animReset[0] = rb;
+                    ar.addView(rb);
+                    box.addView(ar, Ui.matchWrap());
+                    editors.put(f, t);
+                    return box;
+                }
                 box.addView(t, Ui.matchWrap());
                 editors.put(f, t);
                 return box;

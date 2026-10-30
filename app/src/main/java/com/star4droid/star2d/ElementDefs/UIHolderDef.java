@@ -67,6 +67,9 @@ public class UIHolderDef extends ItemDef {
 		clone.height = this.height;
 		clone.rotation = this.rotation;
 		clone.Version = this.Version;
+		clone.Pivot = this.Pivot;
+		clone.Pivot_X = this.Pivot_X;
+		clone.Pivot_Y = this.Pivot_Y;
 		clone.name = newName;
 		return clone;
 	}

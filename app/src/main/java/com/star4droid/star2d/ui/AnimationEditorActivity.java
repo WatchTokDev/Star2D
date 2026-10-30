@@ -185,6 +185,58 @@ public class AnimationEditorActivity extends AppCompatActivity {
         return b;
     }
 
+    private static int[] regionOf(HashMap<String, Object> f) {
+        Object o = f.get("region");
+        if (!(o instanceof java.util.List)) return null;
+        java.util.List<?> l = (java.util.List<?>) o;
+        if (l.size() < 4) return null;
+        try {
+            int[] r = new int[4];
+            for (int i = 0; i < 4; i++) r[i] = Math.round(((Number) l.get(i)).floatValue());
+            return r;
+        } catch (Exception e) { return null; }
+    }
+
+    /** The picture of a frame: the whole image or, for sprite-sheet frames, only its region. */
+    private Bitmap frameBitmap(HashMap<String, Object> fr) {
+        int[] r = regionOf(fr);
+        File f = imageOf(fr);
+        if (r == null) return bitmap(f);
+        String k = f.getAbsolutePath() + "#" + r[0] + "," + r[1] + "," + r[2] + "," + r[3];
+        Bitmap b = cache.get(k);
+        if (b != null) return b;
+        try {
+            android.graphics.BitmapRegionDecoder d = android.graphics.BitmapRegionDecoder.newInstance(f.getAbsolutePath(), false);
+            int x = Math.max(0, Math.min(r[0], d.getWidth() - 1)), y = Math.max(0, Math.min(r[1], d.getHeight() - 1));
+            int w = Math.max(1, Math.min(r[2], d.getWidth() - x)), h = Math.max(1, Math.min(r[3], d.getHeight() - y));
+            b = d.decodeRegion(new Rect(x, y, x + w, y + h), null);
+            d.recycle();
+            if (b != null) cache.put(k, b);
+        } catch (Throwable ignored) {}
+        return b;
+    }
+
+    private void pickSheet() {
+        FilePickerDialog.show(this, Tr.t("sheet_pick", "Choose the picture"), imagesRoot.getAbsolutePath(),
+                new String[]{"png", "jpg", "jpeg", "webp", "bmp"}, true, (file, rel) ->
+                        SheetImportDialog.show(this, file, regions -> {
+                            for (int[] r : regions) {
+                                HashMap<String, Object> m = new HashMap<>();
+                                m.put("name", relName(file));
+                                m.put("dur", String.valueOf(duration));
+                                ArrayList<Integer> l = new ArrayList<>();
+                                for (int x : r) l.add(x);
+                                m.put("region", l);
+                                frames.add(m);
+                            }
+                            changed = true;
+                            framesAdapter.notifyDataSetChanged();
+                            framesList.scrollToPosition(frames.size() - 1);
+                            restart();
+                            Snack.show(Tr.t("sheet_added", "Frames added") + ": " + regions.size());
+                        }));
+    }
+
     private String relName(File f) {
         String rel = f.getAbsolutePath().substring(imagesRoot.getAbsolutePath().length());
         while (rel.startsWith("/")) rel = rel.substring(1);
@@ -214,6 +266,8 @@ public class AnimationEditorActivity extends AppCompatActivity {
         titles.addView(t);
         titles.addView(Ui.text(c, Tr.t("animationEditor", "Animation editor"), 11.5f, Ui.TEXT_3));
         top.addView(titles, Ui.weight(1));
+        ImageView sheet = Ui.iconButton(c, R.drawable.ic_s2_grid, Tr.t("sheet_title", "Cut a sprite sheet"), v -> pickSheet());
+        top.addView(sheet);
         ImageView help = Ui.iconButton(c, R.drawable.ic_s2_help, Tr.t("ui_help", "Help"), v -> Dialogs.longText(c, Tr.t("animationEditor", "Animation editor"),
                 Tr.t("anim_help", "Tap images on the list to add them as frames. Drag a frame to change the order, ✕ removes it, tap a frame to see it. \"Frame time\" sets how long each frame is shown (milliseconds). Use the animation in blocks with setAnimation and its name.")));
         top.addView(help);
@@ -356,7 +410,7 @@ public class AnimationEditorActivity extends AppCompatActivity {
             return;
         }
         if (current >= frames.size()) current = 0;
-        Bitmap b = bitmap(imageOf(frames.get(current)));
+        Bitmap b = frameBitmap(frames.get(current));
         if (b != null) preview.setImageBitmap(b);
         else preview.setImageResource(R.drawable.ic_s2_image);
         refreshInfo();
@@ -468,7 +522,11 @@ public class AnimationEditorActivity extends AppCompatActivity {
             View del = cell.getChildAt(2);
             File f = imageOf(frames.get(pos));
             iv.setImageResource(R.drawable.ic_s2_image);
-            if (f.isFile()) FilePickerDialog.thumb(iv, f, Ui.dp(c, 72));
+            if (regionOf(frames.get(pos)) != null) {
+                Bitmap fb = frameBitmap(frames.get(pos));
+                iv.setTag(null);
+                if (fb != null) { iv.setImageTintList(null); iv.setImageBitmap(fb); }
+            } else if (f.isFile()) FilePickerDialog.thumb(iv, f, Ui.dp(c, 72));
             n.setText(String.valueOf(pos + 1));
             cell.setBackground(pos == current ? Ui.rounded(Ui.ACCENT_SOFT, Ui.dp(c, 10), Ui.ACCENT, Ui.dp(c, 2))
                     : Ui.rounded(Ui.SURFACE_2, Ui.dp(c, 10), Ui.BORDER, 1));

@@ -40,7 +40,14 @@ public class ExportDialog {
 			intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);
 			//((Activity)context).startActivityForResult(intent,RECIEVE_ICON);
 		});
+		final AppCompatCheckBox merge = new AppCompatCheckBox(context);
+		merge.setText(com.star4droid.star2d.ui.Tr.t("export_merge_tilesets","Merge images into tilesets (smaller, faster)"));
+		merge.setTextColor(portrait.getTextColors());
+		merge.setChecked(sh.getBoolean(project+"-merge",false));
+		((android.view.ViewGroup)portrait.getParent()).addView(merge,((android.view.ViewGroup)portrait.getParent()).indexOfChild(portrait)+1);
 		cv.findViewById(R.id.export).setOnClickListener(view->{
+			ExportThread.mergeTilesets = merge.isChecked();
+			sh.edit().putBoolean(project+"-merge",merge.isChecked()).apply();
 			String[] data = getText(context,project,portrait.isChecked(),version,version_name,package_name,name);
 			if(data!=null){
 				new ExportThread(context,project,savePath,imgPath,data).start();

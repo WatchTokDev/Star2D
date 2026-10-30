@@ -25,6 +25,9 @@ public class CircleDef extends ItemDef {
 	
 	public CircleDef getClone(String newName) {
         CircleDef clone = new CircleDef();
+		clone.Pivot = this.Pivot;
+		clone.Pivot_X = this.Pivot_X;
+		clone.Pivot_Y = this.Pivot_Y;
         clone.elementEvents = elementEvents;
         clone.image = this.image;
         clone.type = this.type;

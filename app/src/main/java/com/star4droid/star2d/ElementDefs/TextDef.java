@@ -26,6 +26,9 @@ public class TextDef extends ItemDef {
 	
 	public TextDef getClone(String newName) {
         TextDef clone = new TextDef();
+		clone.Pivot = this.Pivot;
+		clone.Pivot_X = this.Pivot_X;
+		clone.Pivot_Y = this.Pivot_Y;
         clone.elementEvents = this.elementEvents;
         clone.type = this.type;
         clone.name = newName;

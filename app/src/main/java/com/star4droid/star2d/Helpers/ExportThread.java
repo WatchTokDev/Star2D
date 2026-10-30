@@ -26,6 +26,8 @@ public class ExportThread extends Thread {
 	AlertDialog dialog;
 	String img;
 	String state_prefix="";
+	/** Export option: pack the small images into a few tileset pages (see TilesetPacker). */
+	public static boolean mergeTilesets=false;
 	public static String TEMPLATE_NOT_FOUND="Template apk not found!";
 	public ExportThread(Context ctx,String p,Uri savePath,String imgPath,String[] manifestV){
 		context = ctx;
@@ -80,7 +82,17 @@ public class ExportThread extends Thread {
 			onProgress("Preparing the project...");
 			
 			Utils.extractAssetFile(context,"files/empty.zip",export_temp+"/assets/project.zip");
-			Utils.zipf(project,export_temp+"/assets/project.zip","tulsgskdiensl626__Xxmoishs");
+			String source = project;
+			if(mergeTilesets){
+				// work on a copy: the project itself is never changed
+				onProgress("Merging images into tilesets...");
+				String copy = dataDir+"/exportProject";
+				FileUtil.deleteFile(copy);
+				FileUtil.copyDir(project,copy);
+				try { TilesetPacker.pack(new java.io.File(copy),null); source = copy; } catch(Throwable t){ source = project; }
+			}
+			Utils.zipf(source,export_temp+"/assets/project.zip","tulsgskdiensl626__Xxmoishs");
+			if(!source.equals(project)) FileUtil.deleteFile(source);
 			try {
 				ZipFile zipFile=new ZipFile(export_temp+"/assets/project.zip","tulsgskdiensl626__Xxmoishs".toCharArray());
 				zipFile.removeFile("Events");

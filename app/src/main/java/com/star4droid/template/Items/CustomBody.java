@@ -94,7 +94,7 @@ public class CustomBody extends Image implements PlayerItem {
 		super.sizeChanged();
 		//if(getStage()!=null) setY(boxY);
 		if(!customDef.type.equals("UI"))
-		    setOrigin(getWidth()*0.5f,getHeight()*0.5f);
+		    com.star4droid.template.Utils.Pivot.apply(this, customDef);
 	}
 	
 	private void createBody(){
@@ -104,7 +104,7 @@ public class CustomBody extends Image implements PlayerItem {
 		float width = customDef.width,
 			height = customDef.height;
 		setSize((UI ? 1 : StageImp.WORLD_SCALE) * width, (UI ? 1 : StageImp.WORLD_SCALE) * height);
-		setOrigin(getWidth()*0.5f,getHeight()*0.5f);
+		com.star4droid.template.Utils.Pivot.apply(this, customDef);
 		float x = customDef.x,
 		y = customDef.y;
 		tileX = Math.max((int) customDef.tileX,1);

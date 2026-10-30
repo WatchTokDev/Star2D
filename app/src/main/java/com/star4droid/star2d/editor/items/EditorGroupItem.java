@@ -56,7 +56,7 @@ public class EditorGroupItem extends Image implements EditorItem {
 		if(w <= 0) w = 100;
 		if(h <= 0) h = 100;
 		setSize(w,h);
-		setOrigin(w*0.5f,h*0.5f);
+		EditorPivot.apply(this, propertySet);
 		String name = propertySet.getString("name");
 		if(!name.equals(""))
 			setName(name);
@@ -83,7 +83,7 @@ public class EditorGroupItem extends Image implements EditorItem {
 	@Override
 	protected void sizeChanged() {
 		super.sizeChanged();
-		setOrigin(getWidth()*0.5f,getHeight()*0.5f);
+		EditorPivot.apply(this, propertySet);
 	}
 	
 	@Override

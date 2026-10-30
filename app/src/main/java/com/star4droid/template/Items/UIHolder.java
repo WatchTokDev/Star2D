@@ -64,7 +64,7 @@ public class UIHolder extends Group implements PlayerItem {
 			// size and position come from the screen box
 		} else {
 			setSize(scaleFactor * holderDef.width, scaleFactor * holderDef.height);
-			setOrigin(getWidth() * 0.5f, getHeight() * 0.5f);
+			com.star4droid.template.Utils.Pivot.apply(this, holderDef);
 			setPosition(scaleFactor * holderDef.x, scaleFactor * holderDef.y);
 		}
 		setRotation(-holderDef.rotation);
@@ -104,7 +104,7 @@ public class UIHolder extends Group implements PlayerItem {
 		holderDef.width = r[2];
 		holderDef.height = r[3];
 		setSize(r[2], r[3]);
-		setOrigin(r[2] * 0.5f, r[3] * 0.5f);
+		com.star4droid.template.Utils.Pivot.apply(this, holderDef);
 		setPosition(r[0], r[1]);
 		return true;
 	}
@@ -222,7 +222,7 @@ public class UIHolder extends Group implements PlayerItem {
 	@Override
 	protected void sizeChanged() {
 		super.sizeChanged();
-		setOrigin(getWidth() * 0.5f, getHeight() * 0.5f);
+		com.star4droid.template.Utils.Pivot.apply(this, holderDef);
 		applyViewSize();
 	}
 	

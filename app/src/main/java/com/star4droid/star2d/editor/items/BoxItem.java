@@ -45,7 +45,7 @@ public class BoxItem extends Image implements EditorItem {
 		//Gdx.files.external("logs/box.txt").writeString(String.format("w : %1$s, h : %2$s, x : %3$s, y : %4$s\n",getWidth(),getHeight(),getX(),getY()),false);
 		if(getStage()==null) return;
 		setSize(propertySet.getFloat("width"),propertySet.getFloat("height"));
-		setOrigin(getWidth()*0.5f,getHeight()*0.5f);
+		EditorPivot.apply(this, propertySet);
 		float x = propertySet.getFloat("x"),
 			  y = needFix ? (getStage().getHeight()-getHeight()-propertySet.getFloat("y")) : propertySet.getFloat("y");
 		if(needFix){
@@ -102,7 +102,7 @@ public class BoxItem extends Image implements EditorItem {
 	@Override
 	protected void sizeChanged() {
 		super.sizeChanged();
-		setOrigin(getWidth()*0.5f,getHeight()*0.5f);
+		EditorPivot.apply(this, propertySet);
 	}
 
 	@Override
@@ -140,11 +140,14 @@ public class BoxItem extends Image implements EditorItem {
 	        propertySet.remove(key);
 		
 		update();
-		
+		applyImage();
+		loadAnimation();
+	}
+
+	private void applyImage() {
 		if (!this.propertySet.getString("image").equals("")) {
 			String img = this.editor.getProject().getImagesPath() + this.propertySet.getString("image").replace(Utils.seperator,"/");
 			File file = new File(img);
-			//Gdx.files.external("logs/image.error.txt").writeString("ex : "+file.exists()+",img : "+file.getAbsolutePath()+"\n",true);
 			if (file.exists()) {
 				float rx = this.propertySet.getFloat("tileX");
 				float ry = this.propertySet.getFloat("tileY");
@@ -152,6 +155,31 @@ public class BoxItem extends Image implements EditorItem {
 			}
 		} else {
 			Utils.setDefaultImage(this); // image reset / cleared: back to the default picture
+		}
+	}
+
+	// ---- the "animation" property: played live in the editor, with priority over the image
+	private EditorAnimation anim;
+	private String animName = "";
+	private float animTime = 0f;
+
+	private void loadAnimation() {
+		String n = propertySet.getString("animation");
+		if (n == null) n = "";
+		EditorAnimation a = n.isEmpty() ? null : EditorAnimation.load(editor, n);
+		boolean was = anim != null;
+		anim = a;
+		animName = n;
+		if (a == null && was) applyImage(); // animation reset: the image shows again
+	}
+
+	@Override
+	public void act(float delta) {
+		super.act(delta);
+		if (propertySet == null) return;
+		if (anim != null) {
+			animTime += delta;
+			setDrawable(anim.at(animTime));
 		}
 	}
 

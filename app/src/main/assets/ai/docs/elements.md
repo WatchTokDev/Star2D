@@ -93,3 +93,14 @@ Needs a dark `Ambient Light` in the scene config to be seen. `Distance` (px), `r
 Kinds: `float` number, `boolean` true/false, `string` text, `color` hex, `image` path under images/, `File` path, `spinner` fixed choices, `body` element name(s), `script` script name, `static`/`points` read-only.
 
 {{ELEMENT_TABLES}}
+
+## Pivot, Y Sort and the animation property
+
+- `Pivot` (center, left, right, top, bottom, topleft, topright, bottomleft, bottomright, custom) + `Pivot X` / `Pivot Y` (0..1, used by `custom`): the point that scale and rotation turn around. Works on every element and on UI holders. With physical bodies keep `center` unless the element does not rotate.
+- `Y Sort` (GROUP, or any parent): `"true"` draws all descendants by height, lower on the screen in front (z first, then y). Put units, trees and pickups under one group.
+- `animation` (BOX): name of a file in `anims/` (inner folders allowed, e.g. `hero/run`). It overrides `image` and shows live in the editor; the Reset button clears it.
+- Animation frames may carry `"region":[x,y,w,h]` to use part of a sprite sheet: `[{"name":"Warrior_Run.png","dur":"90","region":[0,0,192,192]}, ...]`. The editor's Animation page has a sprite-sheet tool (grid, cell size, auto cut).
+
+## Game translations
+
+`strings/strings.json`: `{"default":"en","languages":["en","ar"],"keys":{"play":{"en":"Play","ar":"العب"}}}`. A TEXT whose text is `@play` follows the language. Blocks: Set language, Next language, Show translated text, If language is, `translate ___`, `current language`.

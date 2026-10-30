@@ -44,7 +44,7 @@ public class GroupItem extends Actor implements PlayerItem {
 		float sc = ui ? 1f : StageImp.WORLD_SCALE;
 		setName(groupDef.name);
 		setSize(sc * groupDef.width, sc * groupDef.height);
-		setOrigin(getWidth()*0.5f, getHeight()*0.5f);
+		com.star4droid.template.Utils.Pivot.apply(this, groupDef);
 		setPosition(sc * groupDef.x, sc * groupDef.y);
 		setRotation(-groupDef.rotation);
 		setVisible(groupDef.Visible);
@@ -63,7 +63,7 @@ public class GroupItem extends Actor implements PlayerItem {
 	@Override
 	protected void sizeChanged() {
 		super.sizeChanged();
-		setOrigin(getWidth()*0.5f, getHeight()*0.5f);
+		com.star4droid.template.Utils.Pivot.apply(this, groupDef);
 	}
 	
 	@Override
@@ -81,6 +81,61 @@ public class GroupItem extends Actor implements PlayerItem {
 		if(getScript()!=null)
 			getScript().bodyUpdate();
 		else if(elementEvent!=null) elementEvent.onBodyUpdate(this);
+	}
+	
+	@Override
+	public void act(float delta) {
+		super.act(delta);
+		if(groupDef != null && groupDef.Y_Sort) ySort();
+	}
+	
+	private final java.util.ArrayList<Actor> sortList = new java.util.ArrayList<>();
+	
+	private void collect(ChildsHolder h, int depth){
+		if(h == null || depth > 20) return;
+		for(PlayerItem it : h.childs){
+			if(it instanceof Actor && it != this && ((Actor)it).getParent() != null) sortList.add((Actor)it);
+			if(it != null) collect(it.getChildsHolder(), depth + 1);
+		}
+	}
+	
+	private static float zOf(Actor a){
+		if(a instanceof PlayerItem){
+			try {
+				com.star4droid.star2d.ElementDefs.ItemDef d = ((PlayerItem)a).getProperties();
+				if(d != null) return d.getZF();
+			} catch(Exception ignored){}
+		}
+		return 0;
+	}
+	
+	/**
+	 * Y-Sort: the descendants of this group are drawn by their height on the screen - the lower one (smaller y) in front.
+	 * Only the order inside the slots they already use changes, so everything outside the group keeps its place.
+	 */
+	private void ySort(){
+		sortList.clear();
+		collect(getChildsHolder(), 0);
+		if(sortList.size() < 2) return;
+		com.badlogic.gdx.scenes.scene2d.Group parent = sortList.get(0).getParent();
+		for(Actor a : sortList) if(a.getParent() != parent) return; // children on different layers (world / UI): leave them
+		final com.badlogic.gdx.utils.SnapshotArray<Actor> kids = parent.getChildren();
+		int n = sortList.size();
+		int[] slots = new int[n];
+		for(int i = 0; i < n; i++) slots[i] = kids.indexOf(sortList.get(i), true);
+		for(int i = 0; i < n; i++) if(slots[i] < 0) return;
+		java.util.Arrays.sort(slots);
+		java.util.Collections.sort(sortList, new java.util.Comparator<Actor>(){
+			@Override public int compare(Actor a, Actor b){
+				int c = Float.compare(zOf(a), zOf(b));
+				if(c != 0) return c;
+				return Float.compare(b.getY(), a.getY()); // higher on the screen first = behind
+			}
+		});
+		boolean same = true;
+		for(int i = 0; i < n; i++) if(kids.get(slots[i]) != sortList.get(i)) { same = false; break; }
+		if(same) return;
+		for(int i = 0; i < n; i++) kids.set(slots[i], sortList.get(i));
 	}
 	
 	@Override

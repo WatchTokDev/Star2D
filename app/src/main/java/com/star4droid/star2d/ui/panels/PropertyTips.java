@@ -31,6 +31,11 @@ public final class PropertyTips {
         t("y", "Vertical position in the world.", "الموضع الرأسي في العالم.");
         t("z", "Drawing order: higher values are drawn on top.", "ترتيب الرسم: القيمة الأعلى تُرسم فوق غيرها.");
         t("rotation", "Angle in degrees.", "الزاوية بالدرجات.");
+        t("Pivot", "The point the element rotates and scales around: center, a side, a corner or custom. For physical bodies keep center.", "النقطة التي يدور ويتكبّر العنصر حولها: المنتصف أو جانب أو زاوية أو قيمة مخصصة. للأجسام الفيزيائية اترك المنتصف.");
+        t("Pivot X", "Custom pivot: 0 = left edge, 1 = right edge (used when Pivot is custom).", "نقطة ارتكاز مخصصة: 0 = الحافة اليسرى، 1 = اليمنى (تُستعمل عندما Pivot = custom).");
+        t("Pivot Y", "Custom pivot: 0 = bottom edge, 1 = top edge (used when Pivot is custom).", "نقطة ارتكاز مخصصة: 0 = الحافة السفلى، 1 = العليا (تُستعمل عندما Pivot = custom).");
+        t("Y Sort", "Draws everything inside this group by height: the lower one on the screen is in front (trees, characters and houses in a top-down game).", "يرسم كل ما داخل المجموعة حسب الارتفاع: الأقل على الشاشة يظهر في الأمام (أشجار وشخصيات وبيوت في لعبة من الأعلى).");
+        t("animation", "Pick an animation from the anims folder: the element plays it (it has priority over the image). Reset goes back to the image.", "اختر أنيميشن من مجلد anims: يشغّله العنصر (له أولوية على الصورة). إعادة الضبط ترجع للصورة.");
         t("width", "Width of the element.", "عرض العنصر.");
         t("height", "Height of the element.", "ارتفاع العنصر.");
         t("radius", "Radius of the circle.", "نصف قطر الدائرة.");

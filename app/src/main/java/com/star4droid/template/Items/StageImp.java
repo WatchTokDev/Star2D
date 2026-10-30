@@ -676,6 +676,10 @@ public class StageImp extends ApplicationAdapter {
 			}
 			return false;
 		}
+		if(!com.star4droid.template.Utils.AtlasIndex.isEmpty()){
+			com.badlogic.gdx.scenes.scene2d.utils.Drawable merged = com.star4droid.template.Utils.AtlasIndex.drawable(assetLoader,project,imgPath,null);
+			if(merged!=null){ playerItem.setImage(merged); return true; }
+		}
 		if(assetLoader.isLoaded(imgPath)){
 			playerItem.setImage(assetLoader.get(imgPath,Texture.class));
 			return true;

@@ -152,17 +152,18 @@ public class BoxBody extends Image implements PlayerItem {
 		super.sizeChanged();
 		//if(getStage()!=null) setY(boxY);
 		if(!boxDef.type.equals("UI"))
-		    setOrigin(getWidth()*0.5f,getHeight()*0.5f);
+		    com.star4droid.template.Utils.Pivot.apply(this, boxDef);
 	}
 	
 	private void createBody(){
+		pendingAnim = (boxDef.animation == null || boxDef.animation.trim().isEmpty()) ? null : boxDef.animation.trim().replace(com.star4droid.template.Utils.Utils.seperator, "/").replaceFirst("^/+", "");
 	    boolean UI = boxDef.type.equals("UI");
 		int rx = (int)boxDef.tileX,
 			ry = (int)boxDef.tileY;
 		float width = boxDef.width,
 		    height = boxDef.height;
 		setSize((UI ? 1 : StageImp.WORLD_SCALE) * width,(UI ? 1 : StageImp.WORLD_SCALE) * height);
-		setOrigin(getWidth()*0.5f,getHeight()*0.5f);
+		com.star4droid.template.Utils.Pivot.apply(this, boxDef);
 		float x = boxDef.x,
 		    y = boxDef.y;
 		tileX = Math.max(rx ,1);
@@ -317,8 +318,20 @@ public class BoxBody extends Image implements PlayerItem {
 		super.setDrawable(drawable);
 	}
 	
+	/** Animation chosen in the properties (BOX "animation"): applied as soon as the animations are loaded. */
+	private String pendingAnim = null;
+	
+	private void startPropertyAnimation(){
+		if(pendingAnim == null || animation != null) { pendingAnim = null; return; }
+		try {
+			Animation a = stage.spriteSheetLoader == null ? null : stage.spriteSheetLoader.getAnimation(pendingAnim);
+			if(a != null) { setAnimation(a); pendingAnim = null; }
+		} catch(Exception ignored){}
+	}
+	
 	@Override
 	public void draw(Batch batch, float parentAlpha) {
+		if(pendingAnim != null) startPropertyAnimation();
 		super.draw(batch, parentAlpha);
 		if(animation!=null)
 			super.setDrawable(animation.getKeyFrame(animationTime,true));

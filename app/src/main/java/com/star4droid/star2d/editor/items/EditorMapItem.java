@@ -48,7 +48,7 @@ public class EditorMapItem extends Image implements EditorItem {
 		//Gdx.files.external("logs/box.txt").writeString(String.format("w : %1$s, h : %2$s, x : %3$s, y : %4$s\n",getWidth(),getHeight(),getX(),getY()),false);
 		if(getStage()==null) return;
 		//setSize(propertySet.getFloat("width"),propertySet.getFloat("height"));
-		setOrigin(getWidth()*0.5f,getHeight()*0.5f);
+		EditorPivot.apply(this, propertySet);
 		float x = propertySet.getFloat("x"),
 			  y = propertySet.getFloat("y");
 		//Gdx.files.external("logs/box.txt").writeString("eh : "+getStage().getHeight()+", bxh : "+getHeight()+", y : "+y+" \n = "+getY()+"\n"+"_".repeat(10)+"\n",true);
@@ -102,7 +102,7 @@ public class EditorMapItem extends Image implements EditorItem {
 	@Override
 	protected void sizeChanged() {
 		super.sizeChanged();
-		setOrigin(getWidth()*0.5f,getHeight()*0.5f);
+		EditorPivot.apply(this, propertySet);
 	}
 
 	@Override

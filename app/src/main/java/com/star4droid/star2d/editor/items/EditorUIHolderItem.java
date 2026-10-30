@@ -150,7 +150,7 @@ public class EditorUIHolderItem extends Group implements EditorItem {
 			px = r[0]; py = r[1]; w = r[2]; h = r[3];
 		}
 		setSize(w, h);
-		setOrigin(w * 0.5f, h * 0.5f);
+		EditorPivot.apply(this, propertySet);
 		String name = propertySet.getString("name");
 		if(!name.equals(""))
 			setName(name);

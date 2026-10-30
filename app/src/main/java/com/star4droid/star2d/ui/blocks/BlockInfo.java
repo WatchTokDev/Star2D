@@ -30,6 +30,7 @@ public final class BlockInfo {
         c("Camera", "Camera", "الكاميرا");
         c("Configurations", "Scene", "المشهد");
         c("Debug", "Debug", "رسائل وتصحيح");
+        c("Language", "Language", "اللغة والترجمة");
         c("Ui Nodes", "UI", "واجهة اللعبة");
         c("BodyModify", "Element", "تعديل العنصر");
         c("bodyControl", "Forces", "القوى والسرعة");
@@ -68,6 +69,7 @@ public final class BlockInfo {
         f("target", "target", "الهدف");
         f("ui", "UI element", "عنصر الواجهة");
         f("text", "text", "النص");
+        f("note", "instructions", "التعليمات");
         f("value", "value", "القيمة");
         f("boolean", "condition", "الشرط");
         f("delay", "seconds", "ثوانٍ");
@@ -180,6 +182,8 @@ public final class BlockInfo {
         b("setX", "Set x", "اضبط x", "Moves an element horizontally.", "ينقل العنصر أفقياً.");
         b("setY", "Set y", "اضبط y", "Moves an element vertically.", "ينقل العنصر رأسياً.");
         b("setAngle", "Set angle", "اضبط الزاوية", "Angle in radians.", "الزاوية بالراديان.");
+        b("setAnimation", "Play animation", "شغّل أنميشن", "Plays an animation from the anims folder on the element (use its name, with quotes, e.g. \"Warrior_Run\"; inner folders: \"hero/run\"). It loops until you play another one.", "يشغّل أنميشن من مجلد anims على العنصر (اكتب اسمه بعلامات تنصيص مثل \"Warrior_Run\"، وللمجلدات الداخلية \"hero/run\"). يستمر بالتكرار حتى تشغّل غيره.");
+        b("removeAnimation", "Stop animation", "أوقف الأنميشن", "Stops the animation and shows the element's normal image again.", "يوقف الأنميشن ويعيد عرض صورة العنصر العادية.");
         b("setImage", "Change image", "غيّر الصورة", "Changes the element's picture.", "يغيّر صورة العنصر.");
         b("copyBody", "Clone element", "انسخ العنصر", "Creates a copy at runtime (bullets, enemies...).", "ينشئ نسخة أثناء اللعب (رصاص، أعداء...).");
         b("destroy", "Destroy", "احذف العنصر", "Removes the element from the game.", "يزيل العنصر من اللعبة.");
@@ -220,6 +224,9 @@ public final class BlockInfo {
         b("waitSeconds", "Wait then", "انتظر ثم", "Runs the inside blocks after some seconds.", "ينفّذ البلوكات بداخله بعد عدة ثوانٍ.");
         b("everySeconds", "Every N seconds", "كل N ثانية", "Runs the inside blocks repeatedly (spawn enemies, timers...).", "ينفّذ البلوكات بداخله بشكل متكرر (إنتاج أعداء، عدّاد...).");
         b("comment", "Note", "ملاحظة", "A note for you; does nothing.", "ملاحظة لك؛ لا تفعل شيئاً.");
+        b("explain", "Explain", "شرح", "Has no code. Tap (i) to read the instructions written in it; Edit changes them.", "بلا كود. اضغط (i) لقراءة التعليمات المكتوبة فيها، وتعديل لتغييرها.");
+        b("explainIf", "Explain: if", "شرح: إذا", "Has no code. A box that explains a condition; the blocks inside just run. (i) shows the instructions, Edit changes them.", "بلا كود. صندوق يشرح شرطاً؛ البلوكات داخله تُنفَّذ مباشرة. (i) يعرض التعليمات وتعديل يغيّرها.");
+        b("explainIfElse", "Explain: if / else", "شرح: إذا / وإلا", "Has no code. The first part just runs, the else part never runs. (i) shows the instructions, Edit changes them.", "بلا كود. الجزء الأول يُنفَّذ مباشرة وجزء وإلا لا يُنفَّذ أبداً. (i) يعرض التعليمات وتعديل يغيّرها.");
         b("codeLine", "Code line", "سطر كود", "Type any Java line, e.g. score++;", "اكتب أي سطر جافا، مثل: score++;");
         // variables
         b("setVariable", "Set variable", "اضبط متغيراً", "variable = value. Create variables in the Variables panel.", "المتغير = القيمة. أنشئ المتغيرات من لوحة المتغيرات.");
@@ -257,6 +264,10 @@ public final class BlockInfo {
         b("destroyAfter", "Destroy after", "احذف بعد", "Removes the element after some seconds (bullets).", "يحذف العنصر بعد عدة ثوانٍ (الرصاص).");
         b("spawnCopy", "Spawn copy at", "أنشئ نسخة عند", "Clones an element at x, y. newName needs quotes.", "ينسخ العنصر عند x و y. الاسم الجديد يحتاج علامات تنصيص.");
         b("setWorldGravity", "Set gravity", "اضبط الجاذبية", "How fast things fall, in pixels per second² (800 = normal, 0 = space). Also makes the physics run in real time, so the speeds in blocks match pixels per second.", "سرعة سقوط الأشياء بالبكسل/ثانية² (800 = عادي، 0 = فضاء). وتجعل الفيزياء تعمل بالوقت الحقيقي لتطابق السرعات في البلوكات بكسل/ثانية.");
+        b("setLanguage", "Set language", "اضبط اللغة", "Switches the game to another language (the codes you added in Game translations, like \"en\" or \"ar\"). The choice is remembered. TEXT elements written as @key update by themselves.", "يبدّل اللعبة إلى لغة أخرى (الرموز التي أضفتها في ترجمة اللعبة مثل \"en\" أو \"ar\"). يتم تذكر الاختيار، وتتحدّث النصوص المكتوبة بالشكل @key تلقائياً.");
+        b("nextLanguage", "Next language", "اللغة التالية", "Goes to the next language in your list (and back to the first). Good for a language button.", "ينتقل إلى اللغة التالية في قائمتك (ثم يعود للأولى). مناسب لزر تغيير اللغة.");
+        b("showTranslated", "Show translated text", "اعرض نصاً مترجماً", "Writes the translation of a key (from Game translations) into a TEXT element, in the current language. Keys need quotes.", "يكتب ترجمة مفتاح (من ترجمة اللعبة) في عنصر نص بحسب اللغة الحالية. المفتاح يحتاج علامات تنصيص.");
+        b("ifLanguage", "If language is", "إذا كانت اللغة", "Runs the first part when the game language is the given code, otherwise the second part.", "ينفّذ الجزء الأول إن كانت لغة اللعبة هي الرمز المعطى، وإلا ينفّذ الجزء الثاني.");
         b("toastValue", "Show value", "أظهر قيمة", "Shows any value as a message (no quotes needed).", "يعرض أي قيمة كرسالة (بدون علامات تنصيص).");
         b("logValue", "Log value", "سجّل قيمة", "Writes any value to the debug log.", "يكتب أي قيمة في سجل التصحيح.");
     }

@@ -79,11 +79,13 @@ public final class PropertyEditing {
 
     /** Root folder and extensions used by the "file" type picker for this field. */
     public static String fileRoot(LibgdxEditor editor, String field) {
+        if (field.equals("animation")) return editor.getProject().get("anims");
         return field.equals("font") ? editor.getProject().getPath()
                 : (field.toLowerCase().equals("map") ? editor.getProject().getImagesPath() : editor.getProject().get("files"));
     }
 
     public static String[] fileExtensions(String field) {
+        if (field.equals("animation")) return new String[0];
         return field.equals("font") ? new String[]{"s2df", "ttf", "otf"}
                 : (field.toLowerCase().equals("map") ? new String[]{"tmx"} : new String[]{"p", "particle"});
     }

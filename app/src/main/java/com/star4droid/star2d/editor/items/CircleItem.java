@@ -48,7 +48,7 @@ public class CircleItem extends Image implements EditorItem {
         // Set size based on radius
         float radius = propertySet.getFloat("radius");
         setSize(radius * 2, radius * 2);
-        setOrigin(getWidth() * 0.5f, getHeight() * 0.5f);
+        EditorPivot.apply(this, propertySet);
         
         // Position calculation
         float x = propertySet.getFloat("x");
@@ -171,7 +171,7 @@ public class CircleItem extends Image implements EditorItem {
     @Override
     protected void sizeChanged() {
         super.sizeChanged();
-        setOrigin(getWidth() * 0.5f, getHeight() * 0.5f);
+        EditorPivot.apply(this, propertySet);
     }
 
 }

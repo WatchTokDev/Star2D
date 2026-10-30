@@ -109,3 +109,8 @@ Use: `{"block":"destroyLater","fields":{"item":"body2","seconds":0.05}}` (usuall
 ## Blocks of behaviors
 
 Behaviors (`read_docs behaviors`) bring their own blocks, titled `<Behavior>.<method>` (for example `PlatformerPlayer.jump`, value block `is on the ground ___`). The first slot is the element that owns the behavior (`current`); if that element does not have the behavior nothing happens (value blocks give false / 0 / ""). They are listed by `block_catalog` only for behaviors the scene uses (`hidden_behavior_blocks` names the rest; `all:true` lists them anyway). Always available, category `Behaviors`: `addBehavior`, `removeBehavior`, `enableBehavior`, `disableBehavior`, `setBehaviorEnabled`, `setBehaviorParam` and the values `___ has behavior ___`, `___ has behavior ___ turned on`, `number|text|yes/no setting ___ of behavior ___ on ___`, `behavior ___ of ___` (behavior names are the class names: `PlatformerPlayer`, `Shooter`).
+
+## Explain blocks and animation blocks
+
+- `explain`, `explainIf`, `explainIfElse` have no code of their own: the `i` button shows the note the author wrote (pencil to edit). Use them to document a script.
+- `setAnimation` (`body.setAnimation("name")`) and `removeAnimation` play / stop an animation from `anims/`.
