@@ -1173,7 +1173,7 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
     }
 
     private void showReporterInfo(BlockCatalog.Reporter r) {
-        String own = BlockInfo.description(r.display);
+        String own = BlockInfo.reporterInfo(r.display);
         TextView t = Ui.text(this, (own != null ? own : Tr.t("blk_value_info", "A value block: it gives a value to the field it is dropped in. Empty circles are inner fields you can fill or nest more value blocks into."))
                 + "\n\n" + Tr.t("ui_generated_code", "Generated code") + ":\n" + r.template, 13.5f, Ui.TEXT);
         t.setPadding(Ui.dp(this, 20), Ui.dp(this, 8), Ui.dp(this, 20), 0);
@@ -1404,19 +1404,51 @@ public class BlockEditorActivity extends AppCompatActivity implements BlockCanva
         refreshUndo();
     }
 
+    /** Ids of every element of the project's .ui files (folder UI/), for the "node" field of the UI blocks. */
+    private ArrayList<String> uiNodeIds() {
+        ArrayList<String> ids = new ArrayList<>();
+        try {
+            String p = file.getAbsolutePath();
+            int i = p.indexOf("/Events/");
+            if (i < 0) return ids;
+            collectUiIds(new File(p.substring(0, i), "UI"), ids, 0);
+        } catch (Throwable ignored) {
+        }
+        return ids;
+    }
+
+    private static void collectUiIds(File dir, ArrayList<String> ids, int depth) {
+        File[] fs = dir.listFiles();
+        if (fs == null || depth > 3) return;
+        for (File f : fs) {
+            if (f.isDirectory()) collectUiIds(f, ids, depth + 1);
+            else if (f.getName().endsWith(".ui")) {
+                try {
+                    com.star4droid.template.ui.UIDocument doc = com.star4droid.template.ui.UIDocument.read(f);
+                    if (doc != null) for (com.star4droid.template.ui.UINode n : doc.allNodes()) if (n.id != null && !ids.contains(n.id) && !n.id.equals("root")) ids.add(n.id);
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+    }
+
     private LinkedHashMap<String, ArrayList<String>> suggestionsFor(String type, String label) {
         LinkedHashMap<String, ArrayList<String>> out = new LinkedHashMap<>();
         String t = type.toLowerCase(Locale.ROOT);
         String l = label.toLowerCase(Locale.ROOT);
         ArrayList<String> items = hints.containsKey("Items") ? hints.get("Items") : new ArrayList<>();
         String elements = Tr.t("blk_elements", "Elements"), vars = Tr.t("blk_variables", "Variables");
-        if (t.equals("body") || l.equals("joystick") || l.equals("target") || l.equals("ui")) {
+        if (t.equals("body") || l.equals("joystick") || l.equals("target") || l.equals("ui") || l.equals("holder")) {
             ArrayList<String> s = new ArrayList<>();
             s.add("current");
             s.add("body1");
             s.add("body2");
             s.addAll(items);
             out.put(elements, s);
+        } else if (l.equals("node")) {
+            // ids of the inner elements of the .ui files of the project
+            ArrayList<String> s = uiNodeIds();
+            if (!s.isEmpty()) out.put(Tr.t("blk_ui_nodes", "UI elements"), s);
         } else if (t.equals("behavior")) {
             ArrayList<String> s = new ArrayList<>();
             try {

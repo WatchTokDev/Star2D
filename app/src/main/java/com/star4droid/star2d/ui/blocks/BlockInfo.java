@@ -48,6 +48,19 @@ public final class BlockInfo {
         b("setBehaviorEnabled", "Set behavior on/off", "فعّل/عطّل السلوك", "Turns a behavior on (true) or off (false).", "يفعّل السلوك (true) أو يعطّله (false).");
         b("setBehaviorParam", "Set behavior setting", "اضبط إعداد السلوك", "Changes a setting of a behavior by the name shown in the inspector, e.g. behavior Shooter, setting fireRate, value 8. Text needs quotes.", "يغيّر إعداداً في السلوك باسمه كما في المفتّش، مثل: السلوك Shooter والإعداد fireRate والقيمة 8. النص يحتاج علامات تنصيص.");
 
+        f("holder", "UI holder", "حامل الواجهة");
+        f("node", "UI element id", "معرّف عنصر الواجهة");
+        f("property", "property", "الخاصية");
+        f("anchor", "anchor", "نقطة التثبيت");
+        f("marginX", "margin x", "هامش س");
+        f("marginY", "margin y", "هامش ص");
+        f("widthPct", "width %", "العرض %");
+        f("heightPct", "height %", "الارتفاع %");
+        f("stretchH", "stretch horizontally", "تمديد أفقي");
+        f("stretchV", "stretch vertically", "تمديد رأسي");
+        f("on", "on", "تشغيل");
+        f("visible", "visible", "ظاهر");
+        f("pic", "image", "الصورة");
         f("body", "element", "العنصر");
         f("body1", "element 1", "العنصر 1");
         f("body2", "element 2", "العنصر 2");
@@ -94,6 +107,26 @@ public final class BlockInfo {
         f("type", "type", "النوع");
         f("url", "link", "الرابط");
 
+
+        // UI holder blocks
+        b("uiSetText", "Set UI text", "اضبط نص عنصر واجهة", "Changes the text of a label or button inside a UI holder: pick the holder, type the id of the element (as in the UI Maker) and the new text. Text needs quotes.", "يغيّر نص عنصر (نص أو زر) داخل حامل واجهة: اختر الحامل واكتب معرّف العنصر كما في صانع الواجهات ثم النص الجديد. النص يحتاج علامات تنصيص.");
+        b("uiSetValue", "Set UI value", "اضبط قيمة عنصر واجهة", "Sets the value of a slider or progress bar inside a UI holder.", "يضبط قيمة منزلق أو شريط تقدم داخل حامل واجهة.");
+        b("uiSetChecked", "Set UI checked", "اضبط تحديد عنصر واجهة", "Turns a switch or checkbox of a UI holder on or off.", "يشغّل أو يطفئ مفتاحاً أو خانة اختيار في حامل واجهة.");
+        b("uiShow", "Show UI element", "أظهر عنصر واجهة", "Shows an element of a UI holder.", "يُظهر عنصراً من حامل واجهة.");
+        b("uiHide", "Hide UI element", "أخفِ عنصر واجهة", "Hides an element of a UI holder (the others move up if the layout allows).", "يخفي عنصراً من حامل واجهة.");
+        b("uiSetVisible", "Set UI visible", "اضبط ظهور عنصر واجهة", "Shows (true) or hides (false) an element of a UI holder.", "يُظهر (true) أو يخفي (false) عنصراً من حامل واجهة.");
+        b("uiSetEnabled", "Enable UI element", "فعّل عنصر واجهة", "Turns a button or field of a UI holder on (true) or off (false).", "يفعّل (true) أو يعطّل (false) زراً أو حقلاً في حامل واجهة.");
+        b("uiSetAlpha", "Set UI opacity", "اضبط شفافية عنصر واجهة", "0 = invisible, 1 = solid.", "0 = غير مرئي، 1 = واضح.");
+        b("uiSetImage", "Set UI image", "اضبط صورة عنصر واجهة", "Shows another picture of the project in an Image element of a UI holder.", "يعرض صورة أخرى من المشروع في عنصر صورة داخل حامل واجهة.");
+        b("uiSetColor", "Set UI color", "اضبط لون عنصر واجهة", "Colors an element (role like primary, or #RRGGBB).", "يلوّن عنصراً (دور مثل primary أو #RRGGBB).");
+        b("uiSetProperty", "Set UI property", "اضبط خاصية عنصر واجهة", "Changes any property of an element by its name in the UI Maker, e.g. property fontSize, value 40 or textAlign, value center.", "يغيّر أي خاصية لعنصر باسمها في صانع الواجهات، مثل fontSize والقيمة 40 أو textAlign والقيمة center.");
+        b("uiScrollTo", "Scroll UI to", "مرّر الواجهة إلى", "Scrolls a scroll view of a UI holder to x, y.", "يمرر عنصر تمرير في حامل واجهة إلى x و y.");
+        b("uiClick", "Press UI element", "اضغط عنصر واجهة", "Does what a tap on the element does (runs its onClick).", "ينفّذ ما يفعله النقر على العنصر (يشغّل onClick).");
+        b("uiOnClick", "When UI element tapped", "عند نقر عنصر واجهة", "Runs the blocks inside whenever the element is tapped. Put it in OnCreate.", "ينفّذ البلوكات بداخله كلما نُقر العنصر. ضعه في OnCreate.");
+        b("uiSetUi", "Show another UI file", "اعرض ملف واجهة آخر", "Replaces the .ui shown by a UI holder with another one of the project (name without .ui).", "يستبدل ملف الواجهة المعروض في الحامل بملف آخر من المشروع (الاسم بدون .ui).");
+        b("uiPlace", "Place UI holder", "ضع حامل الواجهة", "Puts the holder in the screen box: anchor topleft, top, topright, left, center, right, bottomleft, bottom or bottomright, with margins in px from the anchored edges.", "يضع الحامل في مربع الشاشة: نقطة التثبيت topleft أو top أو topright أو left أو center أو right أو bottomleft أو bottom أو bottomright، مع هوامش بالبكسل.");
+        b("uiSizePercent", "UI holder size %", "حجم حامل الواجهة %", "Size as percent of the screen (0 keeps the fixed size of that side).", "الحجم كنسبة مئوية من الشاشة (0 يبقي الحجم الثابت لذلك الاتجاه).");
+        b("uiStretch", "Stretch UI holder", "مدّد حامل الواجهة", "Fills the whole width and / or height of the screen.", "يملأ عرض الشاشة و/أو ارتفاعها كاملاً.");
         // root
         b("First >", "When this event runs", "عند تشغيل هذا الحدث", "Every block attached below runs, top to bottom, when the event happens.", "كل البلوكات المتصلة أسفل هذا البلوك تعمل بالترتيب من الأعلى للأسفل عند حدوث الحدث.");
         b("First > ", "When this event runs", "عند تشغيل هذا الحدث", "Every block attached below runs, top to bottom, when the event happens.", "كل البلوكات المتصلة أسفل هذا البلوك تعمل بالترتيب من الأعلى للأسفل عند حدوث الحدث.");
@@ -241,6 +274,22 @@ public final class BlockInfo {
     private static final HashMap<String, String[]> DYN = new HashMap<>();           // key -> {label en, label ar}
     private static final HashMap<String, String> REP_AR = new HashMap<>();          // value block display (en) -> display (ar)
     private static final HashMap<String, Map<String, String>> DESC = new HashMap<>(); // key (title / value block display) -> {lang: text}
+    /** Texts written in the block creator, in as many languages as wanted: action block title / value block display -> {lang: text}. */
+    private static final HashMap<String, Map<String, String>> LABELS = new HashMap<>();
+
+    /** Translations of the text on a custom block (key = block title; for a value block its English display with ___ slots). */
+    public static synchronized void setLabels(String key, Map<String, String> labels) {
+        if (labels == null || labels.isEmpty()) LABELS.remove(key);
+        else LABELS.put(key, labels);
+    }
+
+    /** The text in the app language only (no fallback to English), or null. */
+    private static synchronized String labelExact(String key) {
+        Map<String, String> m = LABELS.get(key);
+        if (m == null) return null;
+        String v = m.get(com.star4droid.star2d.ui.Tr.lang().toLowerCase(java.util.Locale.ROOT));
+        return v == null || v.trim().isEmpty() ? null : v;
+    }
 
     /** Forgets the texts of generated behavior blocks (they are registered again after the project's behaviors are rescanned). */
     public static synchronized void clearGenerated() {
@@ -265,6 +314,7 @@ public final class BlockInfo {
     /** Descriptions written in the block creator (key = block title, or the display text of a value block). */
     public static synchronized void clearDescriptions() {
         DESC.clear();
+        LABELS.clear();
         GEN_DESC.clear();
     }
 
@@ -282,6 +332,26 @@ public final class BlockInfo {
         return pickLang(m);
     }
 
+    /** Description of a value block (key = its display): own language first, then the language file, then any written one. */
+    public static String reporterInfo(String display) {
+        String exact = descriptionExact(display);
+        if (exact != null) return exact;
+        String t = tr("blk_i_" + key(display));
+        if (t != null) return t;
+        return description(display);
+    }
+
+    /** The description written in the app language itself (no fallback), or null. */
+    public static String descriptionExact(String key) {
+        Map<String, String> m;
+        synchronized (BlockInfo.class) {
+            m = DESC.get(key);
+        }
+        if (m == null) return null;
+        String v = m.get(com.star4droid.star2d.ui.Tr.lang().toLowerCase(java.util.Locale.ROOT));
+        return v == null || v.trim().isEmpty() ? null : v;
+    }
+
     /** All the languages written for a block (never null). */
     public static synchronized Map<String, String> descriptions(String key) {
         Map<String, String> m = DESC.get(key);
@@ -294,6 +364,8 @@ public final class BlockInfo {
     }
 
     public static String label(String title, boolean ar) {
+        String own = labelExact(title);
+        if (own != null) return own;
         String t = tr("blk_l_" + key(title));
         if (t != null) return t;
         String[] d;
@@ -306,6 +378,10 @@ public final class BlockInfo {
     }
 
     public static String info(String title, boolean ar) {
+        String exact = descriptionExact(title);
+        if (exact != null) return exact;
+        String tt = tr("blk_i_" + key(title));
+        if (tt != null) return tt;
         String desc = description(title);
         if (desc != null) return desc;
         String t = tr("blk_i_" + key(title));
@@ -330,6 +406,8 @@ public final class BlockInfo {
 
     /** Value block text ("x of ___"), translated when the language file has it. Keeps the ___ slots. */
     public static String reporter(String display) {
+        String own = labelExact(display);
+        if (own != null && BlockModel.Param.count(own, "___") == BlockModel.Param.count(display, "___")) return own;
         String t = tr("blk_r_" + key(display));
         if (t == null) {
             String a;

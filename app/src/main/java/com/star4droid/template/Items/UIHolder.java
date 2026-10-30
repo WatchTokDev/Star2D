@@ -60,9 +60,13 @@ public class UIHolder extends Group implements PlayerItem {
 		boolean ui = "UI".equals(holderDef.type);
 		scaleFactor = ui ? 1f : StageImp.WORLD_SCALE;
 		setName(holderDef.name);
-		setSize(scaleFactor * holderDef.width, scaleFactor * holderDef.height);
-		setOrigin(getWidth() * 0.5f, getHeight() * 0.5f);
-		setPosition(scaleFactor * holderDef.x, scaleFactor * holderDef.y);
+		if(applyScreenLayout()){
+			// size and position come from the screen box
+		} else {
+			setSize(scaleFactor * holderDef.width, scaleFactor * holderDef.height);
+			setOrigin(getWidth() * 0.5f, getHeight() * 0.5f);
+			setPosition(scaleFactor * holderDef.x, scaleFactor * holderDef.y);
+		}
 		setRotation(-holderDef.rotation);
 		setVisible(holderDef.Visible);
 		setZIndex((int) holderDef.z);
@@ -78,6 +82,33 @@ public class UIHolder extends Group implements PlayerItem {
 		}
 	}
 	
+	private float lastScreenW = -1, lastScreenH = -1;
+
+	/** Layout "screen" (UI elements only): size and position follow the screen box. Returns false when the layout is free. */
+	private boolean applyScreenLayout(){
+		if(holderDef == null || !"UI".equals(holderDef.type) || !com.star4droid.template.ui.UIHolderLayout.isScreen(holderDef.layout)) return false;
+		float sw, sh;
+		try {
+			com.badlogic.gdx.utils.viewport.Viewport vp = stage.getUiStage().getViewport();
+			sw = vp.getWorldWidth();
+			sh = vp.getWorldHeight();
+		} catch(Throwable t){
+			return false;
+		}
+		if(sw <= 0 || sh <= 0) return false;
+		lastScreenW = sw;
+		lastScreenH = sh;
+		float[] r = com.star4droid.template.ui.UIHolderLayout.compute(holderDef, sw, sh);
+		holderDef.x = r[0];
+		holderDef.y = r[1];
+		holderDef.width = r[2];
+		holderDef.height = r[3];
+		setSize(r[2], r[3]);
+		setOrigin(r[2] * 0.5f, r[3] * 0.5f);
+		setPosition(r[0], r[1]);
+		return true;
+	}
+
 	/** (Re)loads the .ui called {@code name} from the project's UI folder. Values changed at run time are lost. */
 	private void loadView(String name){
 		if(view != null){
@@ -104,6 +135,51 @@ public class UIHolder extends Group implements PlayerItem {
 		view.setPosition(0, 0);
 	}
 	
+	/** The inner element {@code id} of a holder element; safe when the element is not a holder (every call then does nothing). */
+	public static UINodeRef ref(PlayerItem item, String id){
+		return new UINodeRef(item instanceof UIHolder ? (UIHolder) item : null, id);
+	}
+
+	/** Puts the holder in the screen box: anchor (topleft, top, center, bottomright...) with margins in px from the anchored edges. */
+	public UIHolder place(String anchor, float marginX, float marginY){
+		if(holderDef != null){
+			holderDef.layout = "screen";
+			holderDef.anchor = anchor == null ? "topleft" : anchor;
+			holderDef.Margin_X = marginX;
+			holderDef.Margin_Y = marginY;
+			applyScreenLayout();
+		}
+		return this;
+	}
+
+	/** Size as percent (0-100) of the screen box; 0 keeps the fixed size of that side. Switches to the screen layout. */
+	public UIHolder sizePercent(float widthPercent, float heightPercent){
+		if(holderDef != null){
+			holderDef.layout = "screen";
+			holderDef.Width_Percent = widthPercent;
+			holderDef.Height_Percent = heightPercent;
+			applyScreenLayout();
+		}
+		return this;
+	}
+
+	/** Fill the whole width and / or height of the screen box (minus the margins). */
+	public UIHolder stretch(boolean horizontal, boolean vertical){
+		if(holderDef != null){
+			holderDef.layout = "screen";
+			holderDef.Stretch_X = horizontal;
+			holderDef.Stretch_Y = vertical;
+			applyScreenLayout();
+		}
+		return this;
+	}
+
+	/** Back to the free layout: x / y / width / height as typed. */
+	public UIHolder freeLayout(){
+		if(holderDef != null) holderDef.layout = "free";
+		return this;
+	}
+
 	/** The shown .ui: find and change inner elements by id ({@code ui().setText("score", "10")}). */
 	public UIView ui(){
 		return view;
@@ -168,6 +244,12 @@ public class UIHolder extends Group implements PlayerItem {
 	
 	@Override
 	public void draw(Batch batch, float parentAlpha) {
+		if(holderDef != null && "screen".equals(holderDef.layout)){
+			try {
+				com.badlogic.gdx.utils.viewport.Viewport vp = stage.getUiStage().getViewport();
+				if(vp.getWorldWidth() != lastScreenW || vp.getWorldHeight() != lastScreenH) applyScreenLayout();
+			} catch(Throwable ignored){}
+		}
 		super.draw(batch, parentAlpha);
 		update();
 	}

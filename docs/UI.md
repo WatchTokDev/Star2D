@@ -391,6 +391,12 @@ Icon id: `text` · palette category: **Display** · container: no · events: `on
 | `font` | props | font | `` |  | Font json made by the font creator. Empty = theme / default font. |
 | `wrap` | props | bool | `false` |  | Breaks long text into lines inside the width. |
 | `textAlign` | props | enum | `left` | left, center, right | Horizontal alignment of the lines. |
+| `vAlign` | props | enum | `top` | top, middle, bottom | Where the text sits in the box when the box is taller than the text. |
+| `autoFit` | props | bool | `false` |  | Makes the letters smaller until the text fits the box. |
+| `minFontSize` | props | number | `12` | 6.0..100.0 step 1.0 | px. Shrink to fit never goes below this. |
+| `ellipsis` | props | bool | `false` |  | Cuts a too long line with three dots. |
+| `uppercase` | props | bool | `false` |  | Shows the text in capital letters (the stored text is not changed). |
+| `textOpacity` | props | number | `100` | 0.0..100.0 step 5.0 | 0 - 100 percent. |
 | `shadow` | props | bool | `false` |  | Dark drop shadow behind the letters. |
 
 ### Image  (`Image`)

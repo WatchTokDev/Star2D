@@ -296,7 +296,7 @@ public final class RemoteDocs {
             {"CAMERA", "camera.json", "CAMERA element: in this version its settings are not applied; control the camera with the Camera blocks"},
             {"MAP", "map.json", "Tiled map (.tmx under images/), drawn only: it has no collision"},
             {"GROUP", "group.json", "GROUP: empty container, draws nothing. Elements with parent = the group follow it (move, rotate, hide, delete). See topic groups"},
-            {"UIHOLDER", "uiholder.json", "UIHOLDER: shows a screen made in the UI Maker (file UI/<ui>.ui) as ONE block (HUD, menu, dialog). ui = file name without .ui, fit = stretch|contain|cover. type UI = fixed on screen. Inner buttons have their own events (UI events), not editable as scene elements"},
+            {"UIHOLDER", "uiholder.json", "UIHOLDER: shows a screen made in the UI Maker (file UI/<ui>.ui) as ONE block (HUD, menu, dialog). ui = file name without .ui, fit = stretch|contain|cover. type UI = fixed on screen. layout = free (x,y,width,height) | screen (placed by the screen box: anchor topleft|top|topright|left|center|right|bottomleft|bottom|bottomright, Stretch X / Stretch Y = fill width / height, Width Percent / Height Percent = 0-100 of the screen (0 = use width/height), Margin X / Margin Y px from the anchored edges). A full-screen background is its own holder (screen, both stretches, low z). Inner buttons have their own events (UI events), not editable as scene elements"},
             {"LIGHT point", "Lights/point.json", "Point light (needs a dark Ambient Light in the scene config to be visible)"},
             {"LIGHT cone", "Lights/cone.json", "Cone light"},
             {"LIGHT directional", "Lights/directional.json", "Directional light"},

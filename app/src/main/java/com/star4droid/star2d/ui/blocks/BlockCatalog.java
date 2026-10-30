@@ -357,6 +357,27 @@ public final class BlockCatalog {
         def("Behaviors", beh, "setBehaviorEnabled", "body(Body) behavior(behavior) on(Boolean)", "current||true", false, "%1$s.setBehaviorEnabled(\"%2$s\", %3$s);\n%4$s");
         def("Behaviors", beh, "setBehaviorParam", "body(Body) behavior(behavior) setting value", "current|||0", false, "%1$s.setBehaviorParam(\"%2$s\", \"%3$s\", %4$s);\n%5$s");
 
+        // UI holders: change the inner elements of a .ui (by their id) and where the holder sits on the screen
+        int uic = 0xFF88213B;
+        def("Ui Nodes", uic, "uiSetText", "holder(Body) node text", "current||\"Hello\"", false, "com.star4droid.template.Items.UIHolder.ref(%1$s,\"%2$s\").setText(String.valueOf(%3$s));\n%4$s");
+        def("Ui Nodes", uic, "uiSetValue", "holder(Body) node value", "current||50", false, "com.star4droid.template.Items.UIHolder.ref(%1$s,\"%2$s\").setValue((float)(%3$s));\n%4$s");
+        def("Ui Nodes", uic, "uiSetChecked", "holder(Body) node on(Boolean)", "current||true", false, "com.star4droid.template.Items.UIHolder.ref(%1$s,\"%2$s\").setChecked(%3$s);\n%4$s");
+        def("Ui Nodes", uic, "uiShow", "holder(Body) node", "current|", false, "com.star4droid.template.Items.UIHolder.ref(%1$s,\"%2$s\").setVisible(true);\n%3$s");
+        def("Ui Nodes", uic, "uiHide", "holder(Body) node", "current|", false, "com.star4droid.template.Items.UIHolder.ref(%1$s,\"%2$s\").setVisible(false);\n%3$s");
+        def("Ui Nodes", uic, "uiSetVisible", "holder(Body) node visible(Boolean)", "current||true", false, "com.star4droid.template.Items.UIHolder.ref(%1$s,\"%2$s\").setVisible(%3$s);\n%4$s");
+        def("Ui Nodes", uic, "uiSetEnabled", "holder(Body) node on(Boolean)", "current||true", false, "com.star4droid.template.Items.UIHolder.ref(%1$s,\"%2$s\").setEnabled(%3$s);\n%4$s");
+        def("Ui Nodes", uic, "uiSetAlpha", "holder(Body) node alpha", "current||0.5", false, "com.star4droid.template.Items.UIHolder.ref(%1$s,\"%2$s\").setAlpha((float)(%3$s));\n%4$s");
+        def("Ui Nodes", uic, "uiSetImage", "holder(Body) node pic(image)", "current||", false, "com.star4droid.template.Items.UIHolder.ref(%1$s,\"%2$s\").setImage(\"%3$s\");\n%4$s");
+        def("Ui Nodes", uic, "uiSetColor", "holder(Body) node color", "current||#FFFFFF", false, "com.star4droid.template.Items.UIHolder.ref(%1$s,\"%2$s\").setColor(\"%3$s\");\n%4$s");
+        def("Ui Nodes", uic, "uiSetProperty", "holder(Body) node property value", "current||fontSize|32", false, "com.star4droid.template.Items.UIHolder.ref(%1$s,\"%2$s\").set(\"%3$s\", String.valueOf(%4$s));\n%5$s");
+        def("Ui Nodes", uic, "uiScrollTo", "holder(Body) node x y", "current||0|0", false, "com.star4droid.template.Items.UIHolder.ref(%1$s,\"%2$s\").scrollTo((float)(%3$s), (float)(%4$s));\n%5$s");
+        def("Ui Nodes", uic, "uiClick", "holder(Body) node", "current|", false, "com.star4droid.template.Items.UIHolder.ref(%1$s,\"%2$s\").click();\n%3$s");
+        def("Ui Nodes", uic, "uiOnClick", "holder(Body) node", "current|", true, "com.star4droid.template.Items.UIHolder.ref(%1$s,\"%2$s\").onClick(new Runnable(){\n    public void run(){\n%3$s\n    }\n});\n%5$s");
+        def("Ui Nodes", uic, "uiSetUi", "holder(Body) name", "current|menu", false, "if(%1$s instanceof com.star4droid.template.Items.UIHolder) ((com.star4droid.template.Items.UIHolder)%1$s).setUi(\"%2$s\");\n%3$s");
+        def("Ui Nodes", uic, "uiPlace", "holder(Body) anchor marginX marginY", "current|center|0|0", false, "if(%1$s instanceof com.star4droid.template.Items.UIHolder) ((com.star4droid.template.Items.UIHolder)%1$s).place(\"%2$s\", (float)(%3$s), (float)(%4$s));\n%5$s");
+        def("Ui Nodes", uic, "uiSizePercent", "holder(Body) widthPct heightPct", "current|100|100", false, "if(%1$s instanceof com.star4droid.template.Items.UIHolder) ((com.star4droid.template.Items.UIHolder)%1$s).sizePercent((float)(%2$s), (float)(%3$s));\n%4$s");
+        def("Ui Nodes", uic, "uiStretch", "holder(Body) stretchH(Boolean) stretchV(Boolean)", "current|true|true", false, "if(%1$s instanceof com.star4droid.template.Items.UIHolder) ((com.star4droid.template.Items.UIHolder)%1$s).stretch(%2$s, %3$s);\n%4$s");
+
         // Debug
         def("Debug", dbg, "toastValue", "value", "", false, "toast(String.valueOf(%1$s));\n%2$s");
         def("Debug", dbg, "logValue", "value", "score", false, "debug(String.valueOf(%1$s));\n%2$s");
@@ -436,6 +457,16 @@ public final class BlockCatalog {
         r("Input", "camera y", "(getCameraY()/" + WS + ")");
         r("Data", "saved text ___", "getValue(\"%1$s\")");
         r("Data", "saved number ___", "getNumber(\"%1$s\")");
+        r("Ui Nodes", "text of node ___ in ___", "com.star4droid.template.Items.UIHolder.ref(%2$s,\"%1$s\").getText()");
+        shape("com.star4droid.template.Items.UIHolder.ref(%2$s,\"%1$s\").getText()", 't');
+        r("Ui Nodes", "value of node ___ in ___", "com.star4droid.template.Items.UIHolder.ref(%2$s,\"%1$s\").getValue()");
+        shape("com.star4droid.template.Items.UIHolder.ref(%2$s,\"%1$s\").getValue()", 'n');
+        r("Ui Nodes", "node ___ in ___ is checked", "com.star4droid.template.Items.UIHolder.ref(%2$s,\"%1$s\").isChecked()");
+        shape("com.star4droid.template.Items.UIHolder.ref(%2$s,\"%1$s\").isChecked()", 'b');
+        r("Ui Nodes", "node ___ in ___ is visible", "com.star4droid.template.Items.UIHolder.ref(%2$s,\"%1$s\").isVisible()");
+        shape("com.star4droid.template.Items.UIHolder.ref(%2$s,\"%1$s\").isVisible()", 'b');
+        r("Ui Nodes", "node ___ in ___ is enabled", "com.star4droid.template.Items.UIHolder.ref(%2$s,\"%1$s\").isEnabled()");
+        shape("com.star4droid.template.Items.UIHolder.ref(%2$s,\"%1$s\").isEnabled()", 'b');
         // behaviors
         r("Behaviors", "___ has behavior ___", "%1$s.hasBehavior(\"%2$s\")");
         shape("%1$s.hasBehavior(\"%2$s\")", 'b');
@@ -492,6 +523,7 @@ public final class BlockCatalog {
                     d.defaults = dv.toArray(new String[0]);
                     add(d);
                     if (n.has("desc")) BlockInfo.setDescription(d.title, parseDesc(n.get("desc")));
+                    if (n.has("labels")) BlockInfo.setLabels(d.title, parseDesc(n.get("labels")));
                 }
             }
         } catch (Exception ignored) {}
@@ -510,6 +542,7 @@ public final class BlockCatalog {
                     String code = BlockModel.str(b, "code", "%1$s");
                     r(g, BlockModel.str(b, "title", "___"), code);
                     if (b.has("desc")) BlockInfo.setDescription(BlockModel.str(b, "title", "___"), parseDesc(b.get("desc")));
+                    if (b.has("labels")) BlockInfo.setLabels(BlockModel.str(b, "title", "___"), parseDesc(b.get("labels")));
                     try { if (b.has("color")) TEMPLATE_COLOR.put(code, b.get("color").getAsInt()); } catch (Exception ignored) {}
                 }
             }

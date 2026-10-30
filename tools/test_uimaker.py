@@ -64,7 +64,7 @@ def read(p):
     return open(os.path.join(ROOT, p), encoding="utf-8").read()
 
 check("tool declared in tools.ts", 'name: "ui"' in read("server/src/tools.ts"))
-check("CORE_RULES clause", "7e. Menus" in read("server/src/tools.ts"))
+check("CORE_RULES clause", "8a. Reuse before creating" in read("server/src/tools.ts"))
 check("RemoteTools dispatch", 'case "ui": return UiTools.ui(args);' in read("app/src/main/java/com/star4droid/star2d/remote/RemoteTools.java"))
 check("AI.md lists ui", "`ui`" in read("server/AI.md"))
 check("docs topic ui", os.path.isfile(os.path.join(ROOT, "app/src/main/assets/ai/docs/ui.md")) and "`ui`" in read("app/src/main/assets/ai/docs/index.md"))

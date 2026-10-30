@@ -2,5 +2,7 @@
 "type":"DYNAMIC,STATIC,KINAMATIC,UI",
 "Light Type":"cone,point,directional",
 "Shape":"Circle,Custom,Box",
-"fit":"stretch,contain,cover"
+"fit":"stretch,contain,cover",
+"layout":"free,screen",
+"anchor":"topleft,top,topright,left,center,right,bottomleft,bottom,bottomright"
 }

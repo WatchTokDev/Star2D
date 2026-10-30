@@ -138,12 +138,23 @@ public class EditorUIHolderItem extends Group implements EditorItem {
 		float w = propertySet.getFloat("width"), h = propertySet.getFloat("height");
 		if(w <= 0) w = 300;
 		if(h <= 0) h = 300;
+		float px = propertySet.getFloat("x"), py = propertySet.getFloat("y");
+		if(com.star4droid.template.ui.UIHolderLayout.isScreen(propertySet.getString("layout"))
+				&& "UI".equals(propertySet.getString("type"))){
+			// placed in the screen box (the logic frame) by anchor / stretch / percent
+			float[] r = com.star4droid.template.ui.UIHolderLayout.compute(propertySet.getString("anchor"),
+					"true".equals(propertySet.getString("Stretch X")), "true".equals(propertySet.getString("Stretch Y")),
+					propertySet.getFloat("Width Percent"), propertySet.getFloat("Height Percent"),
+					propertySet.getFloat("Margin X"), propertySet.getFloat("Margin Y"), w, h,
+					editor.getLogicWidth(), editor.getLogicHeight());
+			px = r[0]; py = r[1]; w = r[2]; h = r[3];
+		}
 		setSize(w, h);
 		setOrigin(w * 0.5f, h * 0.5f);
 		String name = propertySet.getString("name");
 		if(!name.equals(""))
 			setName(name);
-		setPosition(propertySet.getFloat("x"), propertySet.getFloat("y"));
+		setPosition(px, py);
 		setZIndex(Math.max(0, propertySet.getInt("z")));
 		setRotation(-propertySet.getFloat("rotation"));
 		setVisible(!propertySet.getString("Visible").equals("false"));

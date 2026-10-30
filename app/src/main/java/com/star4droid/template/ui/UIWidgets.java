@@ -108,21 +108,45 @@ final class UIWidgets {
             addActor(text);
         }
 
+        private String shown() {
+            String t = node.str("text", "");
+            return node.bool("uppercase", false) ? t.toUpperCase() : t;
+        }
+
         @Override
         protected void onLayout() {
             text.setBounds(0, 0, node.rw, node.rh);
-            text.setWrap(node.bool("wrap", false));
+            boolean wrap = node.bool("wrap", false);
+            text.setWrap(wrap);
             String al = node.str("textAlign", "left");
-            text.setAlignment(al.equals("center") ? Align.center : al.equals("right") ? Align.right : Align.left, al.equals("center") ? Align.center : al.equals("right") ? Align.right : Align.left);
+            String va = node.str("vAlign", "top");
+            int h = al.equals("center") ? Align.center : al.equals("right") ? Align.right : Align.left;
+            int v = va.equals("middle") ? Align.center : va.equals("bottom") ? Align.bottom : Align.top;
+            text.setAlignment(v | h, h);
+            text.setEllipsis(node.bool("ellipsis", false));
             BitmapFont f = fontOf(view, node);
-            text.setFontScale(UIAssets.fontScale(f, sizeOf(view, node)));
+            float size = sizeOf(view, node);
+            if (node.bool("autoFit", false)) {
+                // shrinks the letters until the text fits the box (never below minFontSize)
+                float min = Math.max(6f, node.num("minFontSize", 12f));
+                String t = shown();
+                for (int i = 0; i < 24 && size > min; i++) {
+                    float[] m = UIAssets.measure(f, t, size, wrap ? node.rw : 0);
+                    if (m[0] <= node.rw + 0.5f && m[1] <= node.rh + 0.5f) break;
+                    size = Math.max(min, size * 0.92f);
+                }
+            }
+            text.setFontScale(UIAssets.fontScale(f, size));
             text.getStyle().fontColor = UIParts.color(textColor(view, node));
-            text.setText(node.str("text", ""));
+            text.setText(shown());
+            float op = node.num("textOpacity", 100f);
+            Color c = text.getColor();
+            text.setColor(c.r, c.g, c.b, Math.max(0f, Math.min(1f, op / 100f)));
         }
 
         @Override
         public void refresh() {
-            text.setText(node.str("text", ""));
+            text.setText(shown());
         }
     }
 

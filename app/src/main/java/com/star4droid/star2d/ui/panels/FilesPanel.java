@@ -31,6 +31,7 @@ import com.star4droid.star2d.ui.Dialogs;
 import com.star4droid.star2d.ui.EditorShell;
 import com.star4droid.star2d.ui.FilePickerDialog;
 import com.star4droid.star2d.ui.PanelHost;
+import com.star4droid.star2d.ui.Snack;
 import com.star4droid.star2d.ui.Tr;
 import com.star4droid.star2d.ui.Ui;
 
@@ -308,7 +309,7 @@ public class FilesPanel implements PanelHost.Panel {
         if (FilePickerDialog.isImage(n)) return R.drawable.ic_s2_image;
         if (n.endsWith(".java") || n.endsWith(".code") || n.endsWith(".json") || n.endsWith(".visual") || n.endsWith(".xml")) return R.drawable.ic_s2_code;
         if (n.endsWith(".ui")) return R.drawable.ic_s2_widgets;
-        if (n.endsWith(".mp3") || n.endsWith(".wav") || n.endsWith(".ogg")) return R.drawable.ic_s2_sound;
+        if (isSound(n)) return f.getAbsolutePath().equals(playingPath) ? R.drawable.ic_s2_stop : R.drawable.ic_s2_sound;
         if (n.endsWith(".ttf") || n.endsWith(".otf") || n.endsWith(".s2df") || n.endsWith(".fnt")) return R.drawable.ic_s2_font;
         if (n.endsWith(".tmx") || n.endsWith(".tsx")) return R.drawable.ic_s2_map;
         if (n.endsWith(".zip") || n.endsWith(".jar") || n.endsWith(".dex")) return R.drawable.ic_s2_zip;
@@ -323,6 +324,7 @@ public class FilesPanel implements PanelHost.Panel {
         if (i == com.star4droid.star2d.ui.PrefabUi.ICON) return com.star4droid.star2d.ui.PrefabUi.COLOR;
         if (i == R.drawable.ic_s2_code) return 0xFF42A5F5;
         if (i == R.drawable.ic_s2_sound) return 0xFFFFA726;
+        if (i == R.drawable.ic_s2_stop && isSound(f.getName().toLowerCase(Locale.ROOT))) return 0xFF66BB6A;
         if (i == R.drawable.ic_s2_font) return 0xFFEC407A;
         if (i == R.drawable.ic_s2_map) return 0xFF8D6E63;
         if (i == R.drawable.ic_s2_particle) return 0xFFEF5350;
@@ -408,7 +410,67 @@ public class FilesPanel implements PanelHost.Panel {
 
     // ------------------------------------------------------------ actions
 
+    // ------------------------------------------------------------ sounds: tap = play, tap again = stop, another sound = stops this one
+
+    private static android.media.MediaPlayer player;
+    private static String playingPath;
+
+    static boolean isSound(String lowerName) {
+        return lowerName.endsWith(".mp3") || lowerName.endsWith(".wav") || lowerName.endsWith(".ogg") || lowerName.endsWith(".m4a");
+    }
+
+    private static void stopSound() {
+        android.media.MediaPlayer p = player;
+        player = null;
+        playingPath = null;
+        if (p != null) {
+            try { p.stop(); } catch (Throwable ignored) {}
+            try { p.release(); } catch (Throwable ignored) {}
+        }
+    }
+
+    /** Plays the file; tapping the one that is playing stops it, tapping another one stops the first and plays the new one. */
+    private void toggleSound(Context c, File f) {
+        boolean same = f.getAbsolutePath().equals(playingPath);
+        stopSound();
+        if (!same) {
+            try {
+                android.media.MediaPlayer p = new android.media.MediaPlayer();
+                p.setDataSource(f.getAbsolutePath());
+                p.setOnCompletionListener(mp -> {
+                    if (player == mp) {
+                        stopSound();
+                        if (adapter != null) adapter.notifyDataSetChanged();
+                    }
+                });
+                p.setOnErrorListener((mp, what, extra) -> {
+                    if (player == mp) stopSound();
+                    if (adapter != null) adapter.notifyDataSetChanged();
+                    return true;
+                });
+                p.prepare();
+                p.start();
+                player = p;
+                playingPath = f.getAbsolutePath();
+            } catch (Throwable t) {
+                stopSound();
+                Snack.show(Tr.t("ui_sound_error", "This sound can't be played") + ": " + f.getName());
+            }
+        }
+        if (adapter != null) adapter.notifyDataSetChanged();
+    }
+
+    @Override
+    public void onHidden() {
+        stopSound();
+        if (adapter != null) adapter.notifyDataSetChanged();
+    }
+
     private void open(Context c, File f) {
+        if (!f.isDirectory() && isSound(f.getName().toLowerCase(Locale.ROOT))) {
+            toggleSound(c, f);
+            return;
+        }
         if (f.isDirectory()) {
             dir = f;
             search.setText("");

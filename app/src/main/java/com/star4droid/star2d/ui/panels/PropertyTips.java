@@ -13,6 +13,14 @@ public final class PropertyTips {
     }
 
     static {
+        t("layout", "free: x, y, width and height as typed. screen: placed by the screen box (anchor, stretch, percent, margins).", "free: س وص والعرض والارتفاع كما تكتبها. screen: يوضع حسب مربع الشاشة (نقطة التثبيت، التمديد، النسبة، الهوامش).");
+        t("anchor", "Screen layout: which corner or edge of the screen the holder sticks to.", "تخطيط الشاشة: أي زاوية أو حافة من الشاشة يلتصق بها الحامل.");
+        t("Stretch X", "Screen layout: fill the whole screen width (minus the margins).", "تخطيط الشاشة: يملأ عرض الشاشة كاملاً (ناقص الهوامش).");
+        t("Stretch Y", "Screen layout: fill the whole screen height (minus the margins).", "تخطيط الشاشة: يملأ ارتفاع الشاشة كاملاً (ناقص الهوامش).");
+        t("Width Percent", "Screen layout: width as percent (0-100) of the screen. 0 = use Width.", "تخطيط الشاشة: العرض كنسبة مئوية (0-100) من الشاشة. 0 = استعمل العرض.");
+        t("Height Percent", "Screen layout: height as percent (0-100) of the screen. 0 = use Height.", "تخطيط الشاشة: الارتفاع كنسبة مئوية (0-100) من الشاشة. 0 = استعمل الارتفاع.");
+        t("Margin X", "Screen layout: distance in px from the anchored left / right edge.", "تخطيط الشاشة: المسافة بالبكسل من الحافة اليسرى/اليمنى المثبّت عليها.");
+        t("Margin Y", "Screen layout: distance in px from the anchored top / bottom edge.", "تخطيط الشاشة: المسافة بالبكسل من الحافة العلوية/السفلية المثبّت عليها.");
         t("name", "Unique name of the element. Used in blocks and code to find it.", "اسم فريد للعنصر، يُستخدم في البلوكات والكود للوصول إليه.");
         t("type", "DYNAMIC: moves and falls with gravity (players, balls).\nSTATIC: never moves (ground, walls).\nKINAMATIC: moves by code only, not affected by gravity (moving platforms).\nUI: stays fixed on the screen (buttons, score).",
                 "DYNAMIC: يتحرك ويسقط بالجاذبية (لاعب، كرة).\nSTATIC: ثابت لا يتحرك (أرض، جدار).\nKINAMATIC: يتحرك بالكود فقط ولا تؤثر عليه الجاذبية (منصة متحركة).\nUI: ثابت على الشاشة (أزرار، النقاط).");
