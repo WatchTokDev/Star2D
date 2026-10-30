@@ -1,8 +1,8 @@
 {
-"float":",Zoom,Font Scale,Scale X,Scale Y,Duration,Cone Degree,Softness Length,Direction,Distance,rays,Max,Progress,x,y,z,rotation,density,restitution,width,radius,height,Offset X,Offset Y,friction,tileX,tileY,ColliderX,ColliderY,Collider Width,Collider Radius,Collider Height,Gravity Scale,Width Percent,Height Percent,Margin X,Margin Y,",
+"float":",Zoom,Font Scale,Scale X,Scale Y,Duration,Cone Degree,Softness Length,Direction,Distance,rays,Max,Progress,x,y,z,rotation,density,restitution,width,radius,height,Offset X,Offset Y,friction,tileX,tileY,ColliderX,ColliderY,Collider Width,Collider Radius,Collider Height,Gravity Scale,Width Percent,Height Percent,Margin X,Margin Y,Pivot X,Pivot Y,",
 "image":",image,Pad Image,Button Image,Button Background,Pressed Image,Touch Start Image,Touch End Image,",
-"boolean":",Loop,lock,Active,Soft,X Ray,Static Light,Visible,Auto Size,Stretch X,Stretch Y,Bullet,Fixed Rotation,isSensor,",
-"spinner":"type,Shape,Light Type,fit,layout,anchor",
+"boolean":",Y Sort,Loop,lock,Active,Soft,X Ray,Static Light,Visible,Auto Size,Stretch X,Stretch Y,Bullet,Fixed Rotation,isSensor,",
+"spinner":"type,Pivot,Shape,Light Type,fit,layout,anchor",
 "string":",name,Text",
 "File":"file,font,animation",
 "static":"TYPE",
