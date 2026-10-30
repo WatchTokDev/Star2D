@@ -109,6 +109,11 @@ public class RtlController {
      * reverse the glyphs for rendering rtl languages (Persian/Arabic)
      */
     public void reverse(final GlyphLayout layout, int curRunIndex , final StringBuilder fullText) {
+        reverse(layout, curRunIndex, fullText, 1f);
+    }
+
+    /** @param scaleX the font scale used for the layout: the advances of the reversed glyphs must be scaled like the rest of the layout */
+    public void reverse(final GlyphLayout layout, int curRunIndex , final StringBuilder fullText, float scaleX) {
         final Array<BitmapFont.Glyph> rt = new Array<>();
         Array<BitmapFont.Glyph> persianGlyphs = new Array<>();
         final BooleanArray bracketIsEnglish = new BooleanArray();
@@ -194,7 +199,7 @@ public class RtlController {
         // fix xAdvanced value.
         for (int i = 1; i < run.glyphs.size; i++)
         {
-            run.xAdvances.set(i,run.glyphs.get(i-1).xadvance);
+            run.xAdvances.set(i,run.glyphs.get(i-1).xadvance * scaleX);
         }
         run.xAdvances.set(0,layout.width - run.width);
     }

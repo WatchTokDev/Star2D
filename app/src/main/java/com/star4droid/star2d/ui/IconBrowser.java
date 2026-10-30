@@ -98,6 +98,8 @@ public final class IconBrowser {
         TextView importLabel;
         RecyclerView.Adapter<RecyclerView.ViewHolder> adapter;
         Runnable pendingSearch;
+        View detailHost;     // landscape: the scroll that holds the detail panel (hidden until an icon is chosen)
+        boolean land;
 
         Browser(Activity a, IconCatalog catalog, File project, boolean closeOnImport, OnImported cb) {
             this.a = a;
@@ -137,26 +139,29 @@ public final class IconBrowser {
                 }
             });
             sr.addView(search, Ui.weight(1));
-            root.addView(sr, Ui.matchWrap());
+            land = Ui.isLandscape(a);
+            if (!land) root.addView(sr, Ui.matchWrap());
 
             // sets (UI icons / game icons)
-            setChips = Ui.row(a);
-            setChips.setPadding(0, Ui.dp(a, 8), 0, 0);
-            root.addView(setChips, Ui.matchWrap());
+            setChips = land ? Ui.column(a) : Ui.row(a);
+            setChips.setPadding(0, land ? 0 : Ui.dp(a, 8), 0, 0);
+            if (!land) root.addView(setChips, Ui.matchWrap());
             buildSetChips();
 
-            // categories
-            HorizontalScrollView hs = new HorizontalScrollView(a);
-            hs.setHorizontalScrollBarEnabled(false);
-            chips = Ui.row(a);
-            chips.setPadding(0, Ui.dp(a, 6), 0, Ui.dp(a, 6));
-            hs.addView(chips);
-            root.addView(hs, Ui.matchWrap());
+            // categories (portrait: a row that scrolls sideways; landscape: a list at the left side)
+            chips = land ? Ui.column(a) : Ui.row(a);
+            if (!land) {
+                HorizontalScrollView hs = new HorizontalScrollView(a);
+                hs.setHorizontalScrollBarEnabled(false);
+                chips.setPadding(0, Ui.dp(a, 6), 0, Ui.dp(a, 6));
+                hs.addView(chips);
+                root.addView(hs, Ui.matchWrap());
+            }
             buildChips();
 
             count = Ui.text(a, "", 11.5f, Ui.TEXT_3);
             count.setPadding(Ui.dp(a, 2), 0, 0, Ui.dp(a, 4));
-            root.addView(count, Ui.matchWrap());
+            if (!land) root.addView(count, Ui.matchWrap());
 
             // grid
             int widthDp = (int) (a.getResources().getDisplayMetrics().widthPixels / a.getResources().getDisplayMetrics().density) - 40;
@@ -169,29 +174,58 @@ public final class IconBrowser {
             adapter = new Adapter();
             grid.setAdapter(adapter);
             FrameLayoutHolder fh = new FrameLayoutHolder();
-            boolean land = Ui.isLandscape(a);
             LinearLayout body = Ui.row(a);
-            if (land) {
-                // landscape: the grid takes the left part, the details of the chosen icon sit beside it
-                span = Math.max(4, Math.min(9, (widthDp * 55 / 100) / 62));
-                ((GridLayoutManager) grid.getLayoutManager()).setSpanCount(span);
-                body.addView(fh.frame, new LinearLayout.LayoutParams(0, -1, 1.25f));
-                root.addView(body, new LinearLayout.LayoutParams(-1, 0, 1));
-            } else {
-                root.addView(fh.frame, new LinearLayout.LayoutParams(-1, 0, 1));
-            }
-
-            // detail
             detail = Ui.column(a);
             detail.setBackground(Ui.rounded(Ui.SURFACE_2, Ui.dp(a, 10), Ui.BORDER, 1));
             detail.setPadding(Ui.dp(a, 10), Ui.dp(a, 8), Ui.dp(a, 10), Ui.dp(a, 8));
             detail.setVisibility(View.GONE);
             buildDetail();
             if (land) {
+                // landscape: sets + categories at the side, the grid takes all the rest, the search is a button,
+                // the details of the chosen icon appear at the right only after choosing one
+                int railDp = 150;
+                android.widget.ScrollView rail = new android.widget.ScrollView(a);
+                rail.setVerticalScrollBarEnabled(false);
+                LinearLayout railCol = Ui.column(a);
+                railCol.addView(setChips, Ui.matchWrap());
+                View sep = new View(a);
+                sep.setBackgroundColor(Ui.BORDER);
+                railCol.addView(sep, Ui.margins(new LinearLayout.LayoutParams(-1, 1), a, 0, 6, 0, 6));
+                railCol.addView(chips, Ui.matchWrap());
+                rail.addView(railCol, Ui.matchWrap());
+                body.addView(rail, new LinearLayout.LayoutParams(Ui.dp(a, railDp), -1));
+
+                LinearLayout center = Ui.column(a);
+                LinearLayout bar = Ui.row(a);
+                bar.setGravity(Gravity.CENTER_VERTICAL);
+                bar.setPadding(Ui.dp(a, 8), 0, 0, 0);
+                bar.addView(count, Ui.weight(1));
+                ImageView sb = Ui.iconButton(a, R.drawable.ic_s2_search, Tr.t("icn_search_btn", "Search"), v -> {
+                    boolean show = sr.getVisibility() != View.VISIBLE;
+                    sr.setVisibility(show ? View.VISIBLE : View.GONE);
+                    if (show) {
+                        search.requestFocus();
+                        android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+                        if (imm != null) imm.showSoftInput(search, 0);
+                    }
+                });
+                bar.addView(sb);
+                center.addView(bar, Ui.matchWrap());
+                sr.setVisibility(View.GONE);
+                center.addView(sr, Ui.margins(Ui.matchWrap(), a, 8, 0, 0, 4));
+                center.addView(fh.frame, new LinearLayout.LayoutParams(-1, 0, 1));
+                body.addView(center, new LinearLayout.LayoutParams(0, -1, 1f));
+
                 android.widget.ScrollView ds = new android.widget.ScrollView(a);
                 ds.addView(detail, Ui.matchWrap());
-                body.addView(ds, Ui.margins(new LinearLayout.LayoutParams(0, -1, 1f), a, 8, 0, 0, 0));
+                ds.setVisibility(View.GONE);
+                detailHost = ds;
+                body.addView(ds, Ui.margins(new LinearLayout.LayoutParams(Ui.dp(a, 250), -1), a, 8, 0, 0, 0));
+                root.addView(body, new LinearLayout.LayoutParams(-1, 0, 1));
+                widthDp = (int) (a.getResources().getDisplayMetrics().widthPixels * 0.9f / a.getResources().getDisplayMetrics().density) - railDp - 40;
+                ((GridLayoutManager) grid.getLayoutManager()).setSpanCount(Math.max(5, Math.min(12, widthDp / 62)));
             } else {
+                root.addView(fh.frame, new LinearLayout.LayoutParams(-1, 0, 1));
                 root.addView(detail, Ui.margins(Ui.matchWrap(), a, 0, 6, 0, 4));
             }
 
@@ -269,8 +303,9 @@ public final class IconBrowser {
                     buildChips();
                     refresh();
                 });
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
-                lp.setMarginEnd(Ui.dp(a, 6));
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(land ? -1 : -2, -2);
+                lp.setMarginEnd(land ? 0 : Ui.dp(a, 6));
+                if (land) lp.bottomMargin = Ui.dp(a, 4);
                 setChips.addView(t, lp);
             }
         }
@@ -292,8 +327,9 @@ public final class IconBrowser {
                 buildChips();
                 refresh();
             });
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
-            lp.setMarginEnd(Ui.dp(a, 6));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(land ? -1 : -2, -2);
+            lp.setMarginEnd(land ? 0 : Ui.dp(a, 6));
+            if (land) lp.bottomMargin = Ui.dp(a, 4);
             chips.addView(t, lp);
         }
 
@@ -428,6 +464,7 @@ public final class IconBrowser {
         void select(IconCatalog.Icon ic) {
             selected = ic;
             detail.setVisibility(View.VISIBLE);
+            if (detailHost != null) detailHost.setVisibility(View.VISIBLE);
             selTitle.setText(ic.id);
             selTags.setText(ic.tags);
             if (!customName) {

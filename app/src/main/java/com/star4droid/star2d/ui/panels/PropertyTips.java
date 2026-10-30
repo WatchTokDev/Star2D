@@ -56,8 +56,8 @@ public final class PropertyTips {
         t("Collision", "Elements this one should NOT collide with.", "العناصر التي لا يجب أن يتصادم معها هذا العنصر.");
         t("Points", "Custom collider polygon points.", "نقاط شكل التصادم المخصص.");
         t("Text", "Text to show.", "النص المعروض.");
-        t("Font Scale", "Size of the text (the biggest size when Auto Size is on).", "حجم النص (الأكبر عند تفعيل الحجم التلقائي).");
-        t("Auto Size", "On: the letters shrink until the text fits the box, in Arabic and English.", "مفعّل: تصغر الحروف حتى يناسب النص الصندوق، بالعربية والإنجليزية.");
+        t("Font Scale", "Size of the text. Ignored while Auto Size is on (the text then fills its box).", "حجم النص. يُتجاهل عند تفعيل الحجم التلقائي (يملأ النص صندوقه).");
+        t("Auto Size", "On: the text size follows the box: it never leaves it, and grows or shrinks when you resize it (Arabic and English).", "مفعّل: يتبع حجم الخط صندوق النص فلا يخرج منه ويكبر ويصغر مع تغيير حجمه (عربي وإنجليزي).");
         t("tileX", "Repeat the image horizontally.", "تكرار الصورة أفقياً.");
         t("tileY", "Repeat the image vertically.", "تكرار الصورة رأسياً.");
         t("Zoom", "Camera zoom. Smaller = closer.", "تقريب الكاميرا: أصغر = أقرب.");

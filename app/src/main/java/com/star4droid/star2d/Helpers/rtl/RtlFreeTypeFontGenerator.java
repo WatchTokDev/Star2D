@@ -57,7 +57,7 @@ public class RtlFreeTypeFontGenerator extends FreeTypeFontGenerator {
                         StringBuilder fullText = RtlController.getInstance().getFullTextFromLayout(layout);
                         for (int i = 0; i < layout.runs.size; i++)
                         {
-                            RtlController.getInstance().reverse(layout,i,fullText);
+                            RtlController.getInstance().reverse(layout,i,fullText,getFont().getData().scaleX);
                         }
                         super.addText(layout, x, y);
                     }

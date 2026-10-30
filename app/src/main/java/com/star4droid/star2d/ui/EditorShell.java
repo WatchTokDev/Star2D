@@ -211,7 +211,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
             addSceneTools(c, tools);
             root.addView(shield(wrapScroll(c, tools, false), true), Ui.matchWrap());
             root.addView(shield(buildTabsBar(c), true), Ui.matchWrap());
-        } else tabsRow = null;
+        }   // (landscape: the tabs are inside the top bar, buildTopBar made tabsRow; prefab mode: it is null)
 
         // middle: canvas is visible through here; rails float on the sides
         FrameLayout middle = new FrameLayout(c);

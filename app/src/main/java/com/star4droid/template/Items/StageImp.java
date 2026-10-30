@@ -1105,6 +1105,9 @@ public class StageImp extends ApplicationAdapter {
 		        if(current != null && current.getBatch().isDrawing())
 		            current.getBatch().end();
 		        current = st;
+		        // always draw with the fit rectangle of the stage: anything that touches the GL viewport (the lights'
+		        // frame buffers reset it to the whole surface) would stretch the picture while touches are mapped by the viewport
+		        current.getViewport().apply();
 		        if(!current.getBatch().isDrawing()){
 		            current.getBatch().begin();
 		            current.getBatch().setProjectionMatrix(current.getCamera().combined);
@@ -1122,7 +1125,9 @@ public class StageImp extends ApplicationAdapter {
 		if(playing) for(int x=0;x<steps;x++)
 						world.step(getDelta(),8,3);
 		rayHandler.setCombinedMatrix(GameStage.getViewport().getCamera().combined);
+		GameStage.getViewport().apply();
 		rayHandler.updateAndRender();
+		GameStage.getViewport().apply(); // the lights' frame buffers leave the GL viewport on the whole surface: put the fit rectangle back
 		onDraw();
 		if(sceneScript!=null)
 			sceneScript.onDraw();
