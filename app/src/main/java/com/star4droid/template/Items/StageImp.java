@@ -512,6 +512,7 @@ public class StageImp extends ApplicationAdapter {
 		if(assetLoader!=null)
 			assetLoader.update();
 		if(needsUpdate) return;
+		syncScreenSize();
 		if(preferences==null)
 		    preferences = Gdx.app.getPreferences("prefs");
 		// PlayerItem item= findItem("Box1");
@@ -557,6 +558,17 @@ public class StageImp extends ApplicationAdapter {
 		
 	}
 	
+	/**
+	 * The viewports follow the real size of the screen every frame, so the picture and the touch mapping never disagree
+	 * (cutouts, navigation bars, rotation, split screen or a size that changes after the first frame).
+	 */
+	private void syncScreenSize(){
+		if(GameStage == null || UiStage == null || Gdx.graphics == null) return;
+		int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
+		if(w <= 0 || h <= 0) return;
+		if(w != viewportWidth || h != viewportHeight) resize(w, h);
+	}
+
 	public void onDraw(){
 		
 	}
@@ -704,8 +716,9 @@ public class StageImp extends ApplicationAdapter {
 		return GameStage;
 	}
 	
+	/** The stage of the UI elements. (It used to return GameStage, so resize() never updated this stage's viewport and touches on the UI were mapped with the screen size of the first frame.) */
 	public Stage getUiStage(){
-		return GameStage;
+		return UiStage != null ? UiStage : GameStage;
 	}
 	
 	public StageImp setPropertySet(PropertySet<String,Object> set){

@@ -21,7 +21,7 @@ All of them follow the same conventions:
 | `Car` | Car | `car` | Vehicles | physical | `onDriftStart`, `onDriftEnd` | TOP_DOWN bicycle-model car (steering angle, wheelbase, grip, handbrake drift) or SIDE_SCROLLER (drives wheel elements) |
 | `Follow` | Follow | `crosshairs-gps` | Movement | UI + physical | `onArrive`, `onLeave` | Stays near a target with offset, smoothing, speed limit, stop distance |
 | `Patrol` | Patrol | `swap-horizontal` | AI | UI + physical | `onTurn`, `onReachWaypoint(int index)` | Back and forth by distance, or through waypoint elements; waits, flips, turns at walls/ledges |
-| `Chase` | Chase | `run` | AI | UI + physical | `onSeeTarget`, `onLoseTarget`, `onReachTarget` | Runs at a target in sight range, gives up beyond a range, optional line of sight, optional return home |
+| `Chase` | Chase | `run` | AI | UI + physical | `onSeeTarget`, `onLoseTarget`, `onReachTarget`, `onResumeChase` | Runs at a target in sight range, gives up beyond a range, optional line of sight, optional return home |
 | `MovingPlatform` | Moving platform | `elevator-passenger` | Movement | physical | `onReachA`, `onReachB` | Kinematic platform between two ends (range or point elements), pause, easing, carries riders |
 | `JumpPad` | Jump pad | `rocket-launch` | Movement | physical | `onLaunch(PlayerItem who)` | Launches what touches it in a direction; target list / name filter; optional sensor |
 | `Bounce` | Bounce | `tennis-ball` | Movement | UI + physical | `onBounce(PlayerItem other)`, `onBounceEdge(String edge)` | Constant-speed ball (Pong/Breakout), min angle, speed gain, reflects off screen edges |
@@ -100,7 +100,7 @@ invisible and may move); ping-pong or `loopWaypoints`. `flipOnTurn` mirrors the 
 
 **Chase.** Starts when the target is closer than `sightRange`, gives up beyond `giveUpRange`. `needLineOfSight` ray casts to the target: only
 fixed bodies (static / kinematic) block the view. `horizontalOnly` (default) keeps gravity for ground enemies; off = flies straight at the
-target. `stopDistance` raises `onReachTarget` (a melee range). `returnHome` walks back to the start position.
+target. `stopDistance` raises `onReachTarget` (a melee range; `onResumeChase` when the target moves away again: play the attack animation in one and the run animation in the other). Contact damage (Damage On Touch) uses the collider boxes, not the picture size. `returnHome` walks back to the start position.
 
 **MovingPlatform.** `distance` moves along the axis from the start; setting `pointB` (and optionally `pointA`) uses the position of
 those elements instead. It is driven with velocities so things on top are pushed; `carryRiders` also moves bodies standing on it sideways

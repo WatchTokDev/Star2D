@@ -13,7 +13,7 @@ import com.star4droid.template.behaviors.Header;
 import com.star4droid.template.behaviors.Param;
 
 @BehaviorInfo(name = "Chase", icon = "run", category = "AI", targets = BehaviorInfo.Target.BOTH,
-		events = {"onSeeTarget()", "onLoseTarget()", "onReachTarget()"},
+		events = {"onSeeTarget()", "onLoseTarget()", "onReachTarget()", "onResumeChase()"},
 		desc = "Runs after a target (the player) when it comes close, gives up when it gets too far and can return home. Use it for enemies; put a Patrol on the same element for guards that chase when they see you.")
 public class Chase extends Behavior {
 	@Header("Target")
@@ -214,7 +214,10 @@ public class Chase extends Behavior {
 			if (!go && !reached) {
 				reached = true;
 				fire("onReachTarget");
-			} else if (go) reached = false;
+			} else if (go && reached) {
+				reached = false;
+				fire("onResumeChase"); // the target moved away again: run again
+			}
 		} else if (returning) {
 			gx = homeX;
 			gy = homeY;

@@ -294,9 +294,51 @@ public abstract class Behavior {
 		return it != null && it.getActor() != null && it.getActor().getStage() != null;
 	}
 
-	/** Boxes of two elements overlap (axis aligned, rotation ignored). */
+	/**
+	 * The real box of an element in editor px {minX, minY, maxX, maxY}: the union of its collider shapes when it has a
+	 * body (so a 192 px sprite with a 64 px collider counts as 64 px), otherwise the element box.
+	 */
+	public static void box(PlayerItem it, float[] out) {
+		Body b = it.getBody();
+		if (b != null && b.getFixtureList().size > 0) {
+			float x0 = Float.MAX_VALUE, y0 = Float.MAX_VALUE, x1 = -Float.MAX_VALUE, y1 = -Float.MAX_VALUE;
+			Vector2 p = new Vector2();
+			boolean any = false;
+			for (com.badlogic.gdx.physics.box2d.Fixture f : b.getFixtureList()) {
+				com.badlogic.gdx.physics.box2d.Shape sh = f.getShape();
+				if (sh instanceof com.badlogic.gdx.physics.box2d.PolygonShape) {
+					com.badlogic.gdx.physics.box2d.PolygonShape ps = (com.badlogic.gdx.physics.box2d.PolygonShape) sh;
+					for (int i = 0; i < ps.getVertexCount(); i++) {
+						ps.getVertex(i, p);
+						p.set(b.getWorldPoint(p));
+						x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x);
+						y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+						any = true;
+					}
+				} else if (sh instanceof com.badlogic.gdx.physics.box2d.CircleShape) {
+					com.badlogic.gdx.physics.box2d.CircleShape cs = (com.badlogic.gdx.physics.box2d.CircleShape) sh;
+					p.set(b.getWorldPoint(cs.getPosition()));
+					float r = cs.getRadius();
+					x0 = Math.min(x0, p.x - r); x1 = Math.max(x1, p.x + r);
+					y0 = Math.min(y0, p.y - r); y1 = Math.max(y1, p.y + r);
+					any = true;
+				}
+			}
+			if (any) {
+				out[0] = x0 / W; out[1] = y0 / W; out[2] = x1 / W; out[3] = y1 / W;
+				return;
+			}
+		}
+		float cx = cx(it), cy = cy(it), hw = wPx(it) * 0.5f, hh = hPx(it) * 0.5f;
+		out[0] = cx - hw; out[1] = cy - hh; out[2] = cx + hw; out[3] = cy + hh;
+	}
+
+	/** Colliders (or boxes, for elements without a body) of two elements overlap (axis aligned, rotation ignored). */
 	public static boolean overlaps(PlayerItem a, PlayerItem b) {
-		return Math.abs(cx(a) - cx(b)) < (wPx(a) + wPx(b)) * 0.5f && Math.abs(cy(a) - cy(b)) < (hPx(a) + hPx(b)) * 0.5f;
+		float[] p = new float[4], q = new float[4];
+		box(a, p);
+		box(b, q);
+		return p[0] < q[2] && q[0] < p[2] && p[1] < q[3] && q[1] < p[3];
 	}
 
 	/** True if the element is held down by a finger. null -> false. */
