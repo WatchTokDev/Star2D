@@ -331,6 +331,8 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
         } else if (land) {
             // tabs + scene tools inline (scrollable) in landscape
             top.addView(titleBox);
+            scenesHolder = Ui.row(c);   // the "Scenes" menu stays visible, outside the scroll
+            top.addView(scenesHolder, new LinearLayout.LayoutParams(-2, -2));
             LinearLayout inline = Ui.row(c);
             tabsRow = Ui.row(c);
             inline.addView(tabsRow);
@@ -341,6 +343,7 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
             hs.addView(inline);
             top.addView(hs, Ui.weight(1));
         } else {
+            scenesHolder = null;
             top.addView(titleBox, Ui.weight(1));
         }
         undoBtn = Ui.iconButton(c, R.drawable.ic_s2_undo, Tr.t("undo", "Undo"), v -> Bridge.gl(() -> Bridge.controls().actionUndo()));
@@ -558,6 +561,8 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
 
     // =============================================================== scene tabs
 
+    private LinearLayout scenesHolder;
+
     public void refreshTabs() {
         if (inPrefabMode()) {
             if (titleView != null) titleView.setText(Tr.t("prefab_editing", "Editing prefab") + ": " + PrefabUi.shortName(prefabPath));
@@ -614,7 +619,9 @@ public class EditorShell extends FrameLayout implements ControlLayer.NativeUi, T
             mt.setPadding(Ui.dp(c, 4), 0, 0, 0);
             menuChip.addView(mt);
             menuChip.setOnClickListener(v -> showScenesMenu(menuChip));
-            tabsRow.addView(menuChip, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Ui.dp(c, 32)));
+            LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Ui.dp(c, 32));
+            if (scenesHolder != null) { scenesHolder.removeAllViews(); mlp.setMarginEnd(Ui.dp(c, 6)); scenesHolder.addView(menuChip, mlp); }
+            else tabsRow.addView(menuChip, mlp);
         });
     }
 
