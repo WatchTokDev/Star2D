@@ -72,3 +72,7 @@ tools/verify_template.py                            → safety checks
 
 Merge to `master`, the workflow does the rest. Exported games keep working with an older editor because the template
 is part of the editor build; an editor update brings the new template with it.
+
+## Scenes inside the APK
+Export (and `tools/ci/make_game.py`) adds `dex/scenes.dex` to the APK as `classes<N+1>.dex` (N = the last `classes*.dex` of the template, so `classes3.dex`).
+`StageImp.getFromDex` first tries `Class.forName("com.star4droid.Game.<scene>")`; when the class is not in the APK (running from the editor) it falls back to the `DexClassLoader` over `dex/scenes.dex`.

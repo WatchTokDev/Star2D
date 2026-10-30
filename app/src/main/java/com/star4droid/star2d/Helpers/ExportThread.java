@@ -103,6 +103,7 @@ public class ExportThread extends Thread {
         }
 
 			FileUtil.writeFile(export_temp+"/assets/version",""+new Random().nextInt(9999999));
+			addScenesDex();
 			onProgress("Manifest encoding...");
 			AxmlUtil.encodeFile(export_temp+"/manifest",export_temp+"/AndroidManifest.xml");
 			FileUtil.moveFile(export_temp+"/manifest",dataDir+"/manifest.debug.xml");
@@ -122,6 +123,29 @@ public class ExportThread extends Thread {
 			onSuccess("Done \n path : "+FileUtil.convertUriToFilePath(context,export_path));
 		} catch(Exception ex){
 			onError(Log.getStackTraceString(ex));
+		}
+	}
+	
+	/**
+	 * Puts the compiled scenes (dex/scenes.dex) in the APK as classes(N+1).dex, N = the last classes*.dex of the template, so the game
+	 * loads its scene classes straight from the APK. Without a dex the game keeps using the one inside project.zip.
+	 */
+	private void addScenesDex(){
+		try {
+			java.io.File dex = new java.io.File(project+"/dex/scenes.dex");
+			java.io.File[] old = new java.io.File(export_temp).listFiles();
+			if(old != null) for(java.io.File f : old) if(f.getName().matches("classes\\d*\\.dex")) f.delete();
+			if(!dex.isFile() || dex.length() == 0) return;
+			int last = 1;
+			java.util.regex.Pattern pat = java.util.regex.Pattern.compile("classes(\\d*)\\.dex");
+			for(Object h : new ZipFile(dataDir+"/export.apk").getFileHeaders()){
+				java.util.regex.Matcher m = pat.matcher(((net.lingala.zip4j.model.FileHeader) h).getFileName());
+				if(m.matches()) last = Math.max(last, m.group(1).isEmpty() ? 1 : Integer.parseInt(m.group(1)));
+			}
+			FileUtil.copyFile(dex.getAbsolutePath(), export_temp+"/classes"+(last+1)+".dex");
+			onProgress("Scenes added as classes"+(last+1)+".dex");
+		} catch(Throwable t){
+			onProgress("Scenes dex not added to the APK : "+t);
 		}
 	}
 	

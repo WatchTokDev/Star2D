@@ -69,6 +69,20 @@ def tool(name):
     sys.exit("missing tool: " + name)
 
 
+def add_scenes_dex(project, t):
+    """dex/scenes.dex -> classes(N+1).dex in the APK (N = last classes*.dex of the template), like the phone export."""
+    dex = os.path.join(project, "dex/scenes.dex")
+    if not os.path.isfile(dex) or os.path.getsize(dex) == 0:
+        return
+    last = 1
+    for f in os.listdir(t):
+        m = re.fullmatch(r"classes(\d*)\.dex", f)
+        if m:
+            last = max(last, int(m.group(1) or 1))
+    shutil.copy(dex, os.path.join(t, "classes%d.dex" % (last + 1)))
+    print("scenes added as classes%d.dex" % (last + 1))
+
+
 def build_apk(a):
     project = os.path.abspath(a.project)
     work = tempfile.mkdtemp(prefix="s2game")
@@ -88,6 +102,7 @@ def build_apk(a):
         os.path.join(ROOT, "tools/ci/EncodeManifest.java"), os.path.join(work, "manifest.xml"), os.path.join(t, "AndroidManifest.xml"))
     os.makedirs(os.path.join(t, "assets"), exist_ok=True)
     project_zip(project, os.path.join(t, "assets/project.zip"))
+    add_scenes_dex(project, t)
     open(os.path.join(t, "assets/version"), "w").write(str(abs(hash(pkg + str(os.times()))) % 9999999))
     for d in ("icon",):
         folder = os.path.join(project, d)

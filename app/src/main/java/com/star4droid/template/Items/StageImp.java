@@ -837,10 +837,14 @@ public class StageImp extends ApplicationAdapter {
 			}
 			String optimizedDir = null;// star2dApp.getContext().getDir("odex", android.content.Context.MODE_PRIVATE).getAbsolutePath();
 			java.io.File file = new java.io.File(project.getDex());
-			file.setReadOnly();
-			dalvik.system.DexClassLoader dcl = new dalvik.system.DexClassLoader(project.getDex(), optimizedDir, null, StageImp.class.getClassLoader() );
-            
-			Class<?> playerClass = dcl.loadClass("com.star4droid.Game."+scene.toLowerCase());
+			Class<?> playerClass = null;
+			// an exported game has its scenes in the APK (classesN.dex): use them directly
+			try { playerClass = Class.forName("com.star4droid.Game."+scene.toLowerCase(), true, StageImp.class.getClassLoader()); } catch(Throwable ignored){}
+			if(playerClass == null){
+				file.setReadOnly();
+				dalvik.system.DexClassLoader dcl = new dalvik.system.DexClassLoader(project.getDex(), optimizedDir, null, StageImp.class.getClassLoader() );
+				playerClass = dcl.loadClass("com.star4droid.Game."+scene.toLowerCase());
+			}
 			java.lang.reflect.Constructor<?> constructor = playerClass.getConstructor();
 			StageImp imp = ((StageImp)constructor.newInstance()).setAssetsLoader(projectAssetLoader).setProject(project).setSpriteSheetLoader(spriteSheetLoader).setPropertySet(set);
 			file.setWritable(true);
