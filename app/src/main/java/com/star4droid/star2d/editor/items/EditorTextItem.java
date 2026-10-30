@@ -69,11 +69,14 @@ public class EditorTextItem extends Label implements EditorItem {
 		setZIndex(Math.max(0, propertySet.getInt("z")));
 		setRotation(-propertySet.getFloat("rotation"));
 		setVisible(propertySet.getString("Visible").equals("true"));
-		setText(propertySet.get("Text").toString());
+		String shownText = com.star4droid.star2d.Helpers.EditorStrings.show(editor.getProject().getPath(), propertySet.get("Text").toString());
+		setText(shownText);
 		getStyle().fontColor= propertySet.getColor("Text Color");
 		setStyle(getStyle());
-		if(propertySet.containsKey("Font Scale"))
-			setFontScale(propertySet.getFloat("Font Scale"));
+		float base = propertySet.containsKey("Font Scale") ? propertySet.getFloat("Font Scale") : 1f;
+		// Auto Size (on by default): the letters shrink until the text fits the box
+		boolean auto = !"false".equals(String.valueOf(propertySet.get("Auto Size")));
+		setFontScale(auto ? com.star4droid.template.Utils.TextFit.scale(getStyle().font, shownText, width, height, base) : base);
 	}
 
 	@Override

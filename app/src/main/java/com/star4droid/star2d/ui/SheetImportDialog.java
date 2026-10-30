@@ -88,14 +88,16 @@ public class SheetImportDialog {
             final int m = i;
             TextView t = Ui.text(c, names[i], 13.5f, Ui.TEXT);
             t.setGravity(Gravity.CENTER);
-            t.setPadding(Ui.dp(c, 8), Ui.dp(c, 8), Ui.dp(c, 8), Ui.dp(c, 8));
+            t.setSingleLine(true);
+            t.setPadding(Ui.dp(c, 14), Ui.dp(c, 8), Ui.dp(c, 14), Ui.dp(c, 8));
             t.setOnClickListener(x -> { mode = m; paintTabs(tabs); buildParams(); recompute(); });
             tabs[i] = t;
-            modes.addView(t, Ui.weight(1));
+            modes.addView(t, Ui.margins(new LinearLayout.LayoutParams(-2, -2), c, 0, 0, 6, 0));
         }
         TextView sel = Ui.text(c, "✂ " + Tr.t("sheet_part", "Part"), 13.5f, Ui.TEXT);
         sel.setGravity(Gravity.CENTER);
-        sel.setPadding(Ui.dp(c, 8), Ui.dp(c, 8), Ui.dp(c, 8), Ui.dp(c, 8));
+        sel.setSingleLine(true);
+        sel.setPadding(Ui.dp(c, 14), Ui.dp(c, 8), Ui.dp(c, 14), Ui.dp(c, 8));
         sel.setOnClickListener(x -> {
             selecting = !selecting;
             sel.setBackground(Ui.rounded(selecting ? Ui.WARNING : Ui.SURFACE_2, Ui.dp(c, 8)));
@@ -104,13 +106,16 @@ public class SheetImportDialog {
             Snack.show(Tr.t("sheet_part_hint", "Drag on the picture to choose the part to cut. Tap ✂ again to go back to choosing frames."));
         });
         sel.setBackground(Ui.rounded(Ui.SURFACE_2, Ui.dp(c, 8)));
-        modes.addView(sel, Ui.weight(1));
+        modes.addView(sel, Ui.margins(new LinearLayout.LayoutParams(-2, -2), c, 0, 0, 6, 0));
         TextView clr = Ui.text(c, "⟲", 15, Ui.TEXT);
         clr.setGravity(Gravity.CENTER);
-        clr.setPadding(Ui.dp(c, 12), Ui.dp(c, 6), Ui.dp(c, 12), Ui.dp(c, 6));
+        clr.setPadding(Ui.dp(c, 14), Ui.dp(c, 6), Ui.dp(c, 14), Ui.dp(c, 6));
         clr.setOnClickListener(x -> { area = null; view.invalidate(); recompute(); });
         modes.addView(clr);
-        col.addView(modes);
+        android.widget.HorizontalScrollView modesScroll = new android.widget.HorizontalScrollView(c);
+        modesScroll.setHorizontalScrollBarEnabled(false);
+        modesScroll.addView(modes);
+        col.addView(modesScroll);
         paintTabs(tabs);
 
         params = Ui.column(c);

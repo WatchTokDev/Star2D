@@ -10,6 +10,7 @@ public class TextDef extends ItemDef {
 	public String name="",parentName ="",font="",Text="TextItem",Text_Color="#FFFFFF",Script="",type="UI";
 	public boolean Visible=true;
 	public float x=0,y=0,z=0,width=50,height=50,rotation=0,Font_Scale=1;
+	public boolean Auto_Size=true;
 	
 	public TextDef(){
 		
@@ -45,6 +46,7 @@ public class TextDef extends ItemDef {
         clone.height = this.height;
         clone.rotation = this.rotation;
         clone.Font_Scale = this.Font_Scale;
+        clone.Auto_Size = this.Auto_Size;
         return clone;
     }
 }

@@ -196,7 +196,7 @@ public final class UIWidgetRegistry {
         p(label.props, "wrap", "Wrap text", Kind.BOOL, PROPS, "false", G_TEXT, "Breaks long text into lines inside the width.");
         p(label.props, "textAlign", "Align", Kind.ENUM, PROPS, "left", G_TEXT, "Horizontal alignment of the lines.").opts("left", "center", "right");
         p(label.props, "vAlign", "Vertical align", Kind.ENUM, PROPS, "top", G_TEXT, "Where the text sits in the box when the box is taller than the text.").opts("top", "middle", "bottom");
-        p(label.props, "autoFit", "Shrink to fit", Kind.BOOL, PROPS, "false", G_TEXT, "Makes the letters smaller until the text fits the box.").adv();
+        p(label.props, "autoFit", "Shrink to fit", Kind.BOOL, PROPS, "true", G_TEXT, "On by default: makes the letters smaller until the text fits the box (Arabic and English).").adv();
         p(label.props, "minFontSize", "Smallest size", Kind.NUMBER, PROPS, "12", G_TEXT, "px. Shrink to fit never goes below this.").range(6, 100, 1).adv();
         p(label.props, "ellipsis", "Ellipsis (...)", Kind.BOOL, PROPS, "false", G_TEXT, "Cuts a too long line with three dots.").adv();
         p(label.props, "uppercase", "UPPERCASE", Kind.BOOL, PROPS, "false", G_TEXT, "Shows the text in capital letters (the stored text is not changed).").adv();
@@ -225,6 +225,7 @@ public final class UIWidgetRegistry {
         // ---------------------------------------------------------------- input
         Widget button = w(UINode.BUTTON, "Button", "button-a", "Input", false, "Pressable button with text and/or icon. Scales down a little while pressed.", EV_TOUCH);
         textProps(button.props, "Button");
+        p(button.props, "autoFit", "Shrink to fit", Kind.BOOL, PROPS, "true", G_TEXT, "On by default: makes the text smaller when it is wider than the button.").adv();
         p(button.props, "style", "Style", Kind.ENUM, PROPS, "primary", G_LOOK, "Color variant or look.").opts(UIStyles.names("Button"));
         p(button.props, "shape", "Shape", Kind.ENUM, PROPS, "", G_LOOK, "Corner shape. Empty = theme.").opts("", "round", "pill", "square", "cut");
         p(button.props, "buttonColor", "Color", Kind.COLOR, PROPS, "", G_LOOK, "Fill color (role or #rrggbb[aa]). Empty = style.");

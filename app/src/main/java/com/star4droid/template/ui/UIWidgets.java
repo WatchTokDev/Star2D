@@ -126,7 +126,7 @@ final class UIWidgets {
             text.setEllipsis(node.bool("ellipsis", false));
             BitmapFont f = fontOf(view, node);
             float size = sizeOf(view, node);
-            if (node.bool("autoFit", false)) {
+            if (node.bool("autoFit", true)) {
                 // shrinks the letters until the text fits the box (never below minFontSize)
                 float min = Math.max(6f, node.num("minFontSize", 12f));
                 String t = shown();
@@ -276,6 +276,17 @@ final class UIWidgets {
             UITheme th = view.theme(node);
             float w = node.rw, h = node.rh, fs = sizeOf(view, node);
             BitmapFont f = fontOf(view, node);
+            if (node.bool("autoFit", true)) {
+                // one line: smaller letters until the text fits the button (keeps room for an icon)
+                float avail = Math.max(8f, w * (node.str("icon", "").isEmpty() ? 0.9f : 0.62f));
+                float min = Math.max(6f, node.num("minFontSize", 9f));
+                String t = node.str("text", "");
+                for (int i = 0; i < 24 && fs > min; i++) {
+                    float[] m = UIAssets.measure(f, t, fs, 0);
+                    if (m[0] <= avail && m[1] <= h) break;
+                    fs = Math.max(min, fs * 0.92f);
+                }
+            }
             text.setFontScale(UIAssets.fontScale(f, fs));
             text.getStyle().fontColor = UIParts.color(UIArt.buttonTextColor(node, th));
             text.setText(node.str("text", ""));

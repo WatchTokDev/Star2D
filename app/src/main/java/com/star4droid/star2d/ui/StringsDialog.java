@@ -34,11 +34,13 @@ public class StringsDialog {
     private final Context c;
     private final File file;
     private String def = "en";
+    private String editorLang = "";   // language the editor shows ("" = the first one)
     private final ArrayList<String> languages = new ArrayList<>();
     private final LinkedHashMap<String, LinkedHashMap<String, String>> keys = new LinkedHashMap<>();
     private String shown;
     private LinearLayout chips, list;
     private AlertDialog dialog;
+    private TextView editorView;
 
     /** Common languages offered by the "+" chip (code, name). */
     private static final String[][] KNOWN = {{"en", "English"}, {"ar", "العربية"}, {"fr", "Français"}, {"es", "Español"}, {"pt", "Português"},
@@ -61,6 +63,7 @@ public class StringsDialog {
                 try (FileInputStream in = new FileInputStream(file)) { in.read(b); }
                 Map<String, Object> m = new Gson().fromJson(new String(b, "UTF-8"), new TypeToken<Map<String, Object>>() {}.getType());
                 if (m.get("default") != null) def = String.valueOf(m.get("default"));
+                if (m.get("editor") != null) editorLang = String.valueOf(m.get("editor"));
                 if (m.get("languages") instanceof java.util.List) for (Object o : (java.util.List<Object>) m.get("languages")) languages.add(String.valueOf(o));
                 if (m.get("keys") instanceof Map) for (Map.Entry<String, Object> e : ((Map<String, Object>) m.get("keys")).entrySet()) {
                     LinkedHashMap<String, String> t = new LinkedHashMap<>();
@@ -79,11 +82,19 @@ public class StringsDialog {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("default", def);
             m.put("languages", languages);
+            if (!editorLang.isEmpty() && languages.contains(editorLang)) m.put("editor", editorLang);
             m.put("keys", keys);
             try (FileOutputStream out = new FileOutputStream(file)) {
                 out.write(new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create().toJson(m).getBytes("UTF-8"));
             }
             Snack.show(Tr.t("saved", "Saved") + " ✓");
+            // texts written as @key show the new translation in the editor
+            try {
+                Bridge.gl(() -> {
+                    for (com.badlogic.gdx.scenes.scene2d.Actor a : Bridge.editor().getActors())
+                        if (a instanceof com.star4droid.star2d.editor.items.EditorTextItem) ((com.star4droid.star2d.editor.items.EditorTextItem) a).update();
+                });
+            } catch (Throwable ignored) {}
         } catch (Exception e) {
             Snack.show(e.toString());
         }
@@ -93,6 +104,14 @@ public class StringsDialog {
         LinearLayout col = Ui.column(c);
         col.setPadding(Ui.dp(c, 12), Ui.dp(c, 4), Ui.dp(c, 12), 0);
         col.addView(Ui.text(c, Tr.t("strings_hint", "Write each text once per language. Use it with the block \"Translate\", or type @key in a TEXT element."), 12, Ui.TEXT_3));
+        TextView view = Ui.text(c, "", 13, Ui.ACCENT);
+        view.setPadding(0, Ui.dp(c, 8), 0, 0);
+        view.setOnClickListener(x -> Dialogs.choose(c, Tr.t("strings_editor_lang", "Language shown in the editor"), languages.toArray(new String[0]), i -> {
+            editorLang = languages.get(i);
+            refresh();
+        }));
+        col.addView(view);
+        editorView = view;
         HorizontalScrollView hs = new HorizontalScrollView(c);
         hs.setHorizontalScrollBarEnabled(false);
         chips = Ui.row(c);
@@ -113,7 +132,10 @@ public class StringsDialog {
         dialog.show();
     }
 
+    private String shownInEditor() { return !editorLang.isEmpty() && languages.contains(editorLang) ? editorLang : languages.get(0); }
+
     private void refresh() {
+        editorView.setText("👁 " + Tr.t("strings_editor_lang", "Language shown in the editor") + ": " + shownInEditor() + "  ▾");
         chips.removeAllViews();
         for (String l : languages) {
             TextView t = Ui.text(c, l + (l.equals(def) ? " ★" : ""), 13.5f, Ui.TEXT);

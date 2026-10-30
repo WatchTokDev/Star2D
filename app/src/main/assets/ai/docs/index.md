@@ -31,6 +31,7 @@ Star2D is a 2D game-engine editor on an Android phone (LibGDX + Box2D). Do NOT r
 - `fonts`: the `fonts` tool: game fonts (.s2df) from 23 presets (outline, shadow, neon, gold, pixel, Arabic...), measuring text so it does not wrap. Before any title, score or menu text that should look styled, and for Arabic.
 - `behaviors`: the `behaviors` tool: ready behaviors (scale touch effect, floating, spin, platformer player, joystick movement, shooter...), exclusive groups, public variables of scripts, behavior events. Before writing any movement or effect logic.
 - `ui`: the `ui` tool: menus, HUDs, pause/settings/game-over screens and dialogs as `.ui` files (UI Maker): templates, widgets, themes, anchors, events, layout warnings, UIHOLDER. Before building any menu or HUD from BOX/TEXT elements.
+- `features`: newer features in one page: Pivot, Y Sort, animation property, Auto Size, sprite-sheet frames (`region`), translations (`@key`), explain blocks, tileset merge. Before using any of them.
 - `joints`: the `joints` tool, which types are safe.
 - `groups`: the GROUP element and `parent`: children follow the parent (world/UI rules), hide/destroy cascade. Before building anything with moving parts (a car with wheels, a HUD panel).
 - `prefabs`: reusable groups of elements saved as files: the `prefabs` tool (create, add, apply, revert, unpack, link), overrides, scripts. Before repeating the same enemy/UI piece.

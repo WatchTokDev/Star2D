@@ -160,6 +160,7 @@ public final class IconBrowser {
 
             // grid
             int widthDp = (int) (a.getResources().getDisplayMetrics().widthPixels / a.getResources().getDisplayMetrics().density) - 40;
+            if (Ui.isLandscape(a)) widthDp = Math.min(widthDp, 760);
             int span = Math.max(4, Math.min(9, widthDp / 62));
             grid = new RecyclerView(a);
             grid.setLayoutManager(new GridLayoutManager(a, span));
@@ -168,7 +169,17 @@ public final class IconBrowser {
             adapter = new Adapter();
             grid.setAdapter(adapter);
             FrameLayoutHolder fh = new FrameLayoutHolder();
-            root.addView(fh.frame, new LinearLayout.LayoutParams(-1, 0, 1));
+            boolean land = Ui.isLandscape(a);
+            LinearLayout body = Ui.row(a);
+            if (land) {
+                // landscape: the grid takes the left part, the details of the chosen icon sit beside it
+                span = Math.max(4, Math.min(9, (widthDp * 55 / 100) / 62));
+                ((GridLayoutManager) grid.getLayoutManager()).setSpanCount(span);
+                body.addView(fh.frame, new LinearLayout.LayoutParams(0, -1, 1.25f));
+                root.addView(body, new LinearLayout.LayoutParams(-1, 0, 1));
+            } else {
+                root.addView(fh.frame, new LinearLayout.LayoutParams(-1, 0, 1));
+            }
 
             // detail
             detail = Ui.column(a);
@@ -176,11 +187,18 @@ public final class IconBrowser {
             detail.setPadding(Ui.dp(a, 10), Ui.dp(a, 8), Ui.dp(a, 10), Ui.dp(a, 8));
             detail.setVisibility(View.GONE);
             buildDetail();
-            root.addView(detail, Ui.margins(Ui.matchWrap(), a, 0, 6, 0, 4));
+            if (land) {
+                android.widget.ScrollView ds = new android.widget.ScrollView(a);
+                ds.addView(detail, Ui.matchWrap());
+                body.addView(ds, Ui.margins(new LinearLayout.LayoutParams(0, -1, 1f), a, 8, 0, 0, 0));
+            } else {
+                root.addView(detail, Ui.margins(Ui.matchWrap(), a, 0, 6, 0, 4));
+            }
 
             TextView credit = Ui.text(a, Tr.t("icn_credit", "Icons: Material Design Icons (Apache-2.0) and game-icons.net by Lorc, Delapouite & contributors (CC BY 3.0) · tap for licenses"), 10.5f, Ui.TEXT_3);
             credit.setPadding(Ui.dp(a, 2), Ui.dp(a, 2), 0, Ui.dp(a, 4));
             credit.setOnClickListener(v -> showLicenses());
+            if (land) { credit.setSingleLine(true); credit.setEllipsize(android.text.TextUtils.TruncateAt.END); }
             root.addView(credit, Ui.matchWrap());
 
             refresh();
@@ -193,8 +211,10 @@ public final class IconBrowser {
             dialog.show();
             Window w = dialog.getWindow();
             if (w != null) {
-                int h = (int) (a.getResources().getDisplayMetrics().heightPixels * 0.86f);
-                w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, h);
+                boolean ls = Ui.isLandscape(a);
+                int h = (int) (a.getResources().getDisplayMetrics().heightPixels * (ls ? 0.96f : 0.86f));
+                int wd = ls ? (int) (a.getResources().getDisplayMetrics().widthPixels * 0.9f) : ViewGroup.LayoutParams.MATCH_PARENT;
+                w.setLayout(wd, h);
             }
         }
 

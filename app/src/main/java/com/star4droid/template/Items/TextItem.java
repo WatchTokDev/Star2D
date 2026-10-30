@@ -92,9 +92,24 @@ public class TextItem extends Label implements PlayerItem {
 	private String transKey;
 	private int transVersion = -1;
 
+	private String fitKey = "";
+
+	/** Auto Size: shrinks the letters so the text fits the box (only when something changed). */
+	private void fitText(){
+		if(textDef==null || !textDef.Auto_Size) return;
+		boolean UI = textDef.type.equals("UI");
+		float base = (UI ? 1 : StageImp.WORLD_SCALE) * textDef.Font_Scale;
+		String t = getText().toString();
+		String key = t + "|" + getWidth() + "|" + getHeight() + "|" + base + "|" + System.identityHashCode(getStyle().font);
+		if(key.equals(fitKey)) return;
+		fitKey = key;
+		setFontScale(com.star4droid.template.Utils.TextFit.scale(getStyle().font, t, getWidth(), getHeight(), base));
+	}
+
 	@Override
 	public void act(float delta) {
 		super.act(delta);
+		fitText();
 		if(transKey!=null && transVersion!=com.star4droid.template.Utils.GameStrings.version){
 			transVersion = com.star4droid.template.Utils.GameStrings.version;
 			setText(com.star4droid.template.Utils.GameStrings.tr(transKey));
